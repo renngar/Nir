@@ -46,9 +46,12 @@ module Shell =
                     [ TabControl.tabStripPlacement Dock.Top
                       TabControl.viewItems
                           [ TabItem.create
-                                [ TabItem.header "TreeView Page"
+                                [ TabItem.header "Start Page"
                                   /// If you don't need to be aware of the child control's state
                                   /// you can use the ViewBuilder to create the Host element and render it
+                                  TabItem.content (ViewBuilder.Create<StartPage.Host>([])) ]
+                            TabItem.create
+                                [ TabItem.header "TreeView Page"
                                   TabItem.content (ViewBuilder.Create<TreeViewPage.Host>([])) ]
                             TabItem.create
                                 [ TabItem.header "User Profiles Page"

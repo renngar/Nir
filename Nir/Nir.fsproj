@@ -8,6 +8,7 @@
     <Compile Include="UserProfiles.fs" />
     <Compile Include="TreeViewPage.fs" />
     <Compile Include="About.fs" />
+    <Compile Include="StartPage.fs" />
     <Compile Include="Shell.fs" />
     <Compile Include="Program.fs" />
     <AvaloniaResource Include="**\*.xaml" />
