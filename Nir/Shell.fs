@@ -7,9 +7,7 @@ namespace Nir
 /// to see how to handle different kinds of "*child*" controls
 module Shell =
     open Elmish
-    open Avalonia
     open Avalonia.Controls
-    open Avalonia.Input
     open Avalonia.FuncUI
     open Avalonia.FuncUI.Builder
     open Avalonia.FuncUI.Components.Hosts
@@ -17,14 +15,14 @@ module Shell =
     open Avalonia.FuncUI.Elmish
 
     type State =
-        { aboutState: About.State }
+        { AboutState: About.State }
 
     type Msg =
         | AboutMsg of About.Msg
 
     let init =
         let aboutState, bpCmd = About.init
-        { aboutState = aboutState },
+        { AboutState = aboutState },
         /// If your children controls don't emit any commands
         /// in the init function, you can just return Cmd.none
         /// otherwise, you can use a batch operation on all of them
@@ -33,10 +31,10 @@ module Shell =
 
     let update (msg: Msg) (state: State): State * Cmd<_> =
         match msg with
-        | AboutMsg bpmsg ->
+        | AboutMsg msg' ->
             let aboutState, cmd =
-                About.update bpmsg state.aboutState
-            { state with aboutState = aboutState },
+                About.update msg' state.AboutState
+            { state with AboutState = aboutState },
             /// map the message to the kind of message 
             /// your child control needs to handle
             Cmd.map AboutMsg cmd
@@ -59,7 +57,7 @@ module Shell =
                                 [ TabItem.header "About"
                                   /// Use your child control's view function to render it, also don't forget to compose
                                   /// your dispatch function so it can handle the child control's message
-                                  TabItem.content (About.view state.aboutState (AboutMsg >> dispatch)) ] ] ] ] ]
+                                  TabItem.content (About.view state.AboutState (AboutMsg >> dispatch)) ] ] ] ] ]
 
     /// This is the main window of your application
     /// you can do all sort of useful things here like setting heights and widths
@@ -68,7 +66,7 @@ module Shell =
     type MainWindow() as this =
         inherit HostWindow()
         do
-            base.Title <- "Quickstart"
+            base.Title <- "Nir"
             base.Width <- 800.0
             base.Height <- 600.0
             base.MinWidth <- 800.0

@@ -12,6 +12,7 @@ module About =
 
 
     type State =
+        // fsharplint:disable-next-line RecordFieldNames
         { noop: bool }
 
     type Links =
@@ -52,7 +53,7 @@ module About =
                 Process.Start("open", url) |> ignore
             state, Cmd.none
 
-    let view (state: State) (dispatch: Msg -> unit) =
+    let view (_: State) (dispatch: Msg -> unit) =
         DockPanel.create
             [ DockPanel.horizontalAlignment HorizontalAlignment.Center
               DockPanel.verticalAlignment VerticalAlignment.Top

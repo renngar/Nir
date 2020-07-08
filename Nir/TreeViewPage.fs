@@ -14,7 +14,7 @@ module TreeViewPage =
 
     type Taxonomy =
         { Name: string
-          Children: Taxonomy seq }
+          Children: seq<Taxonomy> }
 
     let food =
         { Name = "Food"
@@ -33,15 +33,15 @@ module TreeViewPage =
                           Children = [] } ] } ] }
 
     type State =
-        { detail: Taxonomy option }
+        { Detail: Taxonomy option }
 
-    let init = { detail = None }
+    let init = { Detail = None }
 
     type Msg = ShowDetail of Taxonomy
 
     let update (msg: Msg) (state: State): State =
         match msg with
-        | ShowDetail taxonomy -> { state with detail = Some taxonomy }
+        | ShowDetail taxonomy -> { state with Detail = Some taxonomy }
 
     let view (state: State) (dispatch: Msg -> unit) =
         DockPanel.create
@@ -63,7 +63,7 @@ module TreeViewPage =
                                                      TextBlock.text data.Name ]))) ]
                   /// Use Pattern Matching to decide what you want to show
                   /// based on your state's content
-                  match state.detail with
+                  match state.Detail with
                   | Some taxonomy ->
                       yield StackPanel.create
                                 [ StackPanel.horizontalAlignment HorizontalAlignment.Center
@@ -91,6 +91,6 @@ module TreeViewPage =
             /// you can learn more at https://elmish.github.io/elmish/basics.html
             let startFn () =
                 init
-            Elmish.Program.mkSimple startFn update view
+            Program.mkSimple startFn update view
             |> Program.withHost this
             |> Program.run

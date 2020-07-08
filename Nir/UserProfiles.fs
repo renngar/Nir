@@ -19,20 +19,20 @@ module UserProfiles =
 
 
     type State =
-        { users: (Users.UserEndpoint.Result * Bitmap) array }
+        { Users: (Users.UserEndpoint.Result * Bitmap) [] }
 
     type Msg =
-        | SetUsers of (Users.UserEndpoint.Result * Bitmap) array
-        | LoadImages of Users.UserEndpoint.Result array
+        | SetUsers of (Users.UserEndpoint.Result * Bitmap) []
+        | LoadImages of Users.UserEndpoint.Result []
 
     /// you can dispatch commands in your init if you chose to use `Program.mkProgram`
     /// instead of `Program.mkSimple`
-    let init = { users = Array.empty }, Cmd.OfAsync.perform loadInit () LoadImages
+    let init = { Users = Array.empty }, Cmd.OfAsync.perform loadInit () LoadImages
 
     let update (msg: Msg) (state: State): State * Cmd<_> =
         match msg with
         | LoadImages users ->
-            let loadingImgs() =
+            let loadingImages() =
                 async {
                     let! requests = users
                                     |> Array.map (fun user -> Users.getImageFromUrl user user.Picture.Large)
@@ -44,9 +44,9 @@ module UserProfiles =
             /// and Cmd.OfAsync module. Learn more at
             /// https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/asynchronous-workflows
             /// https://elmish.github.io/elmish/cmd.html
-            state, Cmd.OfAsync.perform loadingImgs () SetUsers
+            state, Cmd.OfAsync.perform loadingImages () SetUsers
         | SetUsers users ->
-            { state with users = users }, Cmd.none
+            { state with Users = users }, Cmd.none
 
     let private userProfile (user: Users.UserEndpoint.Result, img: Bitmap) =
         WrapPanel.create
@@ -71,11 +71,11 @@ module UserProfiles =
                                       TextBlock.dock Dock.Top
                                       TextBlock.text user.Email ] ] ] ] ]
 
-    let view (state: State) (dispatch: Msg -> unit) =
+    let view (state: State) (_dispatch: Msg -> unit) =
         WrapPanel.create
             [ WrapPanel.classes [ "userprofilesgrid" ]
               WrapPanel.children
-                  [ for user in state.users do
+                  [ for user in state.Users do
                       yield userProfile user ] ]
 
 
@@ -88,6 +88,6 @@ module UserProfiles =
             /// you can learn more at https://elmish.github.io/elmish/basics.html
             let startFn () =
                 init
-            Elmish.Program.mkProgram startFn update view
+            Program.mkProgram startFn update view
             |> Program.withHost this
             |> Program.run
