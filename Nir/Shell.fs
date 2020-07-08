@@ -40,27 +40,7 @@ module Shell =
             Cmd.map AboutMsg cmd
 
     let view (state: State) (dispatch) =
-        DockPanel.create
-            [ DockPanel.children
-                [ TabControl.create
-                    [ TabControl.tabStripPlacement Dock.Top
-                      TabControl.viewItems
-                          [ TabItem.create
-                                [ TabItem.header "Start Page"
-                                  /// If you don't need to be aware of the child control's state
-                                  /// you can use the ViewBuilder to create the Host element and render it
-                                  TabItem.content (ViewBuilder.Create<StartPage.Host>([])) ]
-                            TabItem.create
-                                [ TabItem.header "TreeView Page"
-                                  TabItem.content (ViewBuilder.Create<TreeViewPage.Host>([])) ]
-                            TabItem.create
-                                [ TabItem.header "User Profiles Page"
-                                  TabItem.content (ViewBuilder.Create<UserProfiles.Host>([])) ]
-                            TabItem.create
-                                [ TabItem.header "About"
-                                  /// Use your child control's view function to render it, also don't forget to compose
-                                  /// your dispatch function so it can handle the child control's message
-                                  TabItem.content (About.view state.AboutState (AboutMsg >> dispatch)) ] ] ] ] ]
+        ViewBuilder.Create<StartPage.Host>([])
 
     /// This is the main window of your application
     /// you can do all sort of useful things here like setting heights and widths
