@@ -1,5 +1,8 @@
 namespace Nir
 
+open Avalonia.Input
+open Avalonia.Threading
+
 /// This is the main module of your application
 /// here you handle all of your child pages as well as their
 /// messages and their updates, useful to update multiple parts
@@ -7,27 +10,28 @@ namespace Nir
 /// to see how to handle different kinds of "*child*" controls
 module Shell =
     open Elmish
-    open Avalonia.Controls
-    open Avalonia.FuncUI
-    open Avalonia.FuncUI.Builder
+    open Avalonia
     open Avalonia.FuncUI.Components.Hosts
-    open Avalonia.FuncUI.DSL
     open Avalonia.FuncUI.Elmish
 
     type State =
-        { AboutState: About.State }
+        { AboutState: About.State
+          StartPageState: StartPage.State }
 
     type Msg =
         | AboutMsg of About.Msg
+        | StartPageMsg of StartPage.Msg
 
-    let init =
+    let init window =
         let aboutState, bpCmd = About.init
-        { AboutState = aboutState },
+        let startPageState, spCmd = StartPage.init window
+        { AboutState = aboutState
+          StartPageState = startPageState },
         /// If your children controls don't emit any commands
         /// in the init function, you can just return Cmd.none
         /// otherwise, you can use a batch operation on all of them
         /// you can add more init commands as you need
-        Cmd.batch [ bpCmd ]
+        Cmd.batch [ bpCmd; spCmd ]
 
     let update (msg: Msg) (state: State): State * Cmd<_> =
         match msg with
@@ -38,9 +42,13 @@ module Shell =
             /// map the message to the kind of message 
             /// your child control needs to handle
             Cmd.map AboutMsg cmd
+        | StartPageMsg msg' ->
+            let startPageState, cmd = StartPage.update msg' state.StartPageState
+            { state with StartPageState = startPageState },
+            Cmd.map StartPageMsg cmd
 
-    let view (state: State) (dispatch) =
-        ViewBuilder.Create<StartPage.Host>([])
+    let view (state: State) (dispatch: Msg -> unit) =
+        StartPage.view state.StartPageState (StartPageMsg >> dispatch)
 
     /// This is the main window of your application
     /// you can do all sort of useful things here like setting heights and widths
@@ -58,6 +66,20 @@ module Shell =
             //this.VisualRoot.VisualRoot.Renderer.DrawFps <- true
             //this.VisualRoot.VisualRoot.Renderer.DrawDirtyRects <- true
 
-            Elmish.Program.mkProgram (fun () -> init) update view
+#if DEBUG
+            this.AttachDevTools(KeyGesture(Key.F12))
+#endif
+            /// we use this function because sometimes we dispatch messages
+            /// from another thread
+            let syncDispatch (dispatch: Dispatch<'msg>): Dispatch<'msg> =
+                match Dispatcher.UIThread.CheckAccess() with
+                | true -> fun msg -> Dispatcher.UIThread.Post(fun () -> dispatch msg)
+                | false -> dispatch
+
+            Program.mkProgram init update view
             |> Program.withHost this
-            |> Program.run
+            |> Program.withSyncDispatch syncDispatch
+#if DEBUG
+            |> Program.withConsoleTrace
+#endif
+            |> Program.runWith this
