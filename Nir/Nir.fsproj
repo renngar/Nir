@@ -9,6 +9,7 @@
     <Compile Include="TreeViewPage.fs" />
     <Compile Include="About.fs" />
     <Compile Include="Dialogs.fs" />
+    <Compile Include="Controls.fs" />
     <Compile Include="StartPage.fs" />
     <Compile Include="Shell.fs" />
     <Compile Include="Program.fs" />

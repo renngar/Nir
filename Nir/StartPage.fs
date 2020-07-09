@@ -5,6 +5,7 @@ open Avalonia.FuncUI.DSL
 module StartPage =
     open Elmish
     open Avalonia.Controls
+    open Nir.Controls
     open Avalonia.Layout
 
     type State =
@@ -29,20 +30,6 @@ module StartPage =
         | AfterSelectFile files ->
             { state with File = (Array.tryExactlyOne files) },
             Cmd.none
-
-    // TODO: Move the textBlock... functions to a controls module
-    let textBlockAttrs row cls text = [
-        Grid.row row
-        TextBlock.classes [ cls ]
-        TextBlock.text text ]
-        
-    let textBlock row cls text =
-        TextBlock.create
-        <| textBlockAttrs row cls text 
-    
-    let textBlockEx row cls text rest  =
-        TextBlock.create
-        <| List.append (textBlockAttrs row cls text) rest
         
     let view (_: State) (dispatch: Msg -> unit) =
         Grid.create [
