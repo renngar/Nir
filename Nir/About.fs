@@ -11,9 +11,8 @@ module About =
     open Avalonia.FuncUI.DSL
 
 
-    type State =
-        // fsharplint:disable-next-line RecordFieldNames
-        { noop: bool }
+    type Model =
+        { NoOp: bool }
 
     type Links =
         | AvaloniaRepository
@@ -27,10 +26,10 @@ module About =
 
     type Msg = OpenUrl of Links
 
-    let init = { noop = false }, Cmd.none
+    let init = { NoOp = false }, Cmd.none
 
 
-    let update (msg: Msg) (state: State) =
+    let update (msg: Msg) (model: Model) =
         match msg with
         | OpenUrl link -> 
             let url = 
@@ -51,9 +50,9 @@ module About =
                 Process.Start("xdg-open", url) |> ignore
             else if RuntimeInformation.IsOSPlatform(OSPlatform.OSX) then
                 Process.Start("open", url) |> ignore
-            state, Cmd.none
+            model, Cmd.none
 
-    let view (_: State) (dispatch: Msg -> unit) =
+    let view (_: Model) (dispatch: Msg -> unit) =
         DockPanel.create
             [ DockPanel.horizontalAlignment HorizontalAlignment.Center
               DockPanel.verticalAlignment VerticalAlignment.Top
