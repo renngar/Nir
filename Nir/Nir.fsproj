@@ -5,9 +5,6 @@
     <TargetFramework>netcoreapp3.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="UserProfiles.fs" />
-    <Compile Include="TreeViewPage.fs" />
-    <Compile Include="About.fs" />
     <Compile Include="Dialogs.fs" />
     <Compile Include="Controls.fs" />
     <Compile Include="StartPage.fs" />

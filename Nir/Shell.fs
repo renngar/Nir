@@ -9,36 +9,25 @@ open Avalonia.FuncUI.Elmish
 
 // Model
 
-type Model =
-    { AboutModel: About.Model
-      StartPageModel: StartPage.Model }
+type Model = { StartPageModel: StartPage.Model }
 
 let init window =
-    let aboutModel, bpCmd = About.init
     let startPageModel, spCmd = StartPage.init window
-    { AboutModel = aboutModel
-      StartPageModel = startPageModel },
+    { StartPageModel = startPageModel },
+    // TODO: Check this
     /// If your children controls don't emit any commands
     /// in the init function, you can just return Cmd.none
     /// otherwise, you can use a batch operation on all of them
     /// you can add more init commands as you need
-    Cmd.batch [ bpCmd; spCmd ]
+    Cmd.batch [ spCmd ]
 
 // Update
 
 type Msg =
-    | AboutMsg of About.Msg
     | StartPageMsg of StartPage.Msg
 
 let update (msg: Msg) (model: Model): Model * Cmd<_> =
     match msg with
-    | AboutMsg msg' ->
-        let aboutModel, cmd =
-            About.update msg' model.AboutModel
-        { model with AboutModel = aboutModel },
-        /// map the message to the kind of message 
-        /// your child control needs to handle
-        Cmd.map AboutMsg cmd
     | StartPageMsg msg' ->
         let startPageModel, cmd = StartPage.update msg' model.StartPageModel
         { model with StartPageModel = startPageModel },
