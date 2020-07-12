@@ -3,9 +3,10 @@ module Nir.StartPage
 open Avalonia.FuncUI.DSL
 open Elmish
 open Avalonia.Controls
-open Nir.Controls
 open Avalonia.Layout
 
+open Controls
+open Dialogs
 // Model
 
 type Model =
@@ -20,16 +21,16 @@ let init window =
 
 type Msg =
     | OpenLocalModList
-    | AfterSelectFile of string []
+    | AfterSelectFile of string
 
-let update (msg: Msg) (model: Model) =
+let update (msg: Msg) (model: Model): Model * Cmd<_> =
     match msg with
     | OpenLocalModList ->
-        let dialog = Dialogs.getHtmlFileDialog()
-        let showDialog window = dialog.ShowAsync(window) |> Async.AwaitTask
-        model, Cmd.OfAsync.perform showDialog model.Window AfterSelectFile
-    | AfterSelectFile files ->
-        { model with File = (Array.tryExactlyOne files) }, Cmd.none
+        model,
+        Cmd.OfAsync.perform promptHtmlFileName model.Window AfterSelectFile
+
+    | AfterSelectFile file ->
+        { model with File = Some file }, Cmd.none
 
 // View
 
