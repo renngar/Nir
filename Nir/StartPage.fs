@@ -26,7 +26,7 @@ type Msg =
 let update (msg: Msg) (model: Model) =
     match msg with
     | OpenLocalModList ->
-        let dialog = Dialogs.getHtmlFileDialog None
+        let dialog = Dialogs.getHtmlFileDialog ()
         let showDialog window = dialog.ShowAsync(window) |> Async.AwaitTask
         model, Cmd.OfAsync.perform showDialog model.Window AfterSelectFile
     | AfterSelectFile files ->
