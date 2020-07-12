@@ -1,6 +1,7 @@
 module Nir.StartPage
 
-open Avalonia.FuncUI.DSL
+open FSharp.Data
+
 open Elmish
 open Avalonia.Controls
 open Avalonia.FuncUI.DSL
@@ -23,6 +24,11 @@ let init window =
 type Msg =
     | OpenLocalModList
     | AfterSelectFile of string
+    | Loaded of HtmlDocument
+
+type Link =
+    { Text: string
+      Link: string }
 
 let update (msg: Msg) (model: Model): Model * Cmd<_> =
     match msg with
@@ -31,7 +37,28 @@ let update (msg: Msg) (model: Model): Model * Cmd<_> =
         Cmd.OfAsync.perform promptHtmlFileName model.Window AfterSelectFile
 
     | AfterSelectFile file ->
-        { model with File = Some file }, Cmd.none
+        // HtmlDocument.AsyncLoad()
+        // let results = HtmlDocument.Load(file)
+        { model with File = Some file },
+        Cmd.OfAsync.perform HtmlDocument.AsyncLoad file Loaded
+
+    | Loaded html ->
+        let links =
+            html.Descendants ["a"]
+            |> Seq.choose (fun x ->
+                           x.TryGetAttribute("href")
+                           |> Option.map (fun a ->
+                                          { Text = x.InnerText()
+                                            Link = a.Value() }))
+        links
+        |> Seq.map (fun l -> printfn "%s %s" l.Text l.Link)
+        |> ignore
+
+        printfn "%A" links |> ignore
+
+        model, Cmd.none
+
+
 
 // View
 
