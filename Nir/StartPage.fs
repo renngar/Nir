@@ -3,10 +3,11 @@ module Nir.StartPage
 open Avalonia.FuncUI.DSL
 open Elmish
 open Avalonia.Controls
+open Avalonia.FuncUI.DSL
 open Avalonia.Layout
 
-open Controls
-open Dialogs
+open Nir.Controls
+open Nir.Dialogs
 // Model
 
 type Model =
