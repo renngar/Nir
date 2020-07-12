@@ -9,7 +9,8 @@ open Avalonia.FuncUI.Elmish
 
 // Model
 
-type Model = { StartPageModel: StartPage.Model }
+type Model =
+    { StartPageModel: StartPage.Model }
 
 let init window =
     let startPageModel, spCmd = StartPage.init window
@@ -23,8 +24,7 @@ let init window =
 
 // Update
 
-type Msg =
-    | StartPageMsg of StartPage.Msg
+type Msg = StartPageMsg of StartPage.Msg
 
 let update (msg: Msg) (model: Model): Model * Cmd<_> =
     match msg with
@@ -59,7 +59,8 @@ type MainWindow() as this =
         /// from another thread
         let syncDispatch (dispatch: Dispatch<'msg>): Dispatch<'msg> =
             match Dispatcher.UIThread.CheckAccess() with
-            | true -> fun msg -> Dispatcher.UIThread.Post(fun () -> dispatch msg)
+            | true ->
+                fun msg -> Dispatcher.UIThread.Post(fun () -> dispatch msg)
             | false -> dispatch
 
         Program.mkProgram init update view
