@@ -7,14 +7,18 @@ open Avalonia
 open Avalonia.FuncUI.Components.Hosts
 open Avalonia.FuncUI.Elmish
 
+
 // Model
 
+type PageModel =
+    | Start of StartPage.Model
+
 type Model =
-    { StartPageModel: StartPage.Model }
+    { Page: PageModel }
 
 let init window =
     let startPageModel, spCmd = StartPage.init window
-    { StartPageModel = startPageModel },
+    { Page = Start startPageModel },
     // TODO: Check this
     /// If your children controls don't emit any commands
     /// in the init function, you can just return Cmd.none
@@ -22,21 +26,25 @@ let init window =
     /// you can add more init commands as you need
     Cmd.batch [ spCmd ]
 
+
 // Update
 
 type Msg = StartPageMsg of StartPage.Msg
 
 let update (msg: Msg) (model: Model): Model * Cmd<_> =
-    match msg with
-    | StartPageMsg msg' ->
-        let startPageModel, cmd = StartPage.update msg' model.StartPageModel
-        { model with StartPageModel = startPageModel },
+    match msg, model.Page with
+    | StartPageMsg msg', Start m ->
+        let startPageModel, cmd = StartPage.update msg' m
+        { model with Page = Start startPageModel },
         Cmd.map StartPageMsg cmd
+
 
 // View
 
 let view (model: Model) (dispatch: Msg -> unit) =
-    StartPage.view model.StartPageModel (StartPageMsg >> dispatch)
+    match model.Page with
+    | Start m -> StartPage.view m (StartPageMsg >> dispatch)
+
 
 // Main
 
