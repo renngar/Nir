@@ -1,0 +1,58 @@
+{
+  "files": [
+    {
+      "file_id": 85718,
+      "name": "Creation Kit Custom",
+      "version": "1.0",
+      "category_id": 1,
+      "category_name": "MAIN",
+      "is_primary": false,
+      "size": 0,
+      "file_name": "Creation Kit Custom-23894-1-0-1553184339.rar",
+      "uploaded_timestamp": 1553184339,
+      "uploaded_time": "2019-03-21T16:05:39.000+00:00",
+      "mod_version": "1.0",
+      "external_virus_scan_url": "https://www.virustotal.com/file/7270f4caa9de7008601c1a75cd954c036c683e2405f82bbd51c6c8101c5df681/analysis/1553184483/",
+      "description": "CreationKitCustom.ini",
+      "size_kb": 0,
+      "changelog_html": null,
+      "content_preview_link": "https://file-metadata.nexusmods.com/file/nexus-files-meta/1704/23894/Creation Kit Custom-23894-1-0-1553184339.rar.json"
+    },
+    {
+      "file_id": 88532,
+      "name": "YASH - WACCF Patch",
+      "version": "1.0",
+      "category_id": 6,
+      "category_name": null,
+      "is_primary": false,
+      "size": 30,
+      "file_name": "YASH - WACCF Patch-23894-1-0-1555340878.rar",
+      "uploaded_timestamp": 1555340879,
+      "uploaded_time": "2019-04-15T15:07:59.000+00:00",
+      "mod_version": "1.0",
+      "external_virus_scan_url": "https://www.virustotal.com/file/95d567cfd3c545a43309eb3e100bbd986c65bb972a486c0606af62daefbdfa9c/analysis/1555340943/",
+      "description": "1.0",
+      "size_kb": 30,
+      "changelog_html": null,
+      "content_preview_link": "https://file-metadata.nexusmods.com/file/nexus-files-meta/1704/23894/YASH - WACCF Patch-23894-1-0-1555340878.rar.json"
+    }
+  ],
+  "file_updates": [
+    {
+      "old_file_id": 88532,
+      "new_file_id": 90313,
+      "old_file_name": "YASH - WACCF Patch-23894-1-0-1555340878.rar",
+      "new_file_name": "YASH - WACCF Patch-23894-1-0-1556642326.rar",
+      "uploaded_timestamp": 1556642330,
+      "uploaded_time": "2019-04-30T16:38:50.000+00:00"
+    },
+    {
+      "old_file_id": 88536,
+      "new_file_id": 88935,
+      "old_file_name": "YASHed Megapatch 1.0-23894-1-0-1555342809.rar",
+      "new_file_name": "YASHed Megapatch 1.0.1-23894-1-0-1-1555672219.rar",
+      "uploaded_timestamp": 1555672224,
+      "uploaded_time": "2019-04-19T11:10:24.000+00:00"
+    }
+  ]
+}

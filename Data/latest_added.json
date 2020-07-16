@@ -1,0 +1,56 @@
+[
+  {
+    "name": "Unlimited Magicka (Spells cost 0 MP)",
+    "summary": "Set spell cost to 0",
+    "description": "Like what the title says",
+    "picture_url": "https://staticdelivery.nexusmods.com/mods/1704/images/38321/38321-1594833019-929870376.png",
+    "mod_id": 38321,
+    "game_id": 1704,
+    "allow_rating": true,
+    "domain_name": "skyrimspecialedition",
+    "category_id": 40,
+    "version": "0.01",
+    "endorsement_count": 0,
+    "created_timestamp": 1594833190,
+    "created_time": "2020-07-15T17:13:10.000+00:00",
+    "updated_timestamp": 1594833190,
+    "updated_time": "2020-07-15T17:13:10.000+00:00",
+    "author": "FairlyLogical",
+    "uploaded_by": "thugstone",
+    "uploaded_users_profile_url": "http://www.nexusmods.com/games/users/1410256",
+    "contains_adult_content": false,
+    "status": "published",
+    "available": true,
+    "user": {
+      "member_id": 1410256,
+      "member_group_id": 3,
+      "name": "thugstone"
+    },
+    "endorsement": null
+  },
+  {
+    "mod_id": 38320,
+    "game_id": 1704,
+    "allow_rating": true,
+    "domain_name": "skyrimspecialedition",
+    "category_id": 40,
+    "version": "1.0",
+    "endorsement_count": 0,
+    "created_timestamp": 1594830375,
+    "created_time": "2020-07-15T16:26:15.000+00:00",
+    "updated_timestamp": 1594830375,
+    "updated_time": "2020-07-15T16:26:15.000+00:00",
+    "author": "WarsWarrior",
+    "uploaded_by": "WarsWarrior",
+    "uploaded_users_profile_url": "http://www.nexusmods.com/games/users/40867220",
+    "contains_adult_content": false,
+    "status": "not_published",
+    "available": false,
+    "user": {
+      "member_id": 40867220,
+      "member_group_id": 3,
+      "name": "WarsWarrior"
+    },
+    "endorsement": null
+  }
+]

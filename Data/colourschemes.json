@@ -1,0 +1,16 @@
+[
+  {
+    "id": 1,
+    "name": "ReskinOrange",
+    "primary_colour": "#da8e35",
+    "secondary_colour": "#b4762c",
+    "darker_colour": "#815316"
+  },
+  {
+    "id": 51,
+    "name": "ReskinBlue",
+    "primary_colour": "#57a5cc",
+    "secondary_colour": "#4584a3",
+    "darker_colour": "#356983"
+  }
+]

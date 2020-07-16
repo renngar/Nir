@@ -1,0 +1,33 @@
+{
+  "name": "The Northern Experience - Skyrim Modding Guide",
+  "summary": "Guide that will provide an unique, Gothic-esque adventure.",
+  "description": "[center][img]https://staticdelivery.nexusmods.com/mods/1704/images/23894/23894-1578511882-321812591.jpeg[/img][/center]] more page content here...",
+  "picture_url": "https://staticdelivery.nexusmods.com/mods/1704/images/23894/23894-1578511882-321812591.jpeg",
+  "mod_id": 23894,
+  "game_id": 1704,
+  "allow_rating": true,
+  "domain_name": "skyrimspecialedition",
+  "category_id": 82,
+  "version": "1.3.1",
+  "endorsement_count": 1018,
+  "created_timestamp": 1555343809,
+  "created_time": "2019-04-15T15:56:49.000+00:00",
+  "updated_timestamp": 1594673773,
+  "updated_time": "2020-07-13T20:56:13.000+00:00",
+  "author": "mnikjom",
+  "uploaded_by": "mnikjom",
+  "uploaded_users_profile_url": "http://www.nexusmods.com/games/users/12567611",
+  "contains_adult_content": false,
+  "status": "published",
+  "available": true,
+  "user": {
+    "member_id": 12567611,
+    "member_group_id": 27,
+    "name": "mnikjom"
+  },
+  "endorsement": {
+    "endorse_status": "Endorsed",
+    "timestamp": 1589975822,
+    "version": "1.0.0.0"
+  }
+}
