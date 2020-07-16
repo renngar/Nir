@@ -1,11 +1,16 @@
 source https://api.nuget.org/v3/index.json
 
 nuget Avalonia.Desktop 0.9.7
+nuget coverlet.collector 1.2.0
 nuget Expecto >= 8.0
+nuget Expecto.XUnit
 nuget FSharp.Core >= 4.0
 nuget FSharp.Data 3.3.3
+nuget FsUnit.xUnit
 nuget JaggerJo.Avalonia.FuncUI 0.4.0
 nuget JaggerJo.Avalonia.FuncUI.DSL 0.4.0
 nuget JaggerJo.Avalonia.FuncUI.Elmish 0.4.0
-nuget Microsoft.NET.Test.Sdk >= 16.0
+nuget Microsoft.NET.Test.Sdk 16.5.0
+nuget xunit 2.4.0
+nuget xunit.runner.visualstudio 2.4.0
 nuget YoloDev.Expecto.TestSdk

@@ -3,7 +3,6 @@ module Nir.Dialogs
 open System
 open System.Collections.Generic
 
-open Elmish
 open Avalonia.Controls
 
 let promptHtmlFileName window = async {

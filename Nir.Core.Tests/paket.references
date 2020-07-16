@@ -1,4 +1,10 @@
 Expecto
+Expecto.XUnit
 FSharp.Core
 YoloDev.Expecto.TestSdk
 Microsoft.NET.Test.Sdk
+xunit
+xunit.runner.visualstudio
+coverlet.collector
+FsUnit.xUnit
+NHamcrest
