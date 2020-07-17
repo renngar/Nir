@@ -17,7 +17,8 @@ type Model =
 
 let init window =
     { Window = window
-      File = None }, Cmd.none
+      File = None },
+    Cmd.none
 
 // Update
 
@@ -62,7 +63,7 @@ let update (msg: Msg) (model: Model): Model * Cmd<_> =
 
 // View
 
-let view (_: Model) (dispatch: Msg -> unit) =
+let private theView (_: Model) (dispatch: Msg -> unit) =
     Grid.create
         [ Grid.margin 10.0
           Grid.rowDefinitions "auto, auto, *, auto"
@@ -80,3 +81,6 @@ let view (_: Model) (dispatch: Msg -> unit) =
                 textBlockEx 3 "link" "Advanced..."
                     [ TextBlock.horizontalAlignment HorizontalAlignment.Right
                       TextBlock.verticalAlignment VerticalAlignment.Stretch ] ] ]
+
+let view (m: Model) (dispatch: Msg -> unit) =
+    DockPanel.create [ DockPanel.children [ theView m dispatch ] ]

@@ -12,24 +12,28 @@ open Avalonia.FuncUI.Elmish
 
 type PageModel =
     | Start of StartPage.Model
+    | ApiKey of ApiKeyPage.Model
 
 type Model =
     { Page: PageModel }
 
 let init window =
-    let startPageModel, spCmd = StartPage.init window
-    { Page = Start startPageModel },
+    let _startPageModel, spCmd = StartPage.init window
+    let apkModel, apkCmd = ApiKeyPage.init
     // TODO: Check this
     /// If your children controls don't emit any commands
     /// in the init function, you can just return Cmd.none
     /// otherwise, you can use a batch operation on all of them
     /// you can add more init commands as you need
-    Cmd.batch [ spCmd ]
+    { Page = ApiKey apkModel },
+    Cmd.batch [ spCmd; apkCmd ]
 
 
 // Update
 
-type Msg = StartPageMsg of StartPage.Msg
+type Msg =
+    | StartPageMsg of StartPage.Msg
+    | ApiKeyPageMsg of ApiKeyPage.Msg
 
 let update (msg: Msg) (model: Model): Model * Cmd<_> =
     match msg, model.Page with
@@ -38,13 +42,21 @@ let update (msg: Msg) (model: Model): Model * Cmd<_> =
         { model with Page = Start startPageModel },
         Cmd.map StartPageMsg cmd
 
+    | ApiKeyPageMsg msg', ApiKey m ->
+        let apiKeyPageModel, cmd = ApiKeyPage.update msg' m
+        { model with Page = ApiKey apiKeyPageModel },
+        Cmd.map ApiKeyPageMsg cmd
+    | _, ApiKey _
+    | _, Start _  -> failwith "mismatch between page and message type"
+
+
 
 // View
 
 let view (model: Model) (dispatch: Msg -> unit) =
     match model.Page with
     | Start m -> StartPage.view m (StartPageMsg >> dispatch)
-
+    | ApiKey m -> ApiKeyPage.view m (ApiKeyPageMsg >> dispatch)
 
 // Main
 
