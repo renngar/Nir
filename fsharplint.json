@@ -14,7 +14,7 @@
         "moduleDeclSpacing": { "enabled": false },
         "classMemberSpacing": { "enabled": true },
         "tupleCommaSpacing": { "enabled": true },
-        "tupleIndentation": { "enabled": true },
+        "tupleIndentation": { "enabled": false },
         "tupleParentheses": { "enabled": false },
         "patternMatchClausesOnNewLine": { "enabled": true },
         "patternMatchOrClausesOnNewLine": { "enabled": true },
