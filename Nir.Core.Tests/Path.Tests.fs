@@ -1,8 +1,10 @@
-module Nir.Core.Tests.Tests
+module Nir.Core.Tests.Path
+
+open System.IO
+
+open Nir.Core.Utility.Path
 
 open Xunit
-open Nir.Core
-open System.IO
 open FsUnit.Xunit
 
 [<Fact>]

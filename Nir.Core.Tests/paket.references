@@ -1,3 +1,5 @@
 xunit.runner.visualstudio
 coverlet.collector
 FsUnit.xUnit
+Fare
+FsCheck.Xunit
