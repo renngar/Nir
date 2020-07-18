@@ -2,8 +2,6 @@ source https://api.nuget.org/v3/index.json
 
 nuget Avalonia.Desktop 0.9.7
 nuget coverlet.collector 1.2.0
-nuget Expecto >= 8.0
-nuget Expecto.XUnit
 nuget Fare 2.1.2
 nuget FParsec 1.1.1
 nuget FsCheck 2.14.3
@@ -17,4 +15,3 @@ nuget JaggerJo.Avalonia.FuncUI.Elmish 0.4.0
 nuget Microsoft.NET.Test.Sdk 16.5.0
 nuget xunit 2.4.0
 nuget xunit.runner.visualstudio 2.4.0
-nuget YoloDev.Expecto.TestSdk
