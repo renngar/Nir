@@ -12,21 +12,25 @@ module NexusMods =
         try
             use sr = new StreamReader(filePath)
             sr.ReadToEnd()
-        with
-            | :? System.IO.FileNotFoundException -> ""
+        with :? System.IO.FileNotFoundException -> ""
 
-    let getNexusApiKey () =
-        getProgramPath () +/ "Nir.ini"
+    let getNexusApiKey() =
+        getProgramPath() +/ "Nir.ini"
         |> readIni
         |> parseIni
-        |> section "Nexus" |> property "ApiKey"
+        |> section "Nexus"
+        |> property "ApiKey"
 
     type ValidateProvider = JsonProvider<"../Data/validate.json", RootName="Validate">
 
-    let usersValidate apiKey = async {
-        let! json = Http.AsyncRequestString
-                      ( "https://api.nexusmods.com/v1/users/validate.json",
-                        headers = ["Accept", "application/json"
-                                   "apikey", apiKey ] )
-        return ValidateProvider.Parse(json)
-    }
+    let usersValidate apiKey =
+        async {
+            let! json = Http.AsyncRequest
+                            ("https://api.nexusmods.com/v1/users/validate.json",
+                             headers =
+                                 [ "Accept", "application/json"
+                                   "apikey", apiKey ])
+            return match json.Body with
+                   | Text s -> json.Headers, ValidateProvider.Parse(s)
+                   | Binary data -> failwithf "Expected text, but got an %d byte binary response" data.Length
+        }
