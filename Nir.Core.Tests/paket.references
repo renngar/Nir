@@ -3,3 +3,4 @@ coverlet.collector
 FsUnit.xUnit
 Fare
 FsCheck.Xunit
+FParsec

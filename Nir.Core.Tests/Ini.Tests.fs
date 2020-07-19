@@ -1,4 +1,4 @@
-module Nir.Core.Tests.INI
+module Nir.Tests.INI
 
 open Fare                               // Xeger
 open FParsec
@@ -8,7 +8,7 @@ open FsCheck
 open FsCheck.Xunit
 open FsUnit.Xunit
 
-open Nir.Utility.INI
+open Nir.Utility.INI.Parser
 
 let sectionPattern = "[^ \000\t\n\r\]]+"
 let propertyNamePattern = "^[^;\\[\000\n\r=][^\000\n\r=]*"
