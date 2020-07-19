@@ -161,6 +161,15 @@ let parseIni s =
     | Failure (msg, _, _) -> failwith msg
     | Success (ini, _, _) -> convertToTree ini
 
+/// `parsiIniFile fileName` loads and parses the .ini file into an internal
+/// `Ini` data model.
+let parseIniFile (fileName: string) =
+    try
+        use sr = new System.IO.StreamReader(fileName)
+        sr.ReadToEnd()
+    with :? System.IO.FileNotFoundException -> ""
+    |> parseIni
+
 /// Returns the named `section` of the `ini`
 let section section ini =
     let s = ini.Sections
