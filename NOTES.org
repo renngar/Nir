@@ -1,0 +1,8 @@
+#+TITLE: Notes
+
+* Change Log included in main page source
+
+cf. div class log-block
+
+* Main Guide location
+in div class mod_description_container
