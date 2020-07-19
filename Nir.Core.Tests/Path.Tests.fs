@@ -2,7 +2,7 @@ module Nir.Core.Tests.Path
 
 open System.IO
 
-open Nir.Core.Utility.Path
+open Nir.Utility.Path
 
 open Xunit
 open FsUnit.Xunit

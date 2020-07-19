@@ -1,4 +1,4 @@
-﻿module Nir.Core.Utility.Path
+﻿module Nir.Utility.Path
 
 open System.Text.RegularExpressions
 

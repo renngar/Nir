@@ -7,7 +7,7 @@ open Avalonia.FuncUI.Elmish
 open Avalonia.Input
 open Avalonia.Threading
 
-open Nir.Core.NexusMods
+open Nir.NexusMods
 
 // Model
 

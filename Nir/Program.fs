@@ -4,7 +4,7 @@ open Avalonia
 open Avalonia.Controls.ApplicationLifetimes
 open Avalonia.FuncUI
 
-open Nir.Core.Utility.Path
+open Nir.Utility.Path
 
 /// This is your application you can ose the initialize method to load styles
 /// or handle Life Cycle events of your application

@@ -1,4 +1,4 @@
-module Nir.Core.Utility.INI
+module Nir.Utility.INI
 
 open FParsec
 

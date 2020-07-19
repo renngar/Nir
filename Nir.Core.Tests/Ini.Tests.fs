@@ -8,7 +8,7 @@ open FsCheck
 open FsCheck.Xunit
 open FsUnit.Xunit
 
-open Nir.Core.Utility.INI
+open Nir.Utility.INI
 
 let sectionPattern = "[^ \000\t\n\r\]]+"
 let propertyNamePattern = "^[^;\\[\000\n\r=][^\000\n\r=]*"

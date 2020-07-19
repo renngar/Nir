@@ -8,7 +8,6 @@ open Avalonia.Controls
 open Avalonia.FuncUI.DSL
 open Avalonia.Layout
 
-open Nir.Core
 open Nir.Controls
 open Nir.Dialogs
 // Model
