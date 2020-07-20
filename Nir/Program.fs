@@ -17,6 +17,8 @@ type App() =
             "avares://Avalonia.Themes.Default/Accents/BaseDark.xaml"
         this.Styles.Load "avares://Nir/Styles/Styles.xaml"
 
+        this.Name <- "Nir"
+
     override this.OnFrameworkInitializationCompleted() =
         match this.ApplicationLifetime with
         | :? IClassicDesktopStyleApplicationLifetime as desktopLifetime ->

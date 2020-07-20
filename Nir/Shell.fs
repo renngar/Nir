@@ -2,6 +2,7 @@ module Nir.Shell
 
 open Elmish
 open Avalonia
+open Avalonia.Controls
 open Avalonia.FuncUI.Components.Hosts
 open Avalonia.FuncUI.Elmish
 open Avalonia.Input
@@ -75,6 +76,9 @@ type MainWindow() as this =
 
         //this.VisualRoot.VisualRoot.Renderer.DrawFps <- true
         //this.VisualRoot.VisualRoot.Renderer.DrawDirtyRects <- true
+
+        // TODO: Fix the About Avalonia on Mac
+        NativeMenu.SetMenu(this, NativeMenu())
 
 #if DEBUG
         this.AttachDevTools(KeyGesture(Key.F12))
