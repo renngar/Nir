@@ -20,37 +20,37 @@ type Model =
     { NexusApiKey: string
       Page: PageModel }
 
+type Msg =
+    | StartPageMsg of StartPage.Msg
+    | ApiKeyPageMsg of ApiKeyPage.Msg
+    | VerifyApiKey
+    | DisplayApiKeyPage
+
 let init window =
     let startPageModel, spCmd = StartPage.init window
     let apkModel, apkCmd = ApiKeyPage.init
     let key = getNexusApiKey()
-    // TODO: Check this
-    /// If your children controls don't emit any commands
-    /// in the init function, you can just return Cmd.none
-    /// otherwise, you can use a batch operation on all of them
-    /// you can add more init commands as you need
     { NexusApiKey = key
       Page =
           if key = "" then ApiKey apkModel else Start startPageModel },
-    Cmd.batch [ spCmd; apkCmd ]
+    Cmd.batch
+        [ spCmd
+          apkCmd
+          Cmd.ofMsg VerifyApiKey ]
 
 
 // Update
 
-type Msg =
-    | StartPageMsg of StartPage.Msg
-    | ApiKeyPageMsg of ApiKeyPage.Msg
-
 let update (msg: Msg) (model: Model): Model * Cmd<_> =
     match msg, model.Page with
+    | VerifyApiKey, Start _ ->
+        model, Cmd.OfAsync.attempt usersValidate model.NexusApiKey (fun _ -> DisplayApiKeyPage)
     | StartPageMsg msg', Start m ->
         let startPageModel, cmd = StartPage.update msg' m
         { model with Page = Start startPageModel }, Cmd.map StartPageMsg cmd
-
     | ApiKeyPageMsg msg', ApiKey m ->
         let apiKeyPageModel, cmd = ApiKeyPage.update msg' m
-        { model with Page = ApiKey apiKeyPageModel },
-        Cmd.map ApiKeyPageMsg cmd
+        { model with Page = ApiKey apiKeyPageModel }, Cmd.map ApiKeyPageMsg cmd
     | _, ApiKey _
     | _, Start _ -> failwith "mismatch between page and message type"
 
@@ -87,8 +87,7 @@ type MainWindow() as this =
         /// from another thread
         let syncDispatch (dispatch: Dispatch<'msg>): Dispatch<'msg> =
             match Dispatcher.UIThread.CheckAccess() with
-            | true ->
-                fun msg -> Dispatcher.UIThread.Post(fun () -> dispatch msg)
+            | true -> fun msg -> Dispatcher.UIThread.Post(fun () -> dispatch msg)
             | false -> dispatch
 
         Program.mkProgram init update view
