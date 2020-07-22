@@ -31,13 +31,11 @@ type Msg =
 
 let init window =
     let startPageModel, spCmd = StartPage.init window
-    let _, apkCmd = ApiKeyPage.init
     let key = getNexusApiKey()
     { NexusApiKey = key
       Page = Start startPageModel },
     Cmd.batch
         [ spCmd
-          apkCmd
           Cmd.ofMsg <| ShellMsg VerifyApiKey ]
 
 
@@ -49,7 +47,9 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
         match msg' with
         | VerifyApiKey ->
             model, Cmd.OfAsync.attempt usersValidate model.NexusApiKey (fun _ -> ShellMsg DisplayApiKeyPage)
-        | DisplayApiKeyPage -> failwith "Not Implemented"
+        | DisplayApiKeyPage ->
+            let m, cmd = ApiKeyPage.init
+            { model with Page = ApiKey m }, cmd
 
     | StartPageMsg msg' ->
         match model.Page with
