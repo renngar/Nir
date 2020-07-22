@@ -20,40 +20,50 @@ type Model =
     { NexusApiKey: string
       Page: PageModel }
 
-type Msg =
-    | StartPageMsg of StartPage.Msg
-    | ApiKeyPageMsg of ApiKeyPage.Msg
+type ShellMsg =
     | VerifyApiKey
     | DisplayApiKeyPage
 
+type Msg =
+    | StartPageMsg of StartPage.Msg
+    | ApiKeyPageMsg of ApiKeyPage.Msg
+    | ShellMsg of ShellMsg
+
 let init window =
     let startPageModel, spCmd = StartPage.init window
-    let apkModel, apkCmd = ApiKeyPage.init
+    let _, apkCmd = ApiKeyPage.init
     let key = getNexusApiKey()
     { NexusApiKey = key
-      Page =
-          if key = "" then ApiKey apkModel else Start startPageModel },
+      Page = Start startPageModel },
     Cmd.batch
         [ spCmd
           apkCmd
-          Cmd.ofMsg VerifyApiKey ]
+          Cmd.ofMsg <| ShellMsg VerifyApiKey ]
 
 
 // Update
 
-let update (msg: Msg) (model: Model): Model * Cmd<_> =
-    match msg, model.Page with
-    | VerifyApiKey, Start _ ->
-        model, Cmd.OfAsync.attempt usersValidate model.NexusApiKey (fun _ -> DisplayApiKeyPage)
-    | StartPageMsg msg', Start m ->
-        let startPageModel, cmd = StartPage.update msg' m
-        { model with Page = Start startPageModel }, Cmd.map StartPageMsg cmd
-    | ApiKeyPageMsg msg', ApiKey m ->
-        let apiKeyPageModel, cmd = ApiKeyPage.update msg' m
-        { model with Page = ApiKey apiKeyPageModel }, Cmd.map ApiKeyPageMsg cmd
-    | _, ApiKey _
-    | _, Start _ -> failwith "mismatch between page and message type"
+let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
+    match msg with
+    | ShellMsg msg' ->
+        match msg' with
+        | VerifyApiKey ->
+            model, Cmd.OfAsync.attempt usersValidate model.NexusApiKey (fun _ -> ShellMsg DisplayApiKeyPage)
+        | DisplayApiKeyPage -> failwith "Not Implemented"
 
+    | StartPageMsg msg' ->
+        match model.Page with
+        | Start m ->
+            let startPageModel, cmd = StartPage.update msg' m
+            { model with Page = Start startPageModel }, Cmd.map StartPageMsg cmd
+        | _ -> failwith "Mismatch between current page and message"
+
+    | ApiKeyPageMsg msg' ->
+        match model.Page with
+        | ApiKey m ->
+            let apiKeyPageModel, cmd = ApiKeyPage.update msg' m
+            { model with Page = ApiKey apiKeyPageModel }, Cmd.map ApiKeyPageMsg cmd
+        | _ -> failwith "Mismatch between current page and message"
 
 
 // View
