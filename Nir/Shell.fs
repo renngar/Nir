@@ -8,6 +8,12 @@ open Avalonia.FuncUI.Elmish
 open Avalonia.Input
 open Avalonia.Threading
 
+#if DEBUG
+// Contrary to what IntelliSense may say, these are needed for setting up AttachDevTools in a debug build
+open Avalonia // AttachDevTools
+open Avalonia.Input // KeyGesture
+#endif
+
 open Nir.NexusMods
 
 // Model
