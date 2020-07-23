@@ -1,26 +1,25 @@
 module Nir.ApiKeyPage
 
-open Avalonia.FuncUI.Types
-open FSharp.Data
-
 open Elmish
 open Avalonia.Controls
 open Avalonia.FuncUI.DSL
+open Avalonia.FuncUI.Types
 open Avalonia.Layout
 
-open Nir.Controls
-open Nir.Dialogs
-// Model
+open NexusMods
 
-type Validate = NexusMods.ValidateProvider.Validate
+
+// Model
 
 type Model =
     { ApiKey: string
-      Validated: Validate option }
+      RateLimit: RateLimits option
+      User: User option }
 
 let init =
     { ApiKey = ""
-      Validated = None }, Cmd.none
+      RateLimit = None
+      User = None }, Cmd.none
 
 // Update
 
@@ -28,14 +27,20 @@ type Headers = Map<string, string>
 
 type Msg =
     | VerifyApiKey of string
-    | AfterVerification of Headers * Validate
+    | AfterVerification of ApiResult<User>
+    | Done of ApiResult<User> // Tell the "caller", the Shell, there are results
 
 
 let update (msg: Msg) (model: Model): Model * Cmd<_> =
     match msg with
     | VerifyApiKey apiKey -> model, Cmd.OfAsync.perform NexusMods.usersValidate apiKey AfterVerification
 
-    | AfterVerification(headers, v) -> { model with Validated = Some v }, Cmd.none
+    | AfterVerification(l, u) ->
+        { model with
+              RateLimit = Some l
+              User = Some u }, Cmd.none
+
+    | Done _ -> model, Cmd.none
 
 // View
 
@@ -50,22 +55,25 @@ let labelledText label content =
 
 let private theView (model: Model) (dispatch: Msg -> unit) =
     let (content: IView list) =
-        match model.Validated with
+        match model.RateLimit, model.User with
+        // If it validated successfully, display some account information
+        | Some limits, Some user ->
+            [ labelledText "User" (user.UserId.ToString())
+              labelledText "Name" user.Name
+              CheckBox.create
+                  [ CheckBox.isEnabled false
+                    CheckBox.content "Premium"
+                    CheckBox.isChecked user.IsPremium ]
+              Button.create
+                  [ Button.content "Continue"
+                    Button.onClick (fun _ -> Done(limits, user) |> dispatch) ] ]
         // If the Nexus account has not been validated, prompt for an API key
-        | None ->
+        | _, _ ->
             [ TextBox.create
                 [ TextBox.watermark "Enter API Key Manually"
                   TextBox.text model.ApiKey
                   TextBox.onTextChanged (VerifyApiKey >> dispatch) ] ]
 
-        // If it validated successfully, display some account information
-        | Some v ->
-            [ labelledText "User" (v.UserId.ToString())
-              labelledText "Name" v.Name
-              CheckBox.create
-                  [ CheckBox.isEnabled false
-                    CheckBox.content "Premium"
-                    CheckBox.isChecked v.IsPremium ] ]
 
     StackPanel.create [ StackPanel.children content ]
 // button "Connect to Nexus"

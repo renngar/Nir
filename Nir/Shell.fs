@@ -18,7 +18,9 @@ type PageModel =
 
 type Model =
     { NexusApiKey: string
-      Page: PageModel }
+      Limits: RateLimits
+      Page: PageModel
+      Window: Window }
 
 type ShellMsg =
     | VerifyApiKey
@@ -33,7 +35,9 @@ let init window =
     let startPageModel, spCmd = StartPage.init window
     let key = getNexusApiKey()
     { NexusApiKey = key
-      Page = Start startPageModel },
+      Limits = RateLimits.initialLimits
+      Page = Start startPageModel
+      Window = window },
     Cmd.batch
         [ spCmd
           Cmd.ofMsg <| ShellMsg VerifyApiKey ]
@@ -61,8 +65,16 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
     | ApiKeyPageMsg msg' ->
         match model.Page with
         | ApiKey m ->
-            let apiKeyPageModel, cmd = ApiKeyPage.update msg' m
-            { model with Page = ApiKey apiKeyPageModel }, Cmd.map ApiKeyPageMsg cmd
+            match msg' with
+            | ApiKeyPage.Msg.Done(limits, user) ->
+                let newModel, cmd = StartPage.init model.Window
+                { model with
+                      NexusApiKey = user.Key
+                      Limits = limits
+                      Page = Start newModel }, cmd
+            | _ ->
+                let apiKeyPageModel, cmd = ApiKeyPage.update msg' m
+                { model with Page = ApiKey apiKeyPageModel }, Cmd.map ApiKeyPageMsg cmd
         | _ -> failwith "Mismatch between current page and message"
 
 
