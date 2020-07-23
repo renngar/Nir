@@ -21,7 +21,8 @@ type Section =
 
 /// An INI file including its sections with their properties and any trailing comments
 type Ini =
-    { Sections: Section list
+    { FileName: string
+      Sections: Section list
       TrailingComments: string list }
 
 /// An INI parser
@@ -144,7 +145,8 @@ module Parser =
                                 Value = v }
                               :: section.Properties }
         finishPreviousSection()
-        { Sections = List.rev (sections)
+        { FileName = ""
+          Sections = List.rev (sections)
           TrailingComments = List.rev (comments) }
 
 ////////////////////////////////////////////////////////////////////////
@@ -167,6 +169,7 @@ let parseIniFile (fileName: string): Ini =
         sr.ReadToEnd()
     with :? System.IO.FileNotFoundException -> ""
     |> parseIni
+    |> fun ini -> { ini with FileName = fileName }
 
 /// Returns the named `section` of the `ini`
 let section section ini: Section * Ini =
