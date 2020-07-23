@@ -5,12 +5,17 @@ open FSharp.Data
 open Utility.INI
 open System
 
+let Nexus = "Nexus"
+let ApiKey = "ApiKey"
+
 /// Get the Nexus Mods API Key, if any, from the ini
 let nexusApiKey ini: IniPropertyValue * Ini =
     ini
-    |> section "Nexus"
-    |> property "ApiKey"
+    |> section Nexus
+    |> property ApiKey
     |> propertyValue
+
+let setNexusApiKey ini value = setIniProperty ini Nexus ApiKey value
 
 /// The rate limiting data returned by the Nexus Mods APIs. The limits are as follows:
 ///

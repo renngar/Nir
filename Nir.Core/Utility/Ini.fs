@@ -1,5 +1,6 @@
 module Nir.Utility.INI
 
+open System.IO
 open FParsec
 
 ////////////////////////////////////////////////////////////////////////
@@ -165,32 +166,75 @@ let parseIni (s: string): Ini =
 /// `Ini` data model.
 let parseIniFile (fileName: string): Ini =
     try
-        use sr = new System.IO.StreamReader(fileName)
+        use sr = new StreamReader(fileName)
         sr.ReadToEnd()
-    with :? System.IO.FileNotFoundException -> ""
+    with :? FileNotFoundException -> ""
     |> parseIni
     |> fun ini -> { ini with FileName = fileName }
 
+/// `saveIni` saves the Ini into its .ini file
+let saveIni (ini: Ini) =
+    let writeComments (sw: StreamWriter) (comments: string list) =
+        for comment in comments do
+            sw.WriteLine(comment)
+
+    use sw = new StreamWriter(ini.FileName)
+    for section in ini.Sections do
+        writeComments sw section.Comments
+        fprintfn sw "[%s]" section.Section
+        for property in section.Properties do
+            writeComments sw property.Comments
+            fprintfn sw "%s=%s" property.Property property.Value
+    writeComments sw ini.TrailingComments
+
+/// Try to fined the named section in the ini
+let trySection section ini: Section option = ini.Sections |> List.tryFind (fun s -> s.Section = section)
+
+let newSection section properties =
+    { Comments = []
+      Section = section
+      Properties = properties }
+
 /// Returns the named `section` of the `ini`
 let section section ini: Section * Ini =
-    let s = ini.Sections |> List.tryFind (fun s -> s.Section = section)
-    match s with
-    | Some s' -> s', ini
-    | None ->
-        { Comments = []
-          Section = section
-          Properties = [] }, ini
+    match trySection section ini with
+    | Some s -> s, ini
+    | None -> newSection section [], ini
+
+/// Try to fined the named section in the ini
+let tryProperty property section: Property option = section.Properties |> List.tryFind (fun s -> s.Property = property)
+
+let newProperty name value: Property =
+    { Comments = []
+      Property = name
+      Value = value }
 
 /// Returns the named `property` within the given `section`, which may
 /// be looked up using the `section` function.
-let property property (section, ini): Property * Ini =
-    let p = section.Properties |> List.tryFind (fun p -> p.Property = property)
-    match p with
-    | Some p' -> p', ini
-    | None ->
-        { Comments = []
-          Property = property
-          Value = "" }, ini
+let property (property: string) (section, ini): Property * Ini =
+    match tryProperty property section with
+    | Some p -> p, ini
+    | None -> newProperty property "", ini
 
 /// Return the value of `property`
 let propertyValue (property: Property, ini: Ini): IniPropertyValue * Ini = property.Value, ini
+
+let setIniProperty ini sectionName propertyName value =
+    let updateProperty p =
+        if p.Property = propertyName then { p with Value = value } else p
+
+    let updateProperties section =
+        match tryProperty propertyName section with
+        | None -> List.append section.Properties [ newProperty propertyName value ]
+        | Some _ -> List.map updateProperty section.Properties
+
+    let updateSection s =
+        if s.Section = sectionName
+        then { s with Properties = updateProperties s }
+        else s
+
+    { ini with
+          Sections =
+              match trySection sectionName ini with
+              | None -> List.append ini.Sections [ newSection sectionName [ newProperty propertyName value ] ]
+              | Some _ -> List.map updateSection ini.Sections }

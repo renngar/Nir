@@ -84,12 +84,18 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
         match model.Page with
         | ApiKey m ->
             match msg' with
+            // Grab the results when the API Key page is done and write it to the .ini
             | ApiKeyPage.Msg.Done(limits, user) ->
                 let newModel, cmd = StartPage.init model.Window
+                let ini = setNexusApiKey model.Ini user.Key
+                saveIni ini
                 { model with
+                      Ini = ini
                       NexusApiKey = user.Key
                       Limits = limits
                       Page = Start newModel }, cmd
+
+            // Let it handle all the other messages
             | _ ->
                 let apiKeyPageModel, cmd = ApiKeyPage.update msg' m
                 { model with Page = ApiKey apiKeyPageModel }, Cmd.map ApiKeyPageMsg cmd

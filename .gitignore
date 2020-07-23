@@ -1,6 +1,9 @@
 # The sample data was longer than I want to use for the JSON type provider
 /Data-unedited
 
+# Don't write my Nexus Mods API Key to the repo
+/Nir/Nir.ini
+
 # Created by https://www.toptal.com/developers/gitignore/api/dotnetcore,fsharp,visualstudio,visualstudiocode,rider
 # Edit at https://www.toptal.com/developers/gitignore?templates=dotnetcore,fsharp,visualstudio,visualstudiocode,rider
 
