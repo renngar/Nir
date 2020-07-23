@@ -9,7 +9,7 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceFolder}/Nir/bin/Debug/netcoreapp3.0/Nir.dll",
+      "program": "${workspaceFolder}/Nir/bin/Debug/netcoreapp3.1/Nir.dll",
       "args": [],
       "cwd": "${workspaceFolder}",
       "console": "internalConsole",
