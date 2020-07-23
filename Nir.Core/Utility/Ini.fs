@@ -5,20 +5,26 @@ open FParsec
 ////////////////////////////////////////////////////////////////////////
 /// INI Domain Model
 ////////////////////////////////////////////////////////////////////////
+type IniPropertyValue = string
+
+/// An INI file property including its name, value and any preceding comments
 type Property =
     { Comments: string list
       Property: string
-      Value: string }
+      Value: IniPropertyValue }
 
+/// An INI file section including its name, properties and any preceding comments
 type Section =
     { Comments: string list
       Section: string
       Properties: Property list }
 
+/// An INI file including its sections with their properties and any trailing comments
 type Ini =
     { Sections: Section list
       TrailingComments: string list }
 
+/// An INI parser
 module Parser =
 #if DEBUG
     // Useful for debugging parser combinators
@@ -55,7 +61,7 @@ module Parser =
     /// `strExcept exception` parses a sequence of *zero* or more characters that do not appear in `exceptions`.
     let strExcept exceptions = manyChars (noneOf exceptions) .>> lineWs
 
-    /// `str1Except exception` parses a sequence of *one* or more characters that do not appear in `exceptions`.
+    /// `str1Except exceptions` parses a sequence of *one* or more characters that do not appear in `exceptions`.
     let str1Except exceptions = many1Chars (noneOf exceptions) .>> lineWs
 
     /// parse a comment line beginning with `;`
@@ -84,8 +90,7 @@ module Parser =
         strExcept "\n\r\000="
         |>> trimEnd
 
-    let propertyName =
-        propertyChar1 .>>. propertyCharRest .>> lineWs |>> fun (i, r) -> (string i) + r
+    let propertyName = propertyChar1 .>>. propertyCharRest .>> lineWs |>> fun (i, r) -> (string i) + r
 
     let propertyValue = restOfLine true |>> trimEnd
     let assignment = strLineWs "="
@@ -149,14 +154,14 @@ open Parser
 
 /// `parseIni s` parses the INI content and converts it into a internal
 /// `Ini` data model.
-let parseIni s =
+let parseIni (s: string): Ini =
     match run iniFile s with
     | Failure(msg, _, _) -> failwith msg
     | Success(ini, _, _) -> convertToTree ini
 
-/// `parsiIniFile fileName` loads and parses the .ini file into an internal
+/// `parseIniFile fileName` loads and parses the .ini file into an internal
 /// `Ini` data model.
-let parseIniFile (fileName: string) =
+let parseIniFile (fileName: string): Ini =
     try
         use sr = new System.IO.StreamReader(fileName)
         sr.ReadToEnd()
@@ -164,19 +169,25 @@ let parseIniFile (fileName: string) =
     |> parseIni
 
 /// Returns the named `section` of the `ini`
-let section section ini =
+let section section ini: Section * Ini =
     let s = ini.Sections |> List.tryFind (fun s -> s.Section = section)
     match s with
-    | Some s' -> s'
+    | Some s' -> s', ini
     | None ->
         { Comments = []
           Section = section
-          Properties = [] }
+          Properties = [] }, ini
 
 /// Returns the named `property` within the given `section`, which may
 /// be looked up using the `section` function.
-let property property section =
+let property property (section, ini): Property * Ini =
     let p = section.Properties |> List.tryFind (fun p -> p.Property = property)
     match p with
-    | Some p' -> p'.Value
-    | None -> ""
+    | Some p' -> p', ini
+    | None ->
+        { Comments = []
+          Property = property
+          Value = "" }, ini
+
+/// Return the value of `property`
+let propertyValue (property: Property, ini: Ini): IniPropertyValue * Ini = property.Value, ini

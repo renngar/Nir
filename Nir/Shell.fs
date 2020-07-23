@@ -1,11 +1,9 @@
 module Nir.Shell
 
 open Elmish
-open Avalonia
 open Avalonia.Controls
 open Avalonia.FuncUI.Components.Hosts
 open Avalonia.FuncUI.Elmish
-open Avalonia.Input
 open Avalonia.Threading
 
 #if DEBUG
@@ -15,6 +13,8 @@ open Avalonia.Input // KeyGesture
 #endif
 
 open Nir.NexusMods
+open Nir.Utility.INI
+open Nir.Utility.Path
 
 // Model
 
@@ -23,8 +23,15 @@ type PageModel =
     | ApiKey of ApiKeyPage.Model
 
 type Model =
-    { NexusApiKey: string
+    {
+      // Settings
+      Ini: Ini
+
+      // Web
+      NexusApiKey: string
       Limits: RateLimits
+
+      // UI
       Page: PageModel
       Window: Window }
 
@@ -39,8 +46,13 @@ type Msg =
 
 let init window =
     let startPageModel, spCmd = StartPage.init window
-    let key = getNexusApiKey()
-    { NexusApiKey = key
+
+    let key, ini =
+        getProgramPath() +/ "Nir.ini"
+        |> parseIniFile
+        |> nexusApiKey
+    { Ini = ini
+      NexusApiKey = key
       Limits = RateLimits.initialLimits
       Page = Start startPageModel
       Window = window },

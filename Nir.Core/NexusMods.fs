@@ -3,14 +3,14 @@ module Nir.NexusMods
 open FSharp.Data
 
 open Utility.INI
-open Utility.Path
 open System
 
-let getNexusApiKey() =
-    getProgramPath() +/ "Nir.ini"
-    |> parseIniFile
+/// Get the Nexus Mods API Key, if any, from the ini
+let nexusApiKey ini: IniPropertyValue * Ini =
+    ini
     |> section "Nexus"
     |> property "ApiKey"
+    |> propertyValue
 
 /// The rate limiting data returned by the Nexus Mods APIs. The limits are as follows:
 ///
