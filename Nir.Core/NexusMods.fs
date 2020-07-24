@@ -1,9 +1,10 @@
 module Nir.NexusMods
 
+open System
+
 open FSharp.Data
 
 open Utility.INI
-open System
 
 let Nexus = "Nexus"
 let ApiKey = "ApiKey"
@@ -46,12 +47,32 @@ type RateLimits =
           DailyRemaining = 2500
           DailyReset = now }
 
-type ApiResult<'T> = RateLimits * 'T
-
+/// A map of HTTP header and values
 type Headers = Map<string, string>
 
+/// Represents an HTTP status code
+type StatusCode = int
+
+/// A Nexus Mods API call succeeded returning the given rate limits and value
+type ApiSuccess<'T> =
+    { RateLimits: RateLimits
+      Result: 'T }
+
+/// A Nexus Mods API call failed with a given status code and message
+type ApiError =
+    { StatusCode: StatusCode
+      Message: string }
+
+/// Returns an `ApiError` wrapped in a Result<'T,ApiError>.Error
+let apiError statusCode msg =
+    Error
+        { StatusCode = statusCode
+          Message = msg }
+
+type ApiResult<'T> = Result<ApiSuccess<'T>, ApiError>
+
 /// Parses the `RateLimit` data returned in the Nexus Mod API calls `Headers`
-let rateLimit (headers: Headers): RateLimits =
+let private rateLimit (headers: Headers): RateLimits =
     let toInt (headers: Headers) value = headers.[value] |> int
     let toDateTime (headers: Headers) value = DateTime.Parse(headers.[value])
     { HourlyLimit = toInt headers "X-RL-Hourly-Limit"
@@ -68,12 +89,24 @@ type User = ValidateProvider.User
 /// Validates the user's `apiKey` with Nexus, returns
 let usersValidate apiKey =
     async {
-        let! result = Http.AsyncRequest
-                          ("https://api.nexusmods.com/v1/users/validate.json",
-                           headers =
-                               [ "Accept", "application/json"
-                                 "apikey", apiKey ])
-        return match result.Body with
-               | Text json -> rateLimit result.Headers, ValidateProvider.Parse(json)
-               | Binary data -> failwithf "Expected text, but got a %d byte binary response" data.Length
+        try
+            // Setting silentHttpErrors returns the error response rather than throwing an exception.
+            let! result = Http.AsyncRequest
+                              ("https://api.nexusmods.com/v1/users/validate.json",
+                               headers =
+                                   [ "Accept", "application/json"
+                                     "apikey", apiKey ], silentHttpErrors = true)
+
+            return match result.StatusCode with
+                   | HttpStatusCodes.OK ->
+                       match result.Body with
+                       | Text json ->
+                           Ok
+                               { RateLimits = rateLimit result.Headers
+                                 Result = ValidateProvider.Parse(json) }
+                       | Binary data ->
+                           apiError result.StatusCode
+                               (sprintf "Expected text, but got a %d byte binary response" data.Length)
+                   | status -> apiError status (result.Body.ToString())
+        with exn -> return apiError exn.HResult exn.Message
     }

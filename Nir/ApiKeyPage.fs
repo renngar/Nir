@@ -28,18 +28,17 @@ type Headers = Map<string, string>
 type Msg =
     | VerifyApiKey of string
     | AfterVerification of ApiResult<User>
-    | Done of ApiResult<User> // Tell the "caller", the Shell, there are results
+    | Done of ApiSuccess<User> // Tell the "caller", the Shell, there are results
 
 
 let update (msg: Msg) (model: Model): Model * Cmd<_> =
     match msg with
-    | VerifyApiKey apiKey -> model, Cmd.OfAsync.perform NexusMods.usersValidate apiKey AfterVerification
-
-    | AfterVerification(l, u) ->
-        { model with
-              RateLimit = Some l
-              User = Some u }, Cmd.none
-
+    | VerifyApiKey apiKey -> model, Cmd.OfAsync.perform usersValidate apiKey AfterVerification
+    | AfterVerification(Ok { RateLimits = l; Result = user }) ->
+        { RateLimit = Some l
+          User = Some user
+          ApiKey = user.Key }, Cmd.none
+    | AfterVerification _ -> failwith "Not Implemented"
     | Done _ -> model, Cmd.none
 
 // View
@@ -66,7 +65,11 @@ let private theView (model: Model) (dispatch: Msg -> unit) =
                     CheckBox.isChecked user.IsPremium ]
               Button.create
                   [ Button.content "Continue"
-                    Button.onClick (fun _ -> Done(limits, user) |> dispatch) ] ]
+                    Button.onClick (fun _ ->
+                        Done
+                            ({ RateLimits = limits
+                               Result = user })
+                        |> dispatch) ] ]
         // If the Nexus account has not been validated, prompt for an API key
         | _, _ ->
             [ TextBox.create

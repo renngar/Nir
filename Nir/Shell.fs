@@ -1,5 +1,7 @@
 module Nir.Shell
 
+open FSharp.Data.HttpStatusCodes
+
 open Elmish
 open Avalonia.Controls
 open Avalonia.FuncUI.Components.Hosts
@@ -37,6 +39,7 @@ type Model =
 
 type ShellMsg =
     | VerifyApiKey
+    | VerifiedApiKeyResult of ApiResult<User>
     | DisplayApiKeyPage
 
 type Msg =
@@ -68,7 +71,14 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
     | ShellMsg msg' ->
         match msg' with
         | VerifyApiKey ->
-            model, Cmd.OfAsync.attempt usersValidate model.NexusApiKey (fun _ -> ShellMsg DisplayApiKeyPage)
+            model,
+            Cmd.OfAsync.either usersValidate model.NexusApiKey (ShellMsg << VerifiedApiKeyResult)
+                (fun _ -> ShellMsg DisplayApiKeyPage)
+        | VerifiedApiKeyResult x ->
+            match x with
+            | Ok _ -> model, Cmd.none
+            | Error { StatusCode = Unauthorized; Message = _ } -> model, Cmd.ofMsg (ShellMsg DisplayApiKeyPage)
+            | Error _ -> failwith "Not Implemented"
         | DisplayApiKeyPage ->
             let m, cmd = ApiKeyPage.init
             { model with Page = ApiKey m }, cmd
@@ -85,7 +95,7 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
         | ApiKey m ->
             match msg' with
             // Grab the results when the API Key page is done and write it to the .ini
-            | ApiKeyPage.Msg.Done(limits, user) ->
+            | ApiKeyPage.Msg.Done { RateLimits = limits; Result = user } ->
                 let newModel, cmd = StartPage.init model.Window
                 let ini = setNexusApiKey model.Ini user.Key
                 saveIni ini
