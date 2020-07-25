@@ -9,6 +9,7 @@
     <Compile Include="Controls.fs" />
     <Compile Include="ApiKeyPage.fs" />
     <Compile Include="StartPage.fs" />
+    <Compile Include="ErrorPage.fs" />
     <Compile Include="Shell.fs" />
     <Compile Include="Program.fs" />
     <AvaloniaResource Include="**\*.xaml" />

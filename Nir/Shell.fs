@@ -5,7 +5,9 @@ open FSharp.Data.HttpStatusCodes
 open Elmish
 open Avalonia.Controls
 open Avalonia.FuncUI.Components.Hosts
+open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Elmish
+open Avalonia.FuncUI.Types
 open Avalonia.Threading
 
 #if DEBUG
@@ -21,8 +23,9 @@ open Nir.Utility.Path
 // Model
 
 type PageModel =
-    | Start of StartPage.Model
-    | ApiKey of ApiKeyPage.Model
+    | StartPage of StartPage.Model
+    | ApiKeyPage of ApiKeyPage.Model
+    | ErrorPage of ErrorPage.Model
 
 type Model =
     {
@@ -45,6 +48,7 @@ type ShellMsg =
 type Msg =
     | StartPageMsg of StartPage.Msg
     | ApiKeyPageMsg of ApiKeyPage.Msg
+    | ErrorPageMsg of ErrorPage.Msg
     | ShellMsg of ShellMsg
 
 let init window =
@@ -57,7 +61,7 @@ let init window =
     { Ini = ini
       NexusApiKey = key
       Limits = RateLimits.initialLimits
-      Page = Start startPageModel
+      Page = StartPage startPageModel
       Window = window },
     Cmd.batch
         [ spCmd
@@ -65,7 +69,6 @@ let init window =
 
 
 // Update
-
 let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
     match msg with
     | ShellMsg msg' ->
@@ -78,21 +81,23 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
             match x with
             | Ok _ -> model, Cmd.none
             | Error { StatusCode = Unauthorized; Message = _ } -> model, Cmd.ofMsg (ShellMsg DisplayApiKeyPage)
-            | Error _ -> failwith "Not Implemented"
+            | Error { StatusCode = _; Message = msg } ->
+                let m, cmd = ErrorPage.init "Error Contacting Nexus" msg ErrorPage.Buttons.RetryCancel
+                { model with Page = ErrorPage m }, cmd
         | DisplayApiKeyPage ->
             let m, cmd = ApiKeyPage.init
-            { model with Page = ApiKey m }, cmd
+            { model with Page = ApiKeyPage m }, cmd
 
     | StartPageMsg msg' ->
         match model.Page with
-        | Start m ->
+        | StartPage m ->
             let startPageModel, cmd = StartPage.update msg' m
-            { model with Page = Start startPageModel }, Cmd.map StartPageMsg cmd
+            { model with Page = StartPage startPageModel }, Cmd.map StartPageMsg cmd
         | _ -> failwith "Mismatch between current page and message"
 
     | ApiKeyPageMsg msg' ->
         match model.Page with
-        | ApiKey m ->
+        | ApiKeyPage m ->
             match msg' with
             // Grab the results when the API Key page is done and write it to the .ini
             | ApiKeyPage.Msg.Done { RateLimits = limits; Result = user } ->
@@ -103,12 +108,25 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
                       Ini = ini
                       NexusApiKey = user.Key
                       Limits = limits
-                      Page = Start newModel }, cmd
+                      Page = StartPage newModel }, cmd
 
             // Let it handle all the other messages
             | _ ->
                 let apiKeyPageModel, cmd = ApiKeyPage.update msg' m
-                { model with Page = ApiKey apiKeyPageModel }, Cmd.map ApiKeyPageMsg cmd
+                { model with Page = ApiKeyPage apiKeyPageModel }, Cmd.map ApiKeyPageMsg cmd
+        | _ -> failwith "Mismatch between current page and message"
+
+    | ErrorPageMsg msg' ->
+        match model.Page with
+        | ErrorPage _ ->
+            match msg' with
+            | ErrorPage.Msg.Done button ->
+                match button with
+                // TODO: Once we fail to reach the Nexus site, we continue to get host errors after reconnecting.
+                | "Retry" -> model, Cmd.ofMsg (ShellMsg VerifyApiKey)
+                | _ ->
+                    let newModel, cmd = StartPage.init model.Window
+                    { model with Page = StartPage newModel }, cmd
         | _ -> failwith "Mismatch between current page and message"
 
 
@@ -116,8 +134,9 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
 
 let view (model: Model) (dispatch: Msg -> unit) =
     match model.Page with
-    | Start m -> StartPage.view m (StartPageMsg >> dispatch)
-    | ApiKey m -> ApiKeyPage.view m (ApiKeyPageMsg >> dispatch)
+    | StartPage m -> StartPage.view m (StartPageMsg >> dispatch)
+    | ApiKeyPage m -> ApiKeyPage.view m (ApiKeyPageMsg >> dispatch)
+    | ErrorPage m -> ErrorPage.view m (ErrorPageMsg >> dispatch)
 
 // Main
 
