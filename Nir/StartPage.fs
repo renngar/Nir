@@ -60,8 +60,8 @@ let update (msg: Msg) (model: Model): Model * Cmd<_> =
 // View
 let gridTextBlock row cls text =
     textBlock
-        [ Grid.row row
-          tbClass cls ] text
+        [ GridRow row
+          Class cls ] text
 
 let private theView (_: Model) (dispatch: Msg -> unit) =
     Grid.create
@@ -71,13 +71,13 @@ let private theView (_: Model) (dispatch: Msg -> unit) =
               [ gridTextBlock 0 "subtitle" "Nir lets you install Skyrim Mod Guides from the Web"
                 Button.create
                     [ Grid.row 1
-                      Button.content (textBlock [ tbClass "subtitle" ] "Open a local HTML modlist")
+                      Button.content (textBlock [ Class "subtitle" ] "Open a local HTML modlist")
                       Button.onClick (fun _ -> dispatch OpenLocalModList) ]
                 gridTextBlock 2 "" ""
                 textBlock
-                    [ Grid.row 3
-                      tbClass "link"
-                      TextBlock.horizontalAlignment HorizontalAlignment.Right
-                      TextBlock.verticalAlignment VerticalAlignment.Stretch ] "Advanced..." ] ]
+                    [ GridRow 3
+                      Class "link"
+                      HorizontalAlignment HorizontalAlignment.Right
+                      VerticalAlignment VerticalAlignment.Stretch ] "Advanced..." ] ]
 
 let view (m: Model) (dispatch: Msg -> unit) = DockPanel.create [ DockPanel.children [ theView m dispatch ] ]
