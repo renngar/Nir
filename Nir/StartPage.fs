@@ -17,8 +17,7 @@ type Model =
 
 let init window =
     { Window = window
-      File = None },
-    Cmd.none
+      File = None }, Cmd.none
 
 // Update
 
@@ -33,24 +32,21 @@ type Link =
 
 let update (msg: Msg) (model: Model): Model * Cmd<_> =
     match msg with
-    | OpenLocalModList ->
-        model,
-        Cmd.OfAsync.perform promptHtmlFileName model.Window AfterSelectFile
+    | OpenLocalModList -> model, Cmd.OfAsync.perform promptHtmlFileName model.Window AfterSelectFile
 
     | AfterSelectFile file ->
         // HtmlDocument.AsyncLoad()
         // let results = HtmlDocument.Load(file)
-        { model with File = Some file },
-        Cmd.OfAsync.perform HtmlDocument.AsyncLoad file Loaded
+        { model with File = Some file }, Cmd.OfAsync.perform HtmlDocument.AsyncLoad file Loaded
 
     | Loaded html ->
         let links =
-            html.Descendants ["a"]
+            html.Descendants [ "a" ]
             |> Seq.choose (fun x ->
-                           x.TryGetAttribute("href")
-                           |> Option.map (fun a ->
-                                          { Text = x.InnerText()
-                                            Link = a.Value() }))
+                x.TryGetAttribute("href")
+                |> Option.map (fun a ->
+                    { Text = x.InnerText()
+                      Link = a.Value() }))
         links
         |> Seq.map (fun l -> printfn "%s %s" l.Text l.Link)
         |> ignore
@@ -68,8 +64,7 @@ let private theView (_: Model) (dispatch: Msg -> unit) =
         [ Grid.margin 10.0
           Grid.rowDefinitions "auto, auto, *, auto"
           Grid.children
-              [ textBlock 0 "subtitle"
-                    "Nir lets you install Skyrim Mod Guides from the Web"
+              [ textBlock 0 "subtitle" "Nir lets you install Skyrim Mod Guides from the Web"
                 Button.create
                     [ Grid.row 1
                       Button.content
@@ -82,5 +77,4 @@ let private theView (_: Model) (dispatch: Msg -> unit) =
                     [ TextBlock.horizontalAlignment HorizontalAlignment.Right
                       TextBlock.verticalAlignment VerticalAlignment.Stretch ] ] ]
 
-let view (m: Model) (dispatch: Msg -> unit) =
-    DockPanel.create [ DockPanel.children [ theView m dispatch ] ]
+let view (m: Model) (dispatch: Msg -> unit) = DockPanel.create [ DockPanel.children [ theView m dispatch ] ]
