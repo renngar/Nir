@@ -36,9 +36,10 @@ let textBlock cls text =
 
 let button (text: string) isDefault (dispatch: Msg -> unit): IView<Button> =
     Button.create
-        [ Button.isDefault isDefault
-          Button.content text
-          Button.onClick (fun _ -> dispatch (Done text)) ]
+    <| List.append (if isDefault then [ Button.classes [ "default" ] ] else [])
+           [ Button.isDefault isDefault
+             Button.content text
+             Button.onClick (fun _ -> dispatch (Done text)) ]
 
 
 let getButtons model dispatch: IView list =
@@ -52,10 +53,14 @@ let view (model: Model) (dispatch: Msg -> unit) =
         [ DockPanel.children
             [ StackPanel.create
                 [ StackPanel.horizontalAlignment HorizontalAlignment.Center
+                  StackPanel.margin 10.0
+                  StackPanel.spacing 4.0
                   StackPanel.children
                       [ textBlock "error" model.Title
-                        textBlock "subtitle" model.Message
+                        textBlock "h2" model.Message
                         StackPanel.create
                             [ StackPanel.orientation Orientation.Horizontal
+                              StackPanel.margin (0.0, 16.0)
+                              StackPanel.spacing 16.0
                               StackPanel.horizontalAlignment HorizontalAlignment.Center
                               StackPanel.children (getButtons model dispatch) ] ] ] ] ]
