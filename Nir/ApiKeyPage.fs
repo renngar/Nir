@@ -7,10 +7,12 @@ open Elmish
 open Avalonia.Controls
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
+open Avalonia.Input
 open Avalonia.Layout
 open Avalonia.Media
 
 open NexusMods
+open Nir.DSL
 
 // Model
 
@@ -86,6 +88,18 @@ let view (model: Model) (dispatch: Msg -> unit) =
                           Button.content "My Account Page" ]
                       TextBox.create
                           [ Grid.column 1
+                            DragDrop.allowDrop true
+                            DragDrop.onDragOver (fun e ->
+                                e.DragEffects <-
+                                    if e.Data.Contains(DataFormats.Text) then
+                                        e.DragEffects &&& DragDropEffects.Copy
+                                    else
+                                        DragDropEffects.None)
+                            DragDrop.onDrop (fun e ->
+                                if e.Data.Contains(DataFormats.Text) then
+                                    e.Data.GetText()
+                                    |> VerifyApiKey
+                                    |> dispatch)
                             TextBox.textWrapping TextWrapping.Wrap
                             TextBox.watermark "Enter Your Personal API Key Manually"
                             TextBox.height 30.0

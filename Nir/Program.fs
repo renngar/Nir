@@ -1,5 +1,7 @@
 namespace Nir
 
+open System
+
 open Avalonia
 open Avalonia.Controls.ApplicationLifetimes
 open Avalonia.FuncUI
@@ -24,6 +26,7 @@ type App() =
 
 module Program =
 
+    [<STAThread>] // Required for Drag and drop from an external source
     [<EntryPoint>]
     let main (args: string []) =
         getProgramPath() |> printfn "%s"
