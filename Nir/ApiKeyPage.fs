@@ -65,22 +65,23 @@ let view (model: Model) (dispatch: Msg -> unit) =
 
     let (children: IView list) =
         [ TextBlock.create
-            [ TextBlock.classes [ "title" ]
+            [ TextBlock.classes [ "h1" ]
               TextBlock.text "Nexus API Key" ]
           TextBlock.create
-              [ TextBlock.classes [ "subtitle" ]
+              [ TextBlock.classes [ "h2" ]
                 TextBlock.textWrapping TextWrapping.Wrap
                 TextBlock.text
                     ("Nir needs an API Key to communicate with Nexus.  You can get your Personal API "
                      + "Key from the API tab of the Nexus My Account Page.") ]
           Grid.create
-              [ Grid.margin 10.0
-                Grid.columnDefinitions "auto, *"
+              [ Grid.columnDefinitions "auto, *"
+                Grid.margin (0.0, 16.0)
                 Grid.children
                     [ Button.create
                         [ Grid.column 0
+                          Button.margin (0.0, 0.0, 16.0, 0.0)
                           Button.isDefault (not goodApiKey)
-                          Button.classes (if goodApiKey then [ "left" ] else [ "left"; "default" ])
+                          Button.classes (if goodApiKey then [] else [ "default" ])
                           Button.onClick (fun _ -> dispatch (OpenUrl NexusAccountPage))
                           Button.content "My Account Page" ]
                       TextBox.create
@@ -101,13 +102,14 @@ let view (model: Model) (dispatch: Msg -> unit) =
         match model.RateLimit, model.User with
         | Some limits, Some user ->
             [ TextBlock.create
-                [ TextBlock.classes [ "subtitle" ]
+                [ TextBlock.classes [ "h2" ]
                   TextBlock.textWrapping TextWrapping.Wrap
-                  TextBlock.text ("Thanks " + user.Name + if user.IsPremium then " your premium!" else "!") ]
+                  TextBlock.text ("Thanks " + user.Name + if user.IsPremium then " you're premium!" else "!") ]
 
               Button.create
                   [ Button.isDefault true
-                    Button.classes [ "left"; "default" ]
+                    Button.classes [ "default" ]
+                    Button.margin (0.0, 16.0)
                     Button.content "Continue"
                     Button.onClick (fun _ ->
                         Done
@@ -120,4 +122,5 @@ let view (model: Model) (dispatch: Msg -> unit) =
         [ DockPanel.children
             [ StackPanel.create
                 [ StackPanel.margin 10.0
+                  StackPanel.spacing 4.0
                   StackPanel.children (List.append children extra) ] ] ]
