@@ -1,4 +1,4 @@
-module Nir.ApiKeyPage
+module Nir.Pages.ApiKey
 
 open System.Diagnostics
 open System.Runtime.InteropServices
@@ -11,8 +11,8 @@ open Avalonia.Input
 open Avalonia.Layout
 open Avalonia.Media
 
-open NexusMods
 open Nir.DSL
+open Nir.NexusMods
 
 // Model
 

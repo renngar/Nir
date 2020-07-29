@@ -5,9 +5,7 @@ open FSharp.Data.HttpStatusCodes
 open Elmish
 open Avalonia.Controls
 open Avalonia.FuncUI.Components.Hosts
-open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Elmish
-open Avalonia.FuncUI.Types
 open Avalonia.Threading
 
 #if DEBUG
@@ -16,6 +14,7 @@ open Avalonia // AttachDevTools
 open Avalonia.Input // KeyGesture
 #endif
 
+open Nir.Pages
 open Nir.NexusMods
 open Nir.Utility.INI
 open Nir.Utility.Path
@@ -23,9 +22,9 @@ open Nir.Utility.Path
 // Model
 
 type PageModel =
-    | StartPage of StartPage.Model
-    | ApiKeyPage of ApiKeyPage.Model
-    | ErrorPage of ErrorPage.Model
+    | Start of Start.Model
+    | ApiKey of ApiKey.Model
+    | ErrorModel of Error.Model
 
 type Model =
     {
@@ -46,13 +45,13 @@ type ShellMsg =
     | DisplayApiKeyPage
 
 type Msg =
-    | StartPageMsg of StartPage.Msg
-    | ApiKeyPageMsg of ApiKeyPage.Msg
-    | ErrorPageMsg of ErrorPage.Msg
+    | StartMsg of Start.Msg
+    | ApiKeyMsg of ApiKey.Msg
+    | ErrorMsg of Error.Msg
     | ShellMsg of ShellMsg
 
 let init window =
-    let startPageModel, spCmd = StartPage.init window
+    let startPageModel, spCmd = Start.init window
 
     let key, ini =
         getProgramPath() +/ "Nir.ini"
@@ -61,7 +60,7 @@ let init window =
     { Ini = ini
       NexusApiKey = key
       Limits = RateLimits.initialLimits
-      Page = StartPage startPageModel
+      Page = Start startPageModel
       Window = window },
     Cmd.batch
         [ spCmd
@@ -82,51 +81,51 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
             | Ok _ -> model, Cmd.none
             | Error { StatusCode = Unauthorized; Message = _ } -> model, Cmd.ofMsg (ShellMsg DisplayApiKeyPage)
             | Error { StatusCode = _; Message = msg } ->
-                let m, cmd = ErrorPage.init "Error Contacting Nexus" msg ErrorPage.Buttons.RetryCancel
-                { model with Page = ErrorPage m }, cmd
+                let m, cmd = Error.init "Error Contacting Nexus" msg Error.Buttons.RetryCancel
+                { model with Page = ErrorModel m }, cmd
         | DisplayApiKeyPage ->
-            let m, cmd = ApiKeyPage.init
-            { model with Page = ApiKeyPage m }, cmd
+            let m, cmd = ApiKey.init
+            { model with Page = ApiKey m }, cmd
 
-    | StartPageMsg msg' ->
+    | StartMsg msg' ->
         match model.Page with
-        | StartPage m ->
-            let startPageModel, cmd = StartPage.update msg' m
-            { model with Page = StartPage startPageModel }, Cmd.map StartPageMsg cmd
+        | Start m ->
+            let startPageModel, cmd = Start.update msg' m
+            { model with Page = Start startPageModel }, Cmd.map StartMsg cmd
         | _ -> failwith "Mismatch between current page and message"
 
-    | ApiKeyPageMsg msg' ->
+    | ApiKeyMsg msg' ->
         match model.Page with
-        | ApiKeyPage m ->
+        | ApiKey m ->
             match msg' with
             // Grab the results when the API Key page is done and write it to the .ini
-            | ApiKeyPage.Msg.Done { RateLimits = limits; Result = user } ->
-                let newModel, cmd = StartPage.init model.Window
+            | ApiKey.Msg.Done { RateLimits = limits; Result = user } ->
+                let newModel, cmd = Start.init model.Window
                 let ini = setNexusApiKey model.Ini user.Key
                 saveIni ini
                 { model with
                       Ini = ini
                       NexusApiKey = user.Key
                       Limits = limits
-                      Page = StartPage newModel }, cmd
+                      Page = Start newModel }, cmd
 
             // Let it handle all the other messages
             | _ ->
-                let apiKeyPageModel, cmd = ApiKeyPage.update msg' m
-                { model with Page = ApiKeyPage apiKeyPageModel }, Cmd.map ApiKeyPageMsg cmd
+                let apiKeyModel, cmd = ApiKey.update msg' m
+                { model with Page = ApiKey apiKeyModel }, Cmd.map ApiKeyMsg cmd
         | _ -> failwith "Mismatch between current page and message"
 
-    | ErrorPageMsg msg' ->
+    | ErrorMsg msg' ->
         match model.Page with
-        | ErrorPage _ ->
+        | ErrorModel _ ->
             match msg' with
-            | ErrorPage.Msg.Done button ->
+            | Error.Msg.Done button ->
                 match button with
                 // TODO: Once we fail to reach the Nexus site, we continue to get host errors after reconnecting.
                 | "Retry" -> model, Cmd.ofMsg (ShellMsg VerifyApiKey)
                 | _ ->
-                    let newModel, cmd = StartPage.init model.Window
-                    { model with Page = StartPage newModel }, cmd
+                    let newModel, cmd = Start.init model.Window
+                    { model with Page = Start newModel }, cmd
         | _ -> failwith "Mismatch between current page and message"
 
 
@@ -134,9 +133,9 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
 
 let view (model: Model) (dispatch: Msg -> unit) =
     match model.Page with
-    | StartPage m -> StartPage.view m (StartPageMsg >> dispatch)
-    | ApiKeyPage m -> ApiKeyPage.view m (ApiKeyPageMsg >> dispatch)
-    | ErrorPage m -> ErrorPage.view m (ErrorPageMsg >> dispatch)
+    | Start m -> Start.view m (StartMsg >> dispatch)
+    | ApiKey m -> ApiKey.view m (ApiKeyMsg >> dispatch)
+    | ErrorModel m -> Error.view m (ErrorMsg >> dispatch)
 
 // Main
 

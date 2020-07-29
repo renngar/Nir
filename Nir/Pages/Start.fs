@@ -1,4 +1,4 @@
-module Nir.StartPage
+module Nir.Pages.Start
 
 open FSharp.Data
 

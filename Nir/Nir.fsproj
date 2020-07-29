@@ -8,9 +8,9 @@
     <Compile Include="Dialogs.fs" />
     <Compile Include="Controls.fs" />
     <Compile Include="DragDrop.fs" />
-    <Compile Include="ApiKeyPage.fs" />
-    <Compile Include="StartPage.fs" />
-    <Compile Include="ErrorPage.fs" />
+    <Compile Include="Pages\ApiKey.fs" />
+    <Compile Include="Pages\Start.fs" />
+    <Compile Include="Pages\Error.fs" />
     <Compile Include="Shell.fs" />
     <Compile Include="Program.fs" />
     <AvaloniaResource Include="**\*.xaml" />

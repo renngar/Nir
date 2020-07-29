@@ -1,4 +1,4 @@
-module Nir.ErrorPage
+module Nir.Pages.Error
 
 open Elmish
 open Avalonia.Controls
