@@ -66,11 +66,27 @@ let init window =
         [ spCmd
           Cmd.ofMsg <| ShellMsg VerifyApiKey ]
 
+type Update<'msg, 'model> = 'msg -> 'model -> ('model * Cmd<'msg>)
+
+/// Update a specific page
+let updatePage<'msg, 'model>
+    (model: Model)
+    (update: Update<'msg, 'model>)
+    (msgType: 'msg -> Msg)
+    (msg: 'msg)
+    (modelType: 'model -> PageModel)
+    (pageModel: 'model)
+    =
+    let newModel, cmd = update msg pageModel
+    { model with Page = modelType newModel }, Cmd.map msgType cmd
 
 // Update
 let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
-    match msg with
-    | ShellMsg msg' ->
+    let showPage pageModelType model (pageModel, cmd) = { model with Page = pageModelType pageModel}, cmd
+    let showStartPage model = Start.init model.Window |> showPage Start model
+
+    match msg, model.Page with
+    | ShellMsg msg', _ ->
         match msg' with
         | VerifyApiKey ->
             model,
@@ -78,55 +94,32 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
                 (fun _ -> ShellMsg DisplayApiKeyPage)
         | VerifiedApiKeyResult x ->
             match x with
-            | Ok _ -> model, Cmd.none
+            | Ok _ -> showStartPage model
             | Error { StatusCode = Unauthorized; Message = _ } -> model, Cmd.ofMsg (ShellMsg DisplayApiKeyPage)
             | Error { StatusCode = _; Message = msg } ->
-                let m, cmd = Error.init "Error Contacting Nexus" msg Error.Buttons.RetryCancel
-                { model with Page = ErrorModel m }, cmd
-        | DisplayApiKeyPage ->
-            let m, cmd = ApiKey.init
-            { model with Page = ApiKey m }, cmd
+                Error.init "Error Contacting Nexus" msg Error.Buttons.RetryCancel |> showPage ErrorModel model
+        | DisplayApiKeyPage -> ApiKey.init |> showPage ApiKey model
 
-    | StartMsg msg' ->
-        match model.Page with
-        | Start m ->
-            let startPageModel, cmd = Start.update msg' m
-            { model with Page = Start startPageModel }, Cmd.map StartMsg cmd
-        | _ -> failwith "Mismatch between current page and message"
+    // Grab the results when the API Key page is done and write it to the .ini
+    | ApiKeyMsg(ApiKey.Msg.Done { RateLimits = limits; Result = user }), ApiKey _ ->
+        let ini = setNexusApiKey model.Ini user.Key
+        saveIni ini
+        showStartPage
+            { model with
+                  Ini = ini
+                  NexusApiKey = user.Key
+                  Limits = limits }
 
-    | ApiKeyMsg msg' ->
-        match model.Page with
-        | ApiKey m ->
-            match msg' with
-            // Grab the results when the API Key page is done and write it to the .ini
-            | ApiKey.Msg.Done { RateLimits = limits; Result = user } ->
-                let newModel, cmd = Start.init model.Window
-                let ini = setNexusApiKey model.Ini user.Key
-                saveIni ini
-                { model with
-                      Ini = ini
-                      NexusApiKey = user.Key
-                      Limits = limits
-                      Page = Start newModel }, cmd
+    | ErrorMsg(Error.Msg.Done "Retry"), ErrorModel _ -> model, Cmd.ofMsg (ShellMsg VerifyApiKey)
+    | ErrorMsg(Error.Msg.Done _), ErrorModel _ ->
+        model.Window.Close()
+        model, Cmd.none
 
-            // Let it handle all the other messages
-            | _ ->
-                let apiKeyModel, cmd = ApiKey.update msg' m
-                { model with Page = ApiKey apiKeyModel }, Cmd.map ApiKeyMsg cmd
-        | _ -> failwith "Mismatch between current page and message"
+    | StartMsg msg', Start model' -> updatePage model Start.update StartMsg msg' Start model'
+    | ApiKeyMsg msg', ApiKey model' -> updatePage model ApiKey.update ApiKeyMsg msg' ApiKey model'
 
-    | ErrorMsg msg' ->
-        match model.Page with
-        | ErrorModel _ ->
-            match msg' with
-            | Error.Msg.Done button ->
-                match button with
-                // TODO: Once we fail to reach the Nexus site, we continue to get host errors after reconnecting.
-                | "Retry" -> model, Cmd.ofMsg (ShellMsg VerifyApiKey)
-                | _ ->
-                    let newModel, cmd = Start.init model.Window
-                    { model with Page = Start newModel }, cmd
-        | _ -> failwith "Mismatch between current page and message"
+    // Should never happen
+    | _ -> failwith "Mismatch between current page and message"
 
 
 // View
