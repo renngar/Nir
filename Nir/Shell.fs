@@ -25,6 +25,7 @@ type PageModel =
     | Start of Start.Model
     | ApiKey of ApiKey.Model
     | ErrorModel of Error.Model
+    | DownloadChecker of DownloadChecker.Model
 
 type Model =
     {
@@ -45,10 +46,11 @@ type ShellMsg =
     | DisplayApiKeyPage
 
 type Msg =
+    | ShellMsg of ShellMsg
     | StartMsg of Start.Msg
     | ApiKeyMsg of ApiKey.Msg
     | ErrorMsg of Error.Msg
-    | ShellMsg of ShellMsg
+    | DownloadCheckerMsg of DownloadChecker.Msg
 
 let init window =
     let startPageModel, spCmd = Start.init window
@@ -82,8 +84,8 @@ let updatePage<'msg, 'model>
 
 // Update
 let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
-    let showPage pageModelType model (pageModel, cmd) = { model with Page = pageModelType pageModel}, cmd
-    let showStartPage model = Start.init model.Window |> showPage Start model
+    let showPage pageModelType model (pageModel, cmd) = { model with Page = pageModelType pageModel }, cmd
+    let showMainPage model = showPage DownloadChecker model <| DownloadChecker.init model.Window
 
     match msg, model.Page with
     | ShellMsg msg', _ ->
@@ -94,7 +96,7 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
                 (fun _ -> ShellMsg DisplayApiKeyPage)
         | VerifiedApiKeyResult x ->
             match x with
-            | Ok _ -> showStartPage model
+            | Ok _ -> showMainPage model
             | Error { StatusCode = Unauthorized; Message = _ } -> model, Cmd.ofMsg (ShellMsg DisplayApiKeyPage)
             | Error { StatusCode = _; Message = msg } ->
                 Error.init "Error Contacting Nexus" msg Error.Buttons.RetryCancel |> showPage ErrorModel model
@@ -104,7 +106,7 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
     | ApiKeyMsg(ApiKey.Msg.Done { RateLimits = limits; Result = user }), ApiKey _ ->
         let ini = setNexusApiKey model.Ini user.Key
         saveIni ini
-        showStartPage
+        showMainPage
             { model with
                   Ini = ini
                   NexusApiKey = user.Key
@@ -117,10 +119,14 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
 
     | StartMsg msg', Start model' -> updatePage model Start.update StartMsg msg' Start model'
     | ApiKeyMsg msg', ApiKey model' -> updatePage model ApiKey.update ApiKeyMsg msg' ApiKey model'
+    | DownloadCheckerMsg msg', DownloadChecker model' ->
+        updatePage model DownloadChecker.update DownloadCheckerMsg msg' DownloadChecker model'
 
     // Should never happen
-    | _ -> failwith "Mismatch between current page and message"
-
+    | _, Start _
+    | _, ApiKey _
+    | _, DownloadChecker _
+    | _, ErrorModel _ -> failwith "Mismatch between current page and message"
 
 // View
 
@@ -129,6 +135,7 @@ let view (model: Model) (dispatch: Msg -> unit) =
     | Start m -> Start.view m (StartMsg >> dispatch)
     | ApiKey m -> ApiKey.view m (ApiKeyMsg >> dispatch)
     | ErrorModel m -> Error.view m (ErrorMsg >> dispatch)
+    | DownloadChecker m -> DownloadChecker.view m (DownloadCheckerMsg >> dispatch)
 
 // Main
 

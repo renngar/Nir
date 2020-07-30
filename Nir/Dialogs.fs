@@ -21,3 +21,20 @@ let promptHtmlFileName window = async {
     let! files = dialog.ShowAsync(window) |> Async.AwaitTask
     return files.[0]
 }
+
+let promptModArchive window = async {
+    let filters =
+        let filter = FileDialogFilter()
+        filter.Extensions <- List([ "7z"; "rar"; "zip" ])
+        filter.Name <- "Mod Archive"
+        seq { filter }
+
+    let dialog = OpenFileDialog()
+    dialog.Directory <-
+        Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
+    dialog.Title <- "Select a Mod Archive"
+    dialog.Filters <- List(filters)
+
+    let! files = dialog.ShowAsync(window) |> Async.AwaitTask
+    return files.[0]
+}
