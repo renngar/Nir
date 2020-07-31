@@ -85,7 +85,7 @@ let updatePage<'msg, 'model>
 // Update
 let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
     let showPage pageModelType model (pageModel, cmd) = { model with Page = pageModelType pageModel }, cmd
-    let showMainPage model = showPage DownloadChecker model <| DownloadChecker.init model.Window
+    let showMainPage model = showPage DownloadChecker model <| DownloadChecker.init model.Window model.NexusApiKey
 
     match msg, model.Page with
     | ShellMsg msg', _ ->

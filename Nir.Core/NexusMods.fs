@@ -82,6 +82,52 @@ let private rateLimit (headers: Headers): RateLimits =
       DailyRemaining = toInt headers "X-RL-Daily-Remaining"
       DailyReset = toDateTime headers "X-RL-Daily-Reset" }
 
+////////////////////////////////////////////////////////////////////////////////
+// Mods
+////////////////////////////////////////////////////////////////////////////////
+
+// /v1/games/{game_domain_name}/mods/md5_search/{md5_hash}.json
+////////////////////////////////////////////////////////////////////////////////
+
+type Md5SearchProvider = JsonProvider<"../Data/md5_search.json", RootName="Md5Search">
+
+type Md5Search = Md5SearchProvider.Md5Search
+
+let md5Search (apiKey, game, file) =
+    async {
+        try
+            let hash = Nir.Utility.Md5sum.md5sum file
+            let url = sprintf "https://api.nexusmods.com/v1/games/%s/mods/md5_search/%s.json" game hash
+            Console.Write("url = " + url)
+
+            // Setting silentHttpErrors returns the error response rather than throwing an exception.
+            let! result = Http.AsyncRequest
+                              (url,
+                               headers =
+                                   [ "Accept", "application/json"
+                                     "apikey", apiKey ], silentHttpErrors = true)
+
+            return match result.StatusCode with
+                   | HttpStatusCodes.OK ->
+                       match result.Body with
+                       | Text json ->
+                           Ok
+                               { RateLimits = rateLimit result.Headers
+                                 Result = Md5SearchProvider.Parse(json) }
+                       | Binary data ->
+                           apiError result.StatusCode
+                               (sprintf "Expected text, but got a %d byte binary response" data.Length)
+                   | status -> apiError status (result.Body.ToString())
+        with exn -> return apiError exn.HResult exn.Message
+    }
+
+////////////////////////////////////////////////////////////////////////////////
+// User
+////////////////////////////////////////////////////////////////////////////////
+
+// /vi/users/validate.json
+////////////////////////////////////////////////////////////////////////////////
+
 type ValidateProvider = JsonProvider<"../Data/validate.json", RootName="User">
 
 type User = ValidateProvider.User
