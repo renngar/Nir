@@ -10,6 +10,7 @@ open Avalonia.Media
 
 open Nir.Dialogs
 open Nir.DSL // FuncUI DragDrop support
+open Nir.Utility.Md5sum
 
 // Model
 
@@ -29,13 +30,11 @@ type Msg =
     | VerifyMods of seq<string>
     | MD5 of string
 
-let md5sum file = async { return "Not Implemented" }
-
 let update (msg: Msg) (model: Model): Model * Cmd<_> =
     match msg with
     | OpenFileDialog -> model, Cmd.OfAsync.perform promptModArchive model.Window FileSelected
     | VerifyMods fileNames -> model, Cmd.ofMsg (FileSelected(Seq.head fileNames))
-    | FileSelected file -> { model with Archive = file }, Cmd.OfAsync.perform md5sum file MD5
+    | FileSelected file -> { model with Archive = file }, Cmd.OfFunc.perform md5sum file MD5 // Cmd.OfAsync.perform md5sum file MD5
     | MD5 md5sum -> failwith "Not implemented"
 
 // View

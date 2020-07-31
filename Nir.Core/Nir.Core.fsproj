@@ -6,6 +6,7 @@
   <ItemGroup>
     <Compile Include="Utility\Ini.fs" />
     <Compile Include="Utility\Path.fs" />
+    <Compile Include="Utility\Md5sum.fs" />
     <Compile Include="NexusMods.fs" />
   </ItemGroup>
   <Import Project="..\.paket\Paket.Restore.targets" />
