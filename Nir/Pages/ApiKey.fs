@@ -17,13 +17,11 @@ open Nir.NexusMods
 // Model
 
 type Model =
-    { ApiKey: string
-      RateLimit: RateLimits option
+    { Nexus: Nexus
       User: User option }
 
-let init =
-    { ApiKey = ""
-      RateLimit = None
+let init nexus =
+    { Nexus = nexus
       User = None }, Cmd.none
 
 // Update
@@ -32,7 +30,7 @@ type Links = | NexusAccountPage
 
 type Msg =
     | OpenUrl of Links
-    | VerifyApiKey of string
+    | VerifyApiKey of ApiKey
     | AfterVerification of ApiResult<User>
     | Done of ApiSuccess<User> // Tell the "caller", the Shell, there are results
 
@@ -52,18 +50,18 @@ let update (msg: Msg) (model: Model): Model * Cmd<_> =
 
         model, Cmd.none
 
-    | VerifyApiKey apiKey -> model, Cmd.OfAsync.perform usersValidate apiKey AfterVerification
-    | AfterVerification(Ok { RateLimits = l; Result = user }) ->
-        { RateLimit = Some l
-          User = Some user
-          ApiKey = user.Key }, Cmd.none
+    | VerifyApiKey apiKey ->
+        model, Cmd.OfAsync.perform usersValidate { model.Nexus with ApiKey = apiKey } AfterVerification
+    | AfterVerification(Ok { Nexus = nexus; Result = user }) ->
+        { Nexus = { nexus with ApiKey = user.Key }
+          User = Some user }, Cmd.none
     | AfterVerification _ -> failwith "Not Implemented"
     | Done _ -> model, Cmd.none
 
 // View
 
 let view (model: Model) (dispatch: Msg -> unit) =
-    let goodApiKey = model.RateLimit.IsSome && model.User.IsSome
+    let goodApiKey = model.User.IsSome
 
     let (children: IView list) =
         [ TextBlock.create
@@ -108,13 +106,13 @@ let view (model: Model) (dispatch: Msg -> unit) =
                             TextBox.acceptsTab false
                             // This is tacky, but Ctrl-Insert does not work with Avalonia
                             TextBox.tip (ToolTip.create [ ToolTip.content [ "Ctrl-V to paste" ] ])
-                            TextBox.text model.ApiKey
+                            TextBox.text model.Nexus.ApiKey
                             TextBox.onTextChanged (VerifyApiKey >> dispatch) ] ] ] ]
 
     // If it validated successfully, display some account information
-    let (extra: IView list) =
-        match model.RateLimit, model.User with
-        | Some limits, Some user ->
+    let extra: IView list =
+        match model.User with
+        | Some user ->
             [ TextBlock.create
                 [ TextBlock.classes [ "h2" ]
                   TextBlock.textWrapping TextWrapping.Wrap
@@ -127,10 +125,10 @@ let view (model: Model) (dispatch: Msg -> unit) =
                     Button.content "Continue"
                     Button.onClick (fun _ ->
                         Done
-                            ({ RateLimits = limits
-                               Result = user })
+                            { Nexus = model.Nexus
+                              Result = user }
                         |> dispatch) ] ]
-        | _, _ -> []
+        | None -> []
 
     DockPanel.create
         [ DockPanel.children

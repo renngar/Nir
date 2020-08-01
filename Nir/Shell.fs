@@ -28,13 +28,8 @@ type PageModel =
     | DownloadChecker of DownloadChecker.Model
 
 type Model =
-    {
-      // Settings
-      Ini: Ini
-
-      // Web
-      NexusApiKey: string
-      Limits: RateLimits
+    { Ini: Ini
+      Nexus: Nexus
 
       // UI
       Page: PageModel
@@ -60,8 +55,9 @@ let init window =
         |> parseIniFile
         |> nexusApiKey
     { Ini = ini
-      NexusApiKey = key
-      Limits = RateLimits.initialLimits
+      Nexus =
+          { ApiKey = key
+            RateLimits = RateLimits.initialLimits }
       Page = Start startPageModel
       Window = window },
     Cmd.batch
@@ -85,14 +81,14 @@ let updatePage<'msg, 'model>
 // Update
 let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
     let showPage pageModelType model (pageModel, cmd) = { model with Page = pageModelType pageModel }, cmd
-    let showMainPage model = showPage DownloadChecker model <| DownloadChecker.init model.Window model.NexusApiKey
+    let showMainPage model = showPage DownloadChecker model <| DownloadChecker.init model.Window model.Nexus
 
     match msg, model.Page with
     | ShellMsg msg', _ ->
         match msg' with
         | VerifyApiKey ->
             model,
-            Cmd.OfAsync.either usersValidate model.NexusApiKey (ShellMsg << VerifiedApiKeyResult)
+            Cmd.OfAsync.either usersValidate model.Nexus (ShellMsg << VerifiedApiKeyResult)
                 (fun _ -> ShellMsg DisplayApiKeyPage)
         | VerifiedApiKeyResult x ->
             match x with
@@ -100,17 +96,16 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
             | Error { StatusCode = Unauthorized; Message = _ } -> model, Cmd.ofMsg (ShellMsg DisplayApiKeyPage)
             | Error { StatusCode = _; Message = msg } ->
                 Error.init "Error Contacting Nexus" msg Error.Buttons.RetryCancel |> showPage ErrorModel model
-        | DisplayApiKeyPage -> ApiKey.init |> showPage ApiKey model
+        | DisplayApiKeyPage -> ApiKey.init model.Nexus |> showPage ApiKey model
 
     // Grab the results when the API Key page is done and write it to the .ini
-    | ApiKeyMsg(ApiKey.Msg.Done { RateLimits = limits; Result = user }), ApiKey _ ->
+    | ApiKeyMsg(ApiKey.Msg.Done { Nexus = nexus; Result = user }), ApiKey _ ->
         let ini = setNexusApiKey model.Ini user.Key
         saveIni ini
         showMainPage
             { model with
                   Ini = ini
-                  NexusApiKey = user.Key
-                  Limits = limits }
+                  Nexus = nexus }
 
     | ErrorMsg(Error.Msg.Done "Retry"), ErrorModel _ -> model, Cmd.ofMsg (ShellMsg VerifyApiKey)
     | ErrorMsg(Error.Msg.Done _), ErrorModel _ ->

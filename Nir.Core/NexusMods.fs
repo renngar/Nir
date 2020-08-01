@@ -6,17 +6,17 @@ open FSharp.Data
 
 open Utility.INI
 
-let Nexus = "Nexus"
-let ApiKey = "ApiKey"
+let NexusSection = "Nexus"
+let ApiKeyProp = "ApiKey"
 
 /// Get the Nexus Mods API Key, if any, from the ini
 let nexusApiKey ini: IniPropertyValue * Ini =
     ini
-    |> section Nexus
-    |> property ApiKey
+    |> section NexusSection
+    |> property ApiKeyProp
     |> propertyValue
 
-let setNexusApiKey ini value = setIniProperty ini Nexus ApiKey value
+let setNexusApiKey ini value = setIniProperty ini NexusSection ApiKeyProp value
 
 /// The rate limiting data returned by the Nexus Mods APIs. The limits are as follows:
 ///
@@ -47,6 +47,14 @@ type RateLimits =
           DailyRemaining = 2500
           DailyReset = now }
 
+/// A Nexus API key
+type ApiKey = string
+
+/// Data specific to Nexus
+type Nexus =
+    { ApiKey: ApiKey
+      RateLimits: RateLimits }
+
 /// A map of HTTP header and values
 type Headers = Map<string, string>
 
@@ -55,7 +63,7 @@ type StatusCode = int
 
 /// A Nexus Mods API call succeeded returning the given rate limits and value
 type ApiSuccess<'T> =
-    { RateLimits: RateLimits
+    { Nexus: Nexus
       Result: 'T }
 
 /// A Nexus Mods API call failed with a given status code and message
@@ -93,7 +101,7 @@ type Md5SearchProvider = JsonProvider<"../Data/md5_search.json", RootName="Md5Se
 
 type Md5Search = Md5SearchProvider.Md5Search
 
-let md5Search (apiKey, game, file) =
+let md5Search (nexus, game, file) =
     async {
         try
             let hash = Nir.Utility.Md5sum.md5sum file
@@ -105,14 +113,14 @@ let md5Search (apiKey, game, file) =
                               (url,
                                headers =
                                    [ "Accept", "application/json"
-                                     "apikey", apiKey ], silentHttpErrors = true)
+                                     "apikey", nexus.ApiKey ], silentHttpErrors = true)
 
             return match result.StatusCode with
                    | HttpStatusCodes.OK ->
                        match result.Body with
                        | Text json ->
                            Ok
-                               { RateLimits = rateLimit result.Headers
+                               { Nexus = { nexus with RateLimits = rateLimit result.Headers }
                                  Result = Md5SearchProvider.Parse(json) }
                        | Binary data ->
                            apiError result.StatusCode
@@ -133,7 +141,7 @@ type ValidateProvider = JsonProvider<"../Data/validate.json", RootName="User">
 type User = ValidateProvider.User
 
 /// Validates the user's `apiKey` with Nexus, returns
-let usersValidate apiKey =
+let usersValidate nexus: Async<ApiResult<User>> =
     async {
         try
             // Setting silentHttpErrors returns the error response rather than throwing an exception.
@@ -141,14 +149,14 @@ let usersValidate apiKey =
                               ("https://api.nexusmods.com/v1/users/validate.json",
                                headers =
                                    [ "Accept", "application/json"
-                                     "apikey", apiKey ], silentHttpErrors = true)
+                                     "apikey", nexus.ApiKey ], silentHttpErrors = true)
 
             return match result.StatusCode with
                    | HttpStatusCodes.OK ->
                        match result.Body with
                        | Text json ->
                            Ok
-                               { RateLimits = rateLimit result.Headers
+                               { Nexus = { nexus with RateLimits = rateLimit result.Headers }
                                  Result = ValidateProvider.Parse(json) }
                        | Binary data ->
                            apiError result.StatusCode

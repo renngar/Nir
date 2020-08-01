@@ -16,12 +16,12 @@ open Nir.NexusMods
 
 type Model =
     { Window: Window
-      ApiKey: string
+      Nexus: Nexus
       Archive: string }
 
-let init window apiKey =
+let init window nexus =
     { Window = window
-      ApiKey = apiKey
+      Nexus = nexus
       Archive = "" }, Cmd.none
 
 // Update
@@ -37,7 +37,7 @@ let update (msg: Msg) (model: Model): Model * Cmd<_> =
     | OpenFileDialog -> model, Cmd.OfAsync.perform promptModArchive model.Window FileSelected
     | VerifyMods fileNames -> model, Cmd.ofMsg (FileSelected(Seq.head fileNames))
     | FileSelected file ->
-        { model with Archive = file }, Cmd.OfAsync.perform md5Search (model.ApiKey, "skyrim", file) MD5
+        { model with Archive = file }, Cmd.OfAsync.perform md5Search (model.Nexus, "skyrim", file) MD5
     | MD5 md5sum -> failwith "Not implemented"
 
 // View
