@@ -4,6 +4,7 @@ open System
 
 open FSharp.Data
 
+open Nir.Utility
 open Utility.INI
 
 let NexusSection = "Nexus"
@@ -90,6 +91,30 @@ let private rateLimit (headers: Headers): RateLimits =
       DailyRemaining = toInt headers "X-RL-Daily-Remaining"
       DailyReset = toDateTime headers "X-RL-Daily-Reset" }
 
+let callApi nexus parser apiUrl =
+    async {
+        try
+            // Setting silentHttpErrors returns the error response rather than throwing an exception.
+            let! result = Http.AsyncRequest
+                              (apiUrl,
+                               headers =
+                                   [ "Accept", "application/json"
+                                     "apikey", nexus.ApiKey ], silentHttpErrors = true)
+
+            return match result.StatusCode with
+                   | HttpStatusCodes.OK ->
+                       match result.Body with
+                       | Text json ->
+                           Ok
+                               { Nexus = { nexus with RateLimits = rateLimit result.Headers }
+                                 Result = parser (json) }
+                       | Binary data ->
+                           apiError result.StatusCode
+                               (sprintf "Expected text, but got a %d byte binary response" data.Length)
+                   | status -> apiError status (result.Body.ToString())
+        with exn -> return apiError exn.HResult exn.Message
+    }
+
 ////////////////////////////////////////////////////////////////////////////////
 // Mods
 ////////////////////////////////////////////////////////////////////////////////
@@ -103,30 +128,9 @@ type Md5Search = Md5SearchProvider.Md5Search
 
 let md5Search (nexus, game, file) =
     async {
-        try
-            let hash = Nir.Utility.Md5sum.md5sum file
-            let url = sprintf "https://api.nexusmods.com/v1/games/%s/mods/md5_search/%s.json" game hash
-            Console.Write("url = " + url)
-
-            // Setting silentHttpErrors returns the error response rather than throwing an exception.
-            let! result = Http.AsyncRequest
-                              (url,
-                               headers =
-                                   [ "Accept", "application/json"
-                                     "apikey", nexus.ApiKey ], silentHttpErrors = true)
-
-            return match result.StatusCode with
-                   | HttpStatusCodes.OK ->
-                       match result.Body with
-                       | Text json ->
-                           Ok
-                               { Nexus = { nexus with RateLimits = rateLimit result.Headers }
-                                 Result = Md5SearchProvider.Parse(json) }
-                       | Binary data ->
-                           apiError result.StatusCode
-                               (sprintf "Expected text, but got a %d byte binary response" data.Length)
-                   | status -> apiError status (result.Body.ToString())
-        with exn -> return apiError exn.HResult exn.Message
+        return! Md5sum.md5sum file
+                |> sprintf "https://api.nexusmods.com/v1/games/%s/mods/md5_search/%s.json" game
+                |> callApi nexus Md5SearchProvider.Parse
     }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -140,27 +144,6 @@ type ValidateProvider = JsonProvider<"../Data/validate.json", RootName="User">
 
 type User = ValidateProvider.User
 
-/// Validates the user's `apiKey` with Nexus, returns
+/// Validates the user's `apiKey` with Nexus
 let usersValidate nexus: Async<ApiResult<User>> =
-    async {
-        try
-            // Setting silentHttpErrors returns the error response rather than throwing an exception.
-            let! result = Http.AsyncRequest
-                              ("https://api.nexusmods.com/v1/users/validate.json",
-                               headers =
-                                   [ "Accept", "application/json"
-                                     "apikey", nexus.ApiKey ], silentHttpErrors = true)
-
-            return match result.StatusCode with
-                   | HttpStatusCodes.OK ->
-                       match result.Body with
-                       | Text json ->
-                           Ok
-                               { Nexus = { nexus with RateLimits = rateLimit result.Headers }
-                                 Result = ValidateProvider.Parse(json) }
-                       | Binary data ->
-                           apiError result.StatusCode
-                               (sprintf "Expected text, but got a %d byte binary response" data.Length)
-                   | status -> apiError status (result.Body.ToString())
-        with exn -> return apiError exn.HResult exn.Message
-    }
+    async { return! callApi nexus ValidateProvider.Parse "https://api.nexusmods.com/v1/users/validate.json" }
