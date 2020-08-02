@@ -91,6 +91,10 @@ let private rateLimit (headers: Headers): RateLimits =
       DailyRemaining = toInt headers "X-RL-Daily-Remaining"
       DailyReset = toDateTime headers "X-RL-Daily-Reset" }
 
+type NexusErrorProvider = JsonProvider<"../Data/error.json", RootName="NexusError">
+
+type NexusError = NexusErrorProvider.NexusError
+
 let callApi nexus parser apiUrl =
     async {
         try
@@ -101,17 +105,19 @@ let callApi nexus parser apiUrl =
                                    [ "Accept", "application/json"
                                      "apikey", nexus.ApiKey ], silentHttpErrors = true)
 
-            return match result.StatusCode with
-                   | HttpStatusCodes.OK ->
-                       match result.Body with
-                       | Text json ->
+            return match result.Body with
+                   | Text json ->
+                       match result.StatusCode with
+                       | HttpStatusCodes.OK ->
                            Ok
                                { Nexus = { nexus with RateLimits = rateLimit result.Headers }
                                  Result = parser (json) }
-                       | Binary data ->
-                           apiError result.StatusCode
-                               (sprintf "Expected text, but got a %d byte binary response" data.Length)
-                   | status -> apiError status (result.Body.ToString())
+                       | status ->
+                           NexusErrorProvider.Parse(json).Message
+                           |> apiError status
+                   | Binary data ->
+                       apiError result.StatusCode
+                           (sprintf "Expected text, but got a %d byte binary response" data.Length)
         with exn -> return apiError exn.HResult exn.Message
     }
 
