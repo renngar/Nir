@@ -1,5 +1,6 @@
 # The sample data was longer than I want to use for the JSON type provider
 /Data-unedited
+/Published
 
 # Don't write my Nexus Mods API Key to the repo
 /Nir/Nir.ini
