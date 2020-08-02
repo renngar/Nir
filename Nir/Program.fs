@@ -3,8 +3,10 @@ namespace Nir
 open System
 
 open Avalonia
+open Avalonia.Controls
 open Avalonia.Controls.ApplicationLifetimes
 open Avalonia.FuncUI
+open Avalonia.Platform
 
 open Nir.Utility.Path
 
@@ -21,7 +23,10 @@ type App() =
     override this.OnFrameworkInitializationCompleted() =
         match this.ApplicationLifetime with
         | :? IClassicDesktopStyleApplicationLifetime as desktopLifetime ->
-            desktopLifetime.MainWindow <- Shell.MainWindow()
+            let assets = AvaloniaLocator.Current.GetService<IAssetLoader>()
+            let window = Shell.MainWindow()
+            window.Icon <- WindowIcon(assets.Open(Uri("avares://Nir/Assets/Icons/Nir.ico")))
+            desktopLifetime.MainWindow <- window
         | _ -> ()
 
 module Program =

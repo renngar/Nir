@@ -15,6 +15,7 @@
     <Compile Include="Shell.fs" />
     <Compile Include="Program.fs" />
     <AvaloniaResource Include="**\*.xaml" />
+    <AvaloniaResource Include="Assets\Icons\**" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Nir.Core\Nir.Core.fsproj" />
