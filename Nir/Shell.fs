@@ -81,7 +81,9 @@ let updatePage<'msg, 'model>
 // Update
 let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
     let showPage pageModelType model (pageModel, cmd) = { model with Page = pageModelType pageModel }, cmd
-    let showMainPage model = showPage DownloadChecker model <| DownloadChecker.init model.Window model.Nexus
+    let showMainPage model =
+        let pageModel, cmd = DownloadChecker.init model.Window model.Nexus
+        showPage DownloadChecker model (pageModel, Cmd.map DownloadCheckerMsg cmd)
 
     match msg, model.Page with
     | ShellMsg msg', _ ->

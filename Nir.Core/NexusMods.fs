@@ -112,9 +112,7 @@ let callApi nexus parser apiUrl =
                            Ok
                                { Nexus = { nexus with RateLimits = rateLimit result.Headers }
                                  Result = parser (json) }
-                       | status ->
-                           NexusErrorProvider.Parse(json).Message
-                           |> apiError status
+                       | status -> NexusErrorProvider.Parse(json).Message |> apiError status
                    | Binary data ->
                        apiError result.StatusCode
                            (sprintf "Expected text, but got a %d byte binary response" data.Length)
@@ -137,6 +135,24 @@ let md5Search (nexus, game, file) =
         return! Md5sum.md5sum file
                 |> sprintf "https://api.nexusmods.com/v1/games/%s/mods/md5_search/%s.json" game
                 |> callApi nexus Md5SearchProvider.Parse
+    }
+
+////////////////////////////////////////////////////////////////////////////////
+// Games
+////////////////////////////////////////////////////////////////////////////////
+
+// /v1/games.json?include_unapproved=<bool>
+////////////////////////////////////////////////////////////////////////////////
+
+type GamesProvider = JsonProvider<"../Data/games.json", RootName="Games">
+
+type Game = GamesProvider.Game
+
+let games (nexus, includeUnapproved) =
+    async {
+        return! if includeUnapproved then "true" else "false"
+                |> sprintf "https://api.nexusmods.com/v1/games.json?include_unapproved=%s"
+                |> callApi nexus GamesProvider.Parse
     }
 
 ////////////////////////////////////////////////////////////////////////////////
