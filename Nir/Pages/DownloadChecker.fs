@@ -18,10 +18,10 @@ open Nir.NexusMods
 type Msg =
     | FetchGames
     | GotGames of ApiResult<Game []>
-    | GameSelected of int
+    | GameChanged of int
     | OpenFileDialog
-    | FileSelected of string
-    | VerifyMods of seq<string>
+    | SelectionChanged of seq<string>
+    | CheckFile of string
     | MD5 of ApiResult<Md5Search []>
 
 // Model
@@ -50,6 +50,12 @@ let init window nexus =
 // Update
 
 let update (msg: Msg) (model: Model): Model * Cmd<_> =
+    let maybeCheckFile model =
+        model,
+        Cmd.batch
+            [ if model.SelectedGames.IsEmpty || model.Archive.Length = 0
+              then yield Cmd.none
+              else yield Cmd.ofMsg (CheckFile model.Archive) ]
     match msg with
     | FetchGames -> model, Cmd.OfAsync.perform games (model.Nexus, false) GotGames
     | GotGames games ->
@@ -61,13 +67,13 @@ let update (msg: Msg) (model: Model): Model * Cmd<_> =
                   Games = gs }, Cmd.none
         // (if model.SelectedGames.IsEmpty then Cmd.ofMsg (GameSelected 0) else Cmd.none)
         | Error _ -> model, Cmd.none
-    | GameSelected n ->
-        { model with SelectedGames = [ model.Games.[n] ] },
-        (if model.SelectedGames.IsEmpty then Cmd.none else Cmd.ofMsg (FileSelected model.Archive))
-    | OpenFileDialog -> model, Cmd.OfAsync.perform promptModArchive model.Window FileSelected
-    | VerifyMods fileNames -> model, Cmd.ofMsg (FileSelected(Seq.head fileNames))
-    | FileSelected file ->
-        { model with Archive = file },
+    | GameChanged n -> maybeCheckFile { model with SelectedGames = [ model.Games.[n] ] }
+    | OpenFileDialog -> model, Cmd.OfAsync.perform promptModArchive model.Window CheckFile
+    | SelectionChanged fileNames -> maybeCheckFile { model with Archive = Seq.head fileNames }
+    | CheckFile file ->
+        { model with
+              Archive = file
+              State = Unchecked },
         Cmd.OfAsync.perform md5Search (model.Nexus, model.SelectedGames.Head.DomainName, file) MD5
     | MD5 r ->
         match r with
@@ -98,7 +104,7 @@ let view (model: Model) (dispatch: Msg -> unit) =
                      (if model.Games.Length = 0 then
                          "Fetching games from Nexus..."
                       elif isGameSelected then
-                          "Drop mod archives below to verify they were correctly downloaded from Nexus"
+                          "Drop a mod archive below to verify it was correctly downloaded from Nexus"
                       else
                           "Select your game below")
           yield Grid.create
@@ -116,7 +122,7 @@ let view (model: Model) (dispatch: Msg -> unit) =
                                                          .create
                                                              (fun data ->
                                                                  TextBlock.create [ TextBlock.text data.Name ]))
-                                                 ComboBox.onSelectedIndexChanged (GameSelected >> dispatch) ]
+                                                 ComboBox.onSelectedIndexChanged (GameChanged >> dispatch) ]
                                         if model.SelectedGames.IsEmpty then yield ComboBox.height 30.0 ]
                             if isGameSelected then
                                 yield TextBox.create
@@ -131,7 +137,7 @@ let view (model: Model) (dispatch: Msg -> unit) =
                                             DragDrop.onDrop (fun e ->
                                                 if e.Data.Contains(DataFormats.FileNames) then
                                                     e.Data.GetFileNames()
-                                                    |> VerifyMods
+                                                    |> SelectionChanged
                                                     |> dispatch)
                                             TextBox.textWrapping TextWrapping.Wrap
                                             TextBox.watermark "Mod archive to verify"
@@ -144,7 +150,7 @@ let view (model: Model) (dispatch: Msg -> unit) =
                                             TextBox.text model.Archive
                                             TextBox.onTextChanged
                                                 ((fun s -> seq { s })
-                                                 >> VerifyMods
+                                                 >> SelectionChanged
                                                  >> dispatch) ]
                                 yield Button.create
                                           [ Grid.column 2
@@ -160,8 +166,8 @@ let view (model: Model) (dispatch: Msg -> unit) =
               let r = rs.[0]
               yield! titleAndSub r.Mod.Name r.Mod.Summary
               yield TextBlock.create
-                      [ TextBlock.fontWeight FontWeight.Bold
-                        TextBlock.text r.FileDetails.Name ]
+                        [ TextBlock.fontWeight FontWeight.Bold
+                          TextBlock.text r.FileDetails.Name ]
           | NotFound { StatusCode = code; Message = msg } ->
               yield TextBlock.create
                         [ TextBlock.classes [ "error" ]
