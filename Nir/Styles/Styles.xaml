@@ -7,7 +7,7 @@
   <StyleInclude Source="avares://Nir/Styles/Button.xaml" />
   
   <Style Selector="TextBlock.error">
-    <Setter Property="Foreground" Value="#ff3100" />
+    <Setter Property="Foreground" Value="{DynamicResource ErrorBrush}" />
     <Setter Property="FontSize" Value="{DynamicResource FontSizeLarge}"/>
     <Setter Property="FontWeight" Value="Medium"/>
   </Style>
