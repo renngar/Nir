@@ -12,7 +12,7 @@ open Avalonia.Layout
 open Avalonia.Media
 
 open Nir.DSL
-open Nir.NexusMods
+open Nir.NexusApi
 
 // Model
 

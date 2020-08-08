@@ -13,7 +13,7 @@ open Avalonia.Media
 
 open Nir.Dialogs
 open Nir.DSL // FuncUI DragDrop support
-open Nir.NexusMods
+open Nir.NexusApi
 
 type Msg =
     | FetchGames

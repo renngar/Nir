@@ -1,4 +1,4 @@
-module Nir.NexusMods
+module Nir.NexusApi
 
 open System
 

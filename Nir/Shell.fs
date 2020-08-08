@@ -15,7 +15,7 @@ open Avalonia.Input // KeyGesture
 #endif
 
 open Nir.Pages
-open Nir.NexusMods
+open Nir.NexusApi
 open Nir.Utility.INI
 open Nir.Utility.Path
 
