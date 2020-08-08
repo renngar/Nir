@@ -131,11 +131,11 @@ type Md5SearchProvider = JsonProvider<"../Data/md5_search.json", RootName="Md5Se
 type Md5Search = Md5SearchProvider.Md5Search
 
 let md5Search (nexus, game, file) =
-    async {
-        return! Md5sum.md5sum file
-                |> sprintf "https://api.nexusmods.com/v1/games/%s/mods/md5_search/%s.json" game
-                |> callApi nexus Md5SearchProvider.Parse
-    }
+    try
+       Md5sum.md5sum file
+       |> sprintf "https://api.nexusmods.com/v1/games/%s/mods/md5_search/%s.json" game
+       |> callApi nexus Md5SearchProvider.Parse
+    with _ -> async { return apiError -1 "Non-existent file" }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Games
@@ -149,11 +149,9 @@ type GamesProvider = JsonProvider<"../Data/games.json", RootName="Games">
 type Game = GamesProvider.Game
 
 let games (nexus, includeUnapproved) =
-    async {
-        return! if includeUnapproved then "true" else "false"
-                |> sprintf "https://api.nexusmods.com/v1/games.json?include_unapproved=%s"
-                |> callApi nexus GamesProvider.Parse
-    }
+    if includeUnapproved then "true" else "false"
+    |> sprintf "https://api.nexusmods.com/v1/games.json?include_unapproved=%s"
+    |> callApi nexus GamesProvider.Parse
 
 ////////////////////////////////////////////////////////////////////////////////
 // User
@@ -168,4 +166,4 @@ type User = ValidateProvider.User
 
 /// Validates the user's `apiKey` with Nexus
 let usersValidate nexus: Async<ApiResult<User>> =
-    async { return! callApi nexus ValidateProvider.Parse "https://api.nexusmods.com/v1/users/validate.json" }
+    callApi nexus ValidateProvider.Parse "https://api.nexusmods.com/v1/users/validate.json"

@@ -69,7 +69,11 @@ let update (msg: Msg) (model: Model): Model * Cmd<_> =
         | Error _ -> model, Cmd.none
     | GameChanged n -> maybeCheckFile { model with SelectedGames = [ model.Games.[n] ] }
     | OpenFileDialog -> model, Cmd.OfAsync.perform promptModArchive model.Window CheckFile
-    | SelectionChanged fileNames -> maybeCheckFile { model with Archive = Seq.head fileNames }
+    | SelectionChanged fileNames ->
+        maybeCheckFile
+            { model with
+                  Archive = Seq.head fileNames
+                  State = Unchecked }
     | CheckFile file ->
         { model with
               Archive = file
