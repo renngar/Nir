@@ -118,7 +118,7 @@ let view (model: Model) (dispatch: Msg -> unit) =
                           [ yield ComboBox.create
                                       [ yield! [ Grid.column 0
                                                  ComboBox.margin (0.0, 0.0, 8.0, 0.0)
-                                                 // ComboBox.width 180.0
+                                                 ComboBox.virtualizationMode ItemVirtualizationMode.Simple
                                                  ComboBox.isEnabled (model.Games.Length > 0)
                                                  ComboBox.dataItems model.Games
                                                  ComboBox.itemTemplate
