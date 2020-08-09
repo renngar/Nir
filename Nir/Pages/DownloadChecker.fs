@@ -27,7 +27,8 @@ type Msg =
 // Model
 
 type ArchiveState =
-    | Unchecked
+    | None
+    | Checking
     | Found of Md5Search []
     | NotFound of ApiError
 
@@ -45,7 +46,7 @@ let init window nexus =
       Games = [||]
       SelectedGames = []
       Archive = ""
-      State = Unchecked }, Cmd.ofMsg FetchGames
+      State = None }, Cmd.ofMsg FetchGames
 
 // Update
 
@@ -73,11 +74,11 @@ let update (msg: Msg) (model: Model): Model * Cmd<_> =
         maybeCheckFile
             { model with
                   Archive = Seq.head fileNames
-                  State = Unchecked }
+                  State = None }
     | CheckFile file ->
         { model with
               Archive = file
-              State = Unchecked },
+              State = Checking },
         Cmd.OfAsync.perform md5Search (model.Nexus, model.SelectedGames.Head.DomainName, file) MD5
     | MD5 r ->
         match r with
@@ -111,61 +112,66 @@ let view (model: Model) (dispatch: Msg -> unit) =
                           "Drop a mod archive below to verify it was correctly downloaded from Nexus"
                       else
                           "Select your game below")
-          yield Grid.create
-                    [ Grid.columnDefinitions (if isGameSelected then "auto, *, auto" else "*")
-                      Grid.margin (0.0, 16.0)
-                      Grid.children
-                          [ yield ComboBox.create
-                                      [ yield! [ Grid.column 0
-                                                 ComboBox.margin (0.0, 0.0, 8.0, 0.0)
-                                                 ComboBox.virtualizationMode ItemVirtualizationMode.Simple
-                                                 ComboBox.isEnabled (model.Games.Length > 0)
-                                                 ComboBox.dataItems model.Games
-                                                 ComboBox.itemTemplate
-                                                     (DataTemplateView<Game>
-                                                         .create
-                                                             (fun data ->
-                                                                 TextBlock.create [ TextBlock.text data.Name ]))
-                                                 ComboBox.onSelectedIndexChanged (GameChanged >> dispatch) ]
-                                        if model.SelectedGames.IsEmpty then yield ComboBox.height 30.0 ]
-                            if isGameSelected then
-                                yield TextBox.create
-                                          [ Grid.column 1
-                                            DragDrop.allowDrop true
-                                            DragDrop.onDragOver (fun e ->
-                                                e.DragEffects <-
+          if model.Games.Length = 0 then
+              yield ProgressBar.create
+                        [ ProgressBar.isIndeterminate true
+                          ProgressBar.margin (0.0, 16.0) ]
+          else
+              yield Grid.create
+                        [ Grid.columnDefinitions (if isGameSelected then "auto, *, auto" else "*")
+                          Grid.margin (0.0, 16.0)
+                          Grid.children
+                              [ yield ComboBox.create
+                                          [ yield! [ Grid.column 0
+                                                     ComboBox.margin (0.0, 0.0, 8.0, 0.0)
+                                                     ComboBox.virtualizationMode ItemVirtualizationMode.Simple
+                                                     ComboBox.dataItems model.Games
+                                                     ComboBox.itemTemplate
+                                                         (DataTemplateView<Game>
+                                                             .create
+                                                                 (fun data ->
+                                                                     TextBlock.create [ TextBlock.text data.Name ]))
+                                                     ComboBox.onSelectedIndexChanged (GameChanged >> dispatch) ]
+                                            if model.SelectedGames.IsEmpty then yield ComboBox.height 30.0 ]
+                                if isGameSelected then
+                                    yield TextBox.create
+                                              [ Grid.column 1
+                                                DragDrop.allowDrop true
+                                                DragDrop.onDragOver (fun e ->
+                                                    e.DragEffects <-
+                                                        if e.Data.Contains(DataFormats.FileNames) then
+                                                            e.DragEffects &&& DragDropEffects.Copy
+                                                        else
+                                                            DragDropEffects.None)
+                                                DragDrop.onDrop (fun e ->
                                                     if e.Data.Contains(DataFormats.FileNames) then
-                                                        e.DragEffects &&& DragDropEffects.Copy
-                                                    else
-                                                        DragDropEffects.None)
-                                            DragDrop.onDrop (fun e ->
-                                                if e.Data.Contains(DataFormats.FileNames) then
-                                                    e.Data.GetFileNames()
-                                                    |> SelectionChanged
-                                                    |> dispatch)
-                                            TextBox.textWrapping TextWrapping.Wrap
-                                            TextBox.watermark "Mod archive to verify"
-                                            // TextBox.height 30.0
-                                            TextBox.verticalAlignment VerticalAlignment.Center
-                                            TextBox.acceptsReturn false
-                                            TextBox.acceptsTab false
-                                            // This is tacky, but Ctrl-Insert does not work with Avalonia
-                                            TextBox.tip (ToolTip.create [ ToolTip.content [ "Ctrl-V to paste" ] ])
-                                            TextBox.text model.Archive
-                                            TextBox.onTextChanged
-                                                ((fun s -> seq { s })
-                                                 >> SelectionChanged
-                                                 >> dispatch) ]
-                                yield Button.create
-                                          [ Grid.column 2
-                                            Button.margin (8.0, 0.0, 0.0, 0.0)
-                                            Button.isDefault true
-                                            Button.classes [ "default" ]
-                                            Button.onClick (fun _ -> dispatch OpenFileDialog)
-                                            Button.content "Browse..." ] ] ]
+                                                        e.Data.GetFileNames()
+                                                        |> SelectionChanged
+                                                        |> dispatch)
+                                                TextBox.textWrapping TextWrapping.Wrap
+                                                TextBox.watermark "Mod archive to verify"
+                                                // TextBox.height 30.0
+                                                TextBox.verticalAlignment VerticalAlignment.Center
+                                                TextBox.acceptsReturn false
+                                                TextBox.acceptsTab false
+                                                // This is tacky, but Ctrl-Insert does not work with Avalonia
+                                                TextBox.tip (ToolTip.create [ ToolTip.content [ "Ctrl-V to paste" ] ])
+                                                TextBox.text model.Archive
+                                                TextBox.onTextChanged
+                                                    ((fun s -> seq { s })
+                                                     >> SelectionChanged
+                                                     >> dispatch) ]
+                                    yield Button.create
+                                              [ Grid.column 2
+                                                Button.margin (8.0, 0.0, 0.0, 0.0)
+                                                Button.isDefault true
+                                                Button.classes [ "default" ]
+                                                Button.onClick (fun _ -> dispatch OpenFileDialog)
+                                                Button.content "Browse..." ] ] ]
 
           match model.State with
-          | Unchecked -> ()
+          | None -> ()
+          | Checking -> yield ProgressBar.create [ ProgressBar.isIndeterminate true ]
           | Found rs ->
               let r = rs.[0]
               yield! titleAndSub r.Mod.Name r.Mod.Summary
