@@ -4,7 +4,6 @@ open System
 
 open FSharp.Data
 
-open Nir.Utility
 open Utility.INI
 
 let NexusSection = "Nexus"
@@ -130,10 +129,9 @@ type Md5SearchProvider = JsonProvider<"../Data/md5_search.json", RootName="Md5Se
 
 type Md5Search = Md5SearchProvider.Md5Search
 
-let md5Search (nexus, game, file) =
+let md5Search (nexus, game, hash) =
     try
-       Md5sum.md5sum file
-       |> sprintf "https://api.nexusmods.com/v1/games/%s/mods/md5_search/%s.json" game
+       sprintf "https://api.nexusmods.com/v1/games/%s/mods/md5_search/%s.json" game hash
        |> callApi nexus Md5SearchProvider.Parse
     with _ -> async { return apiError -1 "Non-existent file" }
 

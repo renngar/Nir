@@ -22,12 +22,22 @@ type Msg =
     | OpenFileDialog
     | SelectionChanged of seq<string>
     | CheckFile of string
-    | MD5 of ApiResult<Md5Search []>
+    | MD5Progress of int64 * int64
+    | MD5Complete of string
+    | SearchResult of ApiResult<Md5Search []>
+
+module Sub =
+    let md5Search file onProgress onComplete dispatch =
+        async
+            {
+            async { Nir.Utility.Md5sum.md5sum file (onProgress >> dispatch) |> (onComplete >> dispatch) } |> Async.Start }
+        |> Async.RunSynchronously
 
 // Model
 
 type ArchiveState =
     | None
+    | Hashing
     | Checking
     | Found of Md5Search []
     | NotFound of ApiError
@@ -38,7 +48,9 @@ type Model =
       Games: Game []
       SelectedGames: Game list
       Archive: string
-      State: ArchiveState }
+      State: ArchiveState
+      ProgressCurrent: int64
+      ProgressMax: int64 }
 
 let init window nexus =
     { Window = window
@@ -46,7 +58,9 @@ let init window nexus =
       Games = [||]
       SelectedGames = []
       Archive = ""
-      State = None }, Cmd.ofMsg FetchGames
+      State = None
+      ProgressCurrent = 0L
+      ProgressMax = 0L }, Cmd.ofMsg FetchGames
 
 // Update
 
@@ -78,9 +92,15 @@ let update (msg: Msg) (model: Model): Model * Cmd<_> =
     | CheckFile file ->
         { model with
               Archive = file
-              State = Checking },
-        Cmd.OfAsync.perform md5Search (model.Nexus, model.SelectedGames.Head.DomainName, file) MD5
-    | MD5 r ->
+              State = Hashing }, Cmd.ofSub (Sub.md5Search file MD5Progress MD5Complete)
+    | MD5Progress(current, max) ->
+        { model with
+              ProgressCurrent = current
+              ProgressMax = max }, Cmd.none
+    | MD5Complete hash ->
+        { model with State = Checking },
+        Cmd.OfAsync.perform md5Search (model.Nexus, model.SelectedGames.Head.DomainName, hash) SearchResult
+    | SearchResult r ->
         match r with
         | Ok s ->
             { model with
@@ -105,11 +125,16 @@ let view (model: Model) (dispatch: Msg -> unit) =
     let isGameSelected = not model.SelectedGames.IsEmpty
 
     let (contents: IView list) =
+        let processingFile = model.State = Hashing || model.State = Checking
         [ yield! titleAndSub "Nexus Download Checker"
-                     (if model.Games.Length = 0 then
-                         "Fetching games from Nexus..."
+                     (if model.State = Hashing then
+                         "Generating file hash. Please wait..."
+                      elif model.State = Checking then
+                         "Checking with Nexus..."
+                      elif model.Games.Length = 0 then
+                          "Fetching games from Nexus..."
                       elif isGameSelected then
-                          "Drop a mod archive below to verify it was correctly downloaded from Nexus"
+                          "Drop a mod archive below to verify its contents"
                       else
                           "Select your game below")
           if model.Games.Length = 0 then
@@ -131,7 +156,8 @@ let view (model: Model) (dispatch: Msg -> unit) =
                                                              .create
                                                                  (fun data ->
                                                                      TextBlock.create [ TextBlock.text data.Name ]))
-                                                     ComboBox.onSelectedIndexChanged (GameChanged >> dispatch) ]
+                                                     ComboBox.onSelectedIndexChanged (GameChanged >> dispatch)
+                                                     ComboBox.isEnabled (not processingFile) ]
                                             if model.SelectedGames.IsEmpty then yield ComboBox.height 30.0 ]
                                 if isGameSelected then
                                     yield TextBox.create
@@ -154,6 +180,7 @@ let view (model: Model) (dispatch: Msg -> unit) =
                                                 TextBox.verticalAlignment VerticalAlignment.Center
                                                 TextBox.acceptsReturn false
                                                 TextBox.acceptsTab false
+                                                TextBox.isEnabled (not processingFile)
                                                 // This is tacky, but Ctrl-Insert does not work with Avalonia
                                                 TextBox.tip (ToolTip.create [ ToolTip.content [ "Ctrl-V to paste" ] ])
                                                 TextBox.text model.Archive
@@ -166,11 +193,16 @@ let view (model: Model) (dispatch: Msg -> unit) =
                                                 Button.margin (8.0, 0.0, 0.0, 0.0)
                                                 Button.isDefault true
                                                 Button.classes [ "default" ]
+                                                Button.isEnabled (not processingFile)
                                                 Button.onClick (fun _ -> dispatch OpenFileDialog)
                                                 Button.content "Browse..." ] ] ]
 
           match model.State with
           | None -> ()
+          | Hashing ->
+              yield ProgressBar.create
+                        [ ProgressBar.maximum (double model.ProgressMax)
+                          ProgressBar.value (double model.ProgressCurrent) ]
           | Checking -> yield ProgressBar.create [ ProgressBar.isIndeterminate true ]
           | Found rs ->
               let r = rs.[0]
