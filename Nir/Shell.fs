@@ -25,7 +25,7 @@ type PageModel =
     | Start of Start.Model
     | ApiKey of ApiKey.Model
     | ErrorModel of Error.Model
-    | DownloadChecker of DownloadChecker.Model
+    | ModChecker of ModChecker.Model
 
 type Model =
     { Ini: Ini
@@ -45,7 +45,7 @@ type Msg =
     | StartMsg of Start.Msg
     | ApiKeyMsg of ApiKey.Msg
     | ErrorMsg of Error.Msg
-    | DownloadCheckerMsg of DownloadChecker.Msg
+    | ModCheckerMsg of ModChecker.Msg
 
 let init window =
     let startPageModel, spCmd = Start.init window
@@ -82,8 +82,8 @@ let updatePage<'msg, 'model>
 let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
     let showPage pageModelType model (pageModel, cmd) = { model with Page = pageModelType pageModel }, cmd
     let showMainPage model =
-        let pageModel, cmd = DownloadChecker.init model.Window model.Nexus
-        showPage DownloadChecker model (pageModel, Cmd.map DownloadCheckerMsg cmd)
+        let pageModel, cmd = ModChecker.init model.Window model.Nexus
+        showPage ModChecker model (pageModel, Cmd.map ModCheckerMsg cmd)
 
     match msg, model.Page with
     | ShellMsg msg', _ ->
@@ -116,13 +116,13 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
 
     | StartMsg msg', Start model' -> updatePage model Start.update StartMsg msg' Start model'
     | ApiKeyMsg msg', ApiKey model' -> updatePage model ApiKey.update ApiKeyMsg msg' ApiKey model'
-    | DownloadCheckerMsg msg', DownloadChecker model' ->
-        updatePage model DownloadChecker.update DownloadCheckerMsg msg' DownloadChecker model'
+    | ModCheckerMsg msg', ModChecker model' ->
+        updatePage model ModChecker.update ModCheckerMsg msg' ModChecker model'
 
     // Should never happen
     | _, Start _
     | _, ApiKey _
-    | _, DownloadChecker _
+    | _, ModChecker _
     | _, ErrorModel _ -> failwith "Mismatch between current page and message"
 
 // View
@@ -132,7 +132,7 @@ let view (model: Model) (dispatch: Msg -> unit) =
     | Start m -> Start.view m (StartMsg >> dispatch)
     | ApiKey m -> ApiKey.view m (ApiKeyMsg >> dispatch)
     | ErrorModel m -> Error.view m (ErrorMsg >> dispatch)
-    | DownloadChecker m -> DownloadChecker.view m (DownloadCheckerMsg >> dispatch)
+    | ModChecker m -> ModChecker.view m (ModCheckerMsg >> dispatch)
 
 // Main
 

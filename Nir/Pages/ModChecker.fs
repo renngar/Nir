@@ -1,4 +1,4 @@
-module Nir.Pages.DownloadChecker
+module Nir.Pages.ModChecker
 
 open FSharp.Data
 
@@ -126,7 +126,7 @@ let view (model: Model) (dispatch: Msg -> unit) =
 
     let (contents: IView list) =
         let processingFile = model.State = Hashing || model.State = Checking
-        [ yield! titleAndSub "Nexus Download Checker"
+        [ yield! titleAndSub "Nexus Mod Checker"
                      (if model.State = Hashing then
                          "Generating file hash. Please wait..."
                       elif model.State = Checking then
