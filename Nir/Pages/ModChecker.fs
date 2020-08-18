@@ -127,16 +127,11 @@ let view (model: Model) (dispatch: Msg -> unit) =
     let (contents: IView list) =
         let processingFile = model.State = Hashing || model.State = Checking
         [ yield! titleAndSub "Nexus Mod Checker"
-                     (if model.State = Hashing then
-                         "Generating file hash. Please wait..."
-                      elif model.State = Checking then
-                         "Checking with Nexus..."
-                      elif model.Games.Length = 0 then
-                          "Fetching games from Nexus..."
-                      elif isGameSelected then
-                          "Drop a mod archive below to verify its contents"
-                      else
-                          "Select your game below")
+                     (if model.State = Hashing then "Generating file hash. Please wait..."
+                      elif model.State = Checking then "Checking with Nexus..."
+                      elif model.Games.Length = 0 then "Fetching games from Nexus..."
+                      elif isGameSelected then "Drop a mod archive below to verify its contents"
+                      else "Select your game below")
           if model.Games.Length = 0 then
               yield ProgressBar.create
                         [ ProgressBar.isIndeterminate true
