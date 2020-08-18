@@ -121,11 +121,51 @@ let titleAndSub title subtitle: seq<IView> =
                     TextBlock.text subtitle ]
     }
 
+let inline processingFile model = model.State = Hashing || model.State = Checking
+
+let modSelector model dispatch: IView list =
+    let notProcessingFile = not <| processingFile model
+    [ yield TextBox.create
+                [ Grid.column 1
+                  DragDrop.allowDrop true
+                  DragDrop.onDragOver (fun e ->
+                      e.DragEffects <-
+                          if e.Data.Contains(DataFormats.FileNames) then
+                              e.DragEffects &&& DragDropEffects.Copy
+                          else
+                              DragDropEffects.None)
+                  DragDrop.onDrop (fun e ->
+                      if e.Data.Contains(DataFormats.FileNames) then
+                          e.Data.GetFileNames()
+                          |> SelectionChanged
+                          |> dispatch)
+                  TextBox.textWrapping TextWrapping.Wrap
+                  TextBox.watermark "Mod archive to verify"
+                  // TextBox.height 30.0
+                  TextBox.verticalAlignment VerticalAlignment.Center
+                  TextBox.acceptsReturn false
+                  TextBox.acceptsTab false
+                  TextBox.isEnabled notProcessingFile
+                  // This is tacky, but Ctrl-Insert does not work with Avalonia
+                  TextBox.tip (ToolTip.create [ ToolTip.content [ "Ctrl-V to paste" ] ])
+                  TextBox.text model.Archive
+                  TextBox.onTextChanged
+                      ((fun s -> seq { s })
+                       >> SelectionChanged
+                       >> dispatch) ]
+      yield Button.create
+                [ Grid.column 2
+                  Button.margin (8.0, 0.0, 0.0, 0.0)
+                  Button.isDefault true
+                  Button.classes [ "default" ]
+                  Button.isEnabled notProcessingFile
+                  Button.onClick (fun _ -> dispatch OpenFileDialog)
+                  Button.content "Browse..." ] ]
+
 let view (model: Model) (dispatch: Msg -> unit) =
     let isGameSelected = not model.SelectedGames.IsEmpty
 
     let (contents: IView list) =
-        let processingFile = model.State = Hashing || model.State = Checking
         [ yield! titleAndSub "Nexus Mod Checker"
                      (if model.State = Hashing then "Generating file hash. Please wait..."
                       elif model.State = Checking then "Checking with Nexus..."
@@ -152,45 +192,9 @@ let view (model: Model) (dispatch: Msg -> unit) =
                                                                  (fun data ->
                                                                      TextBlock.create [ TextBlock.text data.Name ]))
                                                      ComboBox.onSelectedIndexChanged (GameChanged >> dispatch)
-                                                     ComboBox.isEnabled (not processingFile) ]
+                                                     ComboBox.isEnabled (not <| processingFile model) ]
                                             if model.SelectedGames.IsEmpty then yield ComboBox.height 30.0 ]
-                                if isGameSelected then
-                                    yield TextBox.create
-                                              [ Grid.column 1
-                                                DragDrop.allowDrop true
-                                                DragDrop.onDragOver (fun e ->
-                                                    e.DragEffects <-
-                                                        if e.Data.Contains(DataFormats.FileNames) then
-                                                            e.DragEffects &&& DragDropEffects.Copy
-                                                        else
-                                                            DragDropEffects.None)
-                                                DragDrop.onDrop (fun e ->
-                                                    if e.Data.Contains(DataFormats.FileNames) then
-                                                        e.Data.GetFileNames()
-                                                        |> SelectionChanged
-                                                        |> dispatch)
-                                                TextBox.textWrapping TextWrapping.Wrap
-                                                TextBox.watermark "Mod archive to verify"
-                                                // TextBox.height 30.0
-                                                TextBox.verticalAlignment VerticalAlignment.Center
-                                                TextBox.acceptsReturn false
-                                                TextBox.acceptsTab false
-                                                TextBox.isEnabled (not processingFile)
-                                                // This is tacky, but Ctrl-Insert does not work with Avalonia
-                                                TextBox.tip (ToolTip.create [ ToolTip.content [ "Ctrl-V to paste" ] ])
-                                                TextBox.text model.Archive
-                                                TextBox.onTextChanged
-                                                    ((fun s -> seq { s })
-                                                     >> SelectionChanged
-                                                     >> dispatch) ]
-                                    yield Button.create
-                                              [ Grid.column 2
-                                                Button.margin (8.0, 0.0, 0.0, 0.0)
-                                                Button.isDefault true
-                                                Button.classes [ "default" ]
-                                                Button.isEnabled (not processingFile)
-                                                Button.onClick (fun _ -> dispatch OpenFileDialog)
-                                                Button.content "Browse..." ] ] ]
+                                if isGameSelected then yield! modSelector model dispatch ] ]
 
           match model.State with
           | None -> ()
