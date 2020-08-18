@@ -81,6 +81,7 @@ let updatePage<'msg, 'model>
 // Update
 let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
     let showPage pageModelType model (pageModel, cmd) = { model with Page = pageModelType pageModel }, cmd
+
     let showMainPage model =
         let pageModel, cmd = ModChecker.init model.Window model.Nexus
         showPage ModChecker model (pageModel, Cmd.map ModCheckerMsg cmd)

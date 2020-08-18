@@ -1,9 +1,9 @@
 module Nir.Pages.ModChecker
 
+open Avalonia.Controls
 open FSharp.Data
 
 open Elmish
-open Avalonia.Controls
 open Avalonia.FuncUI.Components
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
@@ -71,12 +71,14 @@ let update (msg: Msg) (model: Model): Model * Cmd<_> =
             [ if model.SelectedGames.IsEmpty || model.Archive.Length = 0
               then yield Cmd.none
               else yield Cmd.ofMsg (CheckFile model.Archive) ]
+
     match msg with
     | FetchGames -> model, Cmd.OfAsync.perform games (model.Nexus, false) GotGames
     | GotGames games ->
         match games with
         | Ok x ->
             let gs = x.Result |> Array.sortByDescending (fun g -> g.Downloads)
+
             { model with
                   Nexus = x.Nexus
                   Games = gs }, Cmd.none
@@ -114,55 +116,63 @@ let titleAndSub title subtitle: seq<IView> =
     seq {
         yield TextBlock.create
                   [ TextBlock.classes [ "h1" ]
+                    TextBlock.dock Dock.Top
                     TextBlock.text title ]
+
         yield TextBlock.create
                   [ TextBlock.classes [ "h2" ]
+                    TextBlock.dock Dock.Top
                     TextBlock.textWrapping TextWrapping.Wrap
                     TextBlock.text subtitle ]
     }
 
 let inline processingFile model = model.State = Hashing || model.State = Checking
 
-let modSelector model dispatch: IView list =
+let modSelector model dispatch =
     let notProcessingFile = not <| processingFile model
-    [ yield TextBox.create
-                [ Grid.column 1
-                  DragDrop.allowDrop true
-                  DragDrop.onDragOver (fun e ->
-                      e.DragEffects <-
-                          if e.Data.Contains(DataFormats.FileNames) then
-                              e.DragEffects &&& DragDropEffects.Copy
-                          else
-                              DragDropEffects.None)
-                  DragDrop.onDrop (fun e ->
-                      if e.Data.Contains(DataFormats.FileNames) then
-                          e.Data.GetFileNames()
-                          |> SelectionChanged
-                          |> dispatch)
-                  TextBox.textWrapping TextWrapping.Wrap
-                  TextBox.watermark "Mod archive to verify"
-                  // TextBox.height 30.0
-                  TextBox.verticalAlignment VerticalAlignment.Center
-                  TextBox.acceptsReturn false
-                  TextBox.acceptsTab false
-                  TextBox.isEnabled notProcessingFile
-                  // This is tacky, but Ctrl-Insert does not work with Avalonia
-                  TextBox.tip (ToolTip.create [ ToolTip.content [ "Ctrl-V to paste" ] ])
-                  TextBox.text model.Archive
-                  TextBox.onTextChanged
-                      ((fun s -> seq { s })
-                       >> SelectionChanged
-                       >> dispatch) ]
-      yield Button.create
-                [ Grid.column 2
-                  Button.margin (8.0, 0.0, 0.0, 0.0)
-                  Button.isDefault true
-                  Button.classes [ "default" ]
-                  Button.isEnabled notProcessingFile
-                  Button.onClick (fun _ -> dispatch OpenFileDialog)
-                  Button.content "Browse..." ] ]
+    Grid.create
+        [ Grid.dock Dock.Top
+          Grid.columnDefinitions "*, auto"
+          Grid.rowDefinitions "auto, *"
+          Grid.children
+              [ TextBox.create
+                  [ Grid.column 0
+                    DragDrop.allowDrop true
+                    DragDrop.onDragOver (fun e ->
+                        e.DragEffects <-
+                            if e.Data.Contains(DataFormats.FileNames) then
+                                e.DragEffects &&& DragDropEffects.Copy
+                            else
+                                DragDropEffects.None)
+                    DragDrop.onDrop (fun e ->
+                        if e.Data.Contains(DataFormats.FileNames) then
+                            e.Data.GetFileNames()
+                            |> SelectionChanged
+                            |> dispatch)
+                    TextBox.textWrapping TextWrapping.Wrap
+                    TextBox.watermark "Mod archive to verify"
+                    // TextBox.height 30.0
+                    TextBox.verticalAlignment VerticalAlignment.Center
+                    TextBox.acceptsReturn false
+                    TextBox.acceptsTab false
+                    TextBox.isEnabled notProcessingFile
+                    // This is tacky, but Ctrl-Insert does not work with Avalonia
+                    TextBox.tip (ToolTip.create [ ToolTip.content [ "Ctrl-V to paste" ] ])
+                    TextBox.text model.Archive
+                    TextBox.onTextChanged
+                        ((fun s -> seq { s })
+                         >> SelectionChanged
+                         >> dispatch) ]
+                Button.create
+                    [ Grid.column 1
+                      Button.margin (8.0, 0.0, 0.0, 0.0)
+                      Button.isDefault true
+                      Button.classes [ "default" ]
+                      Button.isEnabled notProcessingFile
+                      Button.onClick (fun _ -> dispatch OpenFileDialog)
+                      Button.content "Browse..." ] ] ]
 
-let view (model: Model) (dispatch: Msg -> unit) =
+let view (model: Model) (dispatch: Msg -> unit): IView =
     let isGameSelected = not model.SelectedGames.IsEmpty
 
     let (contents: IView list) =
@@ -173,53 +183,70 @@ let view (model: Model) (dispatch: Msg -> unit) =
                       elif isGameSelected then "Drop a mod archive below to verify its contents"
                       else "Select your game below")
           if model.Games.Length = 0 then
-              yield ProgressBar.create
-                        [ ProgressBar.isIndeterminate true
-                          ProgressBar.margin (0.0, 16.0) ]
-          else
               yield Grid.create
-                        [ Grid.columnDefinitions (if isGameSelected then "auto, *, auto" else "*")
+                        [ Grid.rowDefinitions "auto, *"
+                          Grid.children
+                              [ yield ProgressBar.create
+                                          [ ProgressBar.dock Dock.Top
+                                            ProgressBar.isIndeterminate true
+                                            ProgressBar.margin (0.0, 16.0) ] ] ]
+          else
+              let rowDefs = RowDefinitions()
+              let def = RowDefinition()
+              def.MaxHeight <- 2160.0
+              rowDefs.Add(def)
+
+              yield Grid.create
+                        [ Grid.columnDefinitions (if isGameSelected then "auto, *" else "*")
+                          Grid.rowDefinitions rowDefs
                           Grid.margin (0.0, 16.0)
                           Grid.children
-                              [ yield ComboBox.create
-                                          [ yield! [ Grid.column 0
-                                                     ComboBox.margin (0.0, 0.0, 8.0, 0.0)
-                                                     ComboBox.virtualizationMode ItemVirtualizationMode.Simple
-                                                     ComboBox.dataItems model.Games
-                                                     ComboBox.itemTemplate
-                                                         (DataTemplateView<Game>
-                                                             .create
-                                                                 (fun data ->
-                                                                     TextBlock.create [ TextBlock.text data.Name ]))
-                                                     ComboBox.onSelectedIndexChanged (GameChanged >> dispatch)
-                                                     ComboBox.isEnabled (not <| processingFile model) ]
-                                            if model.SelectedGames.IsEmpty then yield ComboBox.height 30.0 ]
-                                if isGameSelected then yield! modSelector model dispatch ] ]
+                              [ yield ListBox.create
+                                          [ ListBox.margin (0.0, 0.0, 8.0, 0.0)
+                                            ListBox.width 250.0
+                                            ListBox.maxHeight 2160.0
+                                            ListBox.virtualizationMode ItemVirtualizationMode.Simple
+                                            ListBox.dataItems model.Games
+                                            ListBox.itemTemplate
+                                                (DataTemplateView<Game>
+                                                    .create(fun data -> TextBlock.create [ TextBlock.text data.Name ]))
+                                            ListBox.onSelectedIndexChanged (GameChanged >> dispatch)
+                                            ListBox.isEnabled (not <| processingFile model) ]
+                                if isGameSelected then
+                                    yield StackPanel.create
+                                              [ Grid.column 1
+                                                StackPanel.spacing 8.0
+                                                StackPanel.children
+                                                    [ yield modSelector model dispatch
+                                                      match model.State with
+                                                      | None -> ()
+                                                      | Hashing ->
+                                                          yield ProgressBar.create
+                                                                    [ ProgressBar.dock Dock.Top
+                                                                      ProgressBar.maximum (double model.ProgressMax)
+                                                                      ProgressBar.value (double model.ProgressCurrent) ]
+                                                      | Checking ->
+                                                          yield ProgressBar.create
+                                                                    [ ProgressBar.dock Dock.Top
+                                                                      ProgressBar.isIndeterminate true ]
+                                                      | Found rs ->
+                                                          let r = rs.[0]
+                                                          yield! titleAndSub r.Mod.Name r.Mod.Summary
 
-          match model.State with
-          | None -> ()
-          | Hashing ->
-              yield ProgressBar.create
-                        [ ProgressBar.maximum (double model.ProgressMax)
-                          ProgressBar.value (double model.ProgressCurrent) ]
-          | Checking -> yield ProgressBar.create [ ProgressBar.isIndeterminate true ]
-          | Found rs ->
-              let r = rs.[0]
-              yield! titleAndSub r.Mod.Name r.Mod.Summary
-              yield TextBlock.create
-                        [ TextBlock.fontWeight FontWeight.Bold
-                          TextBlock.text r.FileDetails.Name ]
-          | NotFound { StatusCode = code; Message = msg } ->
-              yield TextBlock.create
-                        [ TextBlock.classes [ "error" ]
-                          TextBlock.text
-                              (match code with
-                               | HttpStatusCodes.NotFound -> "Unrecognized or Corrupted Archive"
-                               | _ -> msg) ] ]
+                                                          yield TextBlock.create
+                                                                    [ TextBlock.dock Dock.Top
+                                                                      TextBlock.fontWeight FontWeight.Bold
+                                                                      TextBlock.text r.FileDetails.Name ]
+                                                      | NotFound { StatusCode = code; Message = msg } ->
+                                                          yield TextBlock.create
+                                                                    [ TextBlock.dock Dock.Top
+                                                                      TextBlock.classes [ "error" ]
+                                                                      TextBlock.text
+                                                                          (match code with
+                                                                           | HttpStatusCodes.NotFound ->
+                                                                               "Unrecognized or Corrupted Archive"
+                                                                           | _ -> msg) ] ] ] ] ] ]
 
     DockPanel.create
-        [ DockPanel.children
-            [ StackPanel.create
-                [ StackPanel.margin 10.0
-                  StackPanel.spacing 4.0
-                  StackPanel.children contents ] ] ]
+        [ DockPanel.margin 10.0
+          DockPanel.children contents ] :> IView

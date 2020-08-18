@@ -1,5 +1,6 @@
 module Nir.Pages.Start
 
+open Avalonia.FuncUI.Types
 open FSharp.Data
 
 open Elmish
@@ -63,7 +64,7 @@ let gridTextBlock row cls text =
         [ GridRow row
           Class cls ] text
 
-let private theView (_: Model) (dispatch: Msg -> unit) =
+let view (_: Model) (dispatch: Msg -> unit): IView =
     Grid.create
         [ Grid.margin 10.0
           Grid.rowDefinitions "auto, auto, *, auto"
@@ -78,6 +79,4 @@ let private theView (_: Model) (dispatch: Msg -> unit) =
                     [ GridRow 3
                       Class "link"
                       HorizontalAlignment HorizontalAlignment.Right
-                      VerticalAlignment VerticalAlignment.Stretch ] "Advanced..." ] ]
-
-let view (m: Model) (dispatch: Msg -> unit) = DockPanel.create [ DockPanel.children [ theView m dispatch ] ]
+                      VerticalAlignment VerticalAlignment.Stretch ] "Advanced..." ] ] :> IView

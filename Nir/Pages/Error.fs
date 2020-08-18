@@ -48,19 +48,17 @@ let getButtons model dispatch: IView list =
         [ button "Retry" true dispatch
           button "Cancel" false dispatch ]
 
-let view (model: Model) (dispatch: Msg -> unit) =
-    DockPanel.create
-        [ DockPanel.children
-            [ StackPanel.create
-                [ StackPanel.horizontalAlignment HorizontalAlignment.Center
-                  StackPanel.margin 10.0
-                  StackPanel.spacing 4.0
-                  StackPanel.children
-                      [ textBlock "error" model.Title
-                        textBlock "h2" model.Message
-                        StackPanel.create
-                            [ StackPanel.orientation Orientation.Horizontal
-                              StackPanel.margin (0.0, 16.0)
-                              StackPanel.spacing 16.0
-                              StackPanel.horizontalAlignment HorizontalAlignment.Center
-                              StackPanel.children (getButtons model dispatch) ] ] ] ] ]
+let view (model: Model) (dispatch: Msg -> unit): IView =
+    StackPanel.create
+        [ StackPanel.horizontalAlignment HorizontalAlignment.Center
+          StackPanel.margin 10.0
+          StackPanel.spacing 4.0
+          StackPanel.children
+              [ textBlock "error" model.Title
+                textBlock "h2" model.Message
+                StackPanel.create
+                    [ StackPanel.orientation Orientation.Horizontal
+                      StackPanel.margin (0.0, 16.0)
+                      StackPanel.spacing 16.0
+                      StackPanel.horizontalAlignment HorizontalAlignment.Center
+                      StackPanel.children (getButtons model dispatch) ] ] ] :> IView

@@ -60,7 +60,7 @@ let update (msg: Msg) (model: Model): Model * Cmd<_> =
 
 // View
 
-let view (model: Model) (dispatch: Msg -> unit) =
+let view (model: Model) (dispatch: Msg -> unit): IView =
     let goodApiKey = model.User.IsSome
 
     let (children: IView list) =
@@ -130,9 +130,7 @@ let view (model: Model) (dispatch: Msg -> unit) =
                         |> dispatch) ] ]
         | None -> []
 
-    DockPanel.create
-        [ DockPanel.children
-            [ StackPanel.create
-                [ StackPanel.margin 10.0
-                  StackPanel.spacing 4.0
-                  StackPanel.children (List.append children extra) ] ] ]
+    StackPanel.create
+        [ StackPanel.margin 10.0
+          StackPanel.spacing 4.0
+          StackPanel.children (List.append children extra) ] :> IView
