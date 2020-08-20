@@ -20,17 +20,24 @@ type Msg =
     | GotGames of ApiResult<Game []>
     | GameChanged of int
     | OpenFileDialog
-    | SelectionChanged of seq<string>
+    | ChangeFile of string []
+    | SelectionChanged of string []
     | CheckFile of string
     | MD5Progress of int64 * int64
-    | MD5Complete of string
+    | MD5Complete of Result<string, string>
     | SearchResult of ApiResult<Md5Search []>
 
 module Sub =
     let md5Search file onProgress onComplete dispatch =
-        async
-            {
-            async { Nir.Utility.Md5sum.md5sum file (onProgress >> dispatch) |> (onComplete >> dispatch) } |> Async.Start }
+        async {
+            async {
+                try
+                    Nir.Utility.Md5sum.md5sum file (onProgress >> dispatch) |> Ok
+                with e -> e.Message |> Error
+                |> (onComplete >> dispatch)
+            }
+            |> Async.Start
+        }
         |> Async.RunSynchronously
 
 // Model
@@ -85,12 +92,21 @@ let update (msg: Msg) (model: Model): Model * Cmd<_> =
         // (if model.SelectedGames.IsEmpty then Cmd.ofMsg (GameSelected 0) else Cmd.none)
         | Error _ -> model, Cmd.none
     | GameChanged n -> maybeCheckFile { model with SelectedGames = [ model.Games.[n] ] }
-    | OpenFileDialog -> model, Cmd.OfAsync.perform promptModArchive model.Window CheckFile
+    | OpenFileDialog -> model, Cmd.OfAsync.perform promptModArchive model.Window ChangeFile
+    | ChangeFile fileNames ->
+        // This will trigger SelectionChanged when the view updates the TextBlock
+        { model with
+              Archive = Seq.head fileNames
+              State = None }, Cmd.none
     | SelectionChanged fileNames ->
-        maybeCheckFile
-            { model with
-                  Archive = Seq.head fileNames
-                  State = None }
+        printfn "model.State = %A" model.State
+        if model.State = Hashing then
+            model, Cmd.none
+        else
+            maybeCheckFile
+                { model with
+                      Archive = fileNames.[0]
+                      State = None }
     | CheckFile file ->
         { model with
               Archive = file
@@ -99,9 +115,17 @@ let update (msg: Msg) (model: Model): Model * Cmd<_> =
         { model with
               ProgressCurrent = current
               ProgressMax = max }, Cmd.none
-    | MD5Complete hash ->
-        { model with State = Checking },
-        Cmd.OfAsync.perform md5Search (model.Nexus, model.SelectedGames.Head.DomainName, hash) SearchResult
+    | MD5Complete r ->
+        match r with
+        | Ok hash ->
+            { model with State = Checking },
+            Cmd.OfAsync.perform md5Search (model.Nexus, model.SelectedGames.Head.DomainName, hash) SearchResult
+        | Error e ->
+            { model with
+                  State =
+                      NotFound
+                          { StatusCode = -1
+                            Message = e } }, Cmd.none
     | SearchResult r ->
         match r with
         | Ok s ->
@@ -147,7 +171,8 @@ let modSelector model dispatch =
                     DragDrop.onDrop (fun e ->
                         if e.Data.Contains(DataFormats.FileNames) then
                             e.Data.GetFileNames()
-                            |> SelectionChanged
+                            |> Seq.toArray
+                            |> ChangeFile
                             |> dispatch)
                     TextBox.textWrapping TextWrapping.Wrap
                     TextBox.watermark "Mod archive to verify"
@@ -159,10 +184,10 @@ let modSelector model dispatch =
                     // This is tacky, but Ctrl-Insert does not work with Avalonia
                     TextBox.tip (ToolTip.create [ ToolTip.content [ "Ctrl-V to paste" ] ])
                     TextBox.text model.Archive
-                    TextBox.onTextChanged
-                        ((fun s -> seq { s })
-                         >> SelectionChanged
-                         >> dispatch) ]
+                    TextBox.onTextChanged (fun s ->
+                        [| s |]
+                        |> SelectionChanged
+                        |> dispatch) ]
                 Button.create
                     [ Grid.column 1
                       Button.margin (8.0, 0.0, 0.0, 0.0)

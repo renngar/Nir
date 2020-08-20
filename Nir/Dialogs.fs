@@ -35,6 +35,5 @@ let promptModArchive window = async {
     dialog.Title <- "Select a Mod Archive"
     dialog.Filters <- List(filters)
 
-    let! files = dialog.ShowAsync(window) |> Async.AwaitTask
-    return files.[0]
+    return! dialog.ShowAsync(window) |> Async.AwaitTask
 }
