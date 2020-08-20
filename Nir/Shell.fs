@@ -166,6 +166,6 @@ type MainWindow() as this =
         |> Program.withHost this
         |> Program.withSyncDispatch syncDispatch
 #if DEBUG
-        |> Program.withConsoleTrace
+        |> Program.withTrace (fun msg _ -> printfn "New message: %A" msg)
 #endif
         |> Program.runWith this
