@@ -55,6 +55,7 @@ type Model =
       Games: Game []
       SelectedGames: Game list
       Archive: string
+      Hash: string
       State: ArchiveState
       ProgressCurrent: int64
       ProgressMax: int64 }
@@ -65,6 +66,7 @@ let init window nexus =
       Games = [||]
       SelectedGames = []
       Archive = ""
+      Hash = ""
       State = None
       ProgressCurrent = 0L
       ProgressMax = 0L }, Cmd.ofMsg FetchGames
@@ -72,26 +74,30 @@ let init window nexus =
 // Update
 
 let update (msg: Msg) (model: Model): Model * Cmd<_> =
-    let maybeCheckFile model =
-        model,
-        Cmd.batch
-            [ if model.SelectedGames.IsEmpty || model.Archive.Length = 0
-              then yield Cmd.none
-              else yield Cmd.ofMsg (CheckFile model.Archive) ]
+    let checkHash model =
+        { model with State = Checking },
+        Cmd.OfAsync.perform md5Search (model.Nexus, model.SelectedGames.Head.DomainName, model.Hash) SearchResult
+
+    let maybeCheckFile games model =
+        let gameChanged = games <> model.SelectedGames
+
+        let newModel =
+            if gameChanged then { model with SelectedGames = games } else model
+
+        if model.Archive.Length = 0 then newModel, Cmd.none
+        elif not gameChanged || model.Hash.Length = 0 then newModel, Cmd.ofMsg (CheckFile model.Archive)
+        else checkHash newModel
 
     match msg with
     | FetchGames -> model, Cmd.OfAsync.perform games (model.Nexus, false) GotGames
     | GotGames games ->
         match games with
         | Ok x ->
-            let gs = x.Result |> Array.sortByDescending (fun g -> g.Downloads)
-
             { model with
                   Nexus = x.Nexus
-                  Games = gs }, Cmd.none
-        // (if model.SelectedGames.IsEmpty then Cmd.ofMsg (GameSelected 0) else Cmd.none)
+                  Games = x.Result |> Array.sortByDescending (fun g -> g.Downloads) }, Cmd.none
         | Error _ -> model, Cmd.none
-    | GameChanged n -> maybeCheckFile { model with SelectedGames = [ model.Games.[n] ] }
+    | GameChanged n -> maybeCheckFile [ model.Games.[n] ] model
     | OpenFileDialog -> model, Cmd.OfAsync.perform promptModArchive model.Window ChangeFile
     | ChangeFile fileNames ->
         // This will trigger SelectionChanged when the view updates the TextBlock
@@ -99,11 +105,10 @@ let update (msg: Msg) (model: Model): Model * Cmd<_> =
               Archive = Seq.head fileNames
               State = None }, Cmd.none
     | SelectionChanged fileNames ->
-        printfn "model.State = %A" model.State
         if model.State = Hashing then
             model, Cmd.none
         else
-            maybeCheckFile
+            maybeCheckFile model.SelectedGames
                 { model with
                       Archive = fileNames.[0]
                       State = None }
@@ -117,9 +122,7 @@ let update (msg: Msg) (model: Model): Model * Cmd<_> =
               ProgressMax = max }, Cmd.none
     | MD5Complete r ->
         match r with
-        | Ok hash ->
-            { model with State = Checking },
-            Cmd.OfAsync.perform md5Search (model.Nexus, model.SelectedGames.Head.DomainName, hash) SearchResult
+        | Ok hash -> { model with Hash = hash } |> checkHash
         | Error e ->
             { model with
                   State =
