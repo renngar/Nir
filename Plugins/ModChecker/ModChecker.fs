@@ -1,4 +1,4 @@
-module Nir.Pages.ModChecker
+module Nir.Plugins.ModChecker
 
 open Avalonia.Controls
 open FSharp.Data
@@ -14,6 +14,7 @@ open Avalonia.Media
 open Nir.Dialogs
 open Nir.DSL // FuncUI DragDrop support
 open Nir.NexusApi
+open Nir.UI
 
 type Msg =
     | FetchGames
@@ -97,7 +98,10 @@ let update (msg: Msg) (model: Model): Model * Cmd<_> =
                   Nexus = x.Nexus
                   Games = x.Result |> Array.sortByDescending (fun g -> g.Downloads) }, Cmd.none
         | Error _ -> model, Cmd.none
-    | GameChanged n -> maybeCheckFile [ model.Games.[n] ] model
+    | GameChanged n ->
+        if n >= 0
+        then maybeCheckFile [ model.Games.[n] ] model
+        else model, Cmd.none
     | OpenFileDialog -> model, Cmd.OfAsync.perform promptModArchive model.Window ChangeFile
     | ChangeFile fileNames ->
         // This will trigger SelectionChanged when the view updates the TextBlock
@@ -200,7 +204,7 @@ let modSelector model dispatch =
                       Button.onClick (fun _ -> dispatch OpenFileDialog)
                       Button.content "Browse..." ] ] ]
 
-let view (model: Model) (dispatch: Msg -> unit): IView =
+let view (model: Model) (dispatch: Dispatch<Msg>): IView =
     let isGameSelected = not model.SelectedGames.IsEmpty
 
     let (contents: IView list) =
@@ -278,3 +282,11 @@ let view (model: Model) (dispatch: Msg -> unit): IView =
     DockPanel.create
         [ DockPanel.margin 10.0
           DockPanel.children contents ] :> IView
+
+type ModChecker() =
+    interface IPlugin with
+        member __.Name = "Nexus Mod Checker"
+        member __.Description = "Verifies mod archive integrity with Nexus "
+        member __.Init(window, nexus) = Plugin.mapInit init (window, nexus)
+        member __.Update(msg, model) = Plugin.mapUpdate update (msg, model)
+        member __.View(model, dispatch) = Plugin.mapView view (model, dispatch)

@@ -16,6 +16,7 @@ open Avalonia.Input // KeyGesture
 
 open Nir.Pages
 open Nir.NexusApi
+open Nir.UI
 open Nir.Utility.INI
 open Nir.Utility.Path
 
@@ -25,7 +26,7 @@ type PageModel =
     | Start of Start.Model
     | ApiKey of ApiKey.Model
     | ErrorModel of Error.Model
-    | ModChecker of ModChecker.Model
+    | PluginModel of Plugin.Model
 
 type Model =
     { Ini: Ini
@@ -33,7 +34,8 @@ type Model =
 
       // UI
       Page: PageModel
-      Window: Window }
+      Window: Window
+      Plugin: IPlugin option }
 
 type ShellMsg =
     | VerifyApiKey
@@ -45,10 +47,10 @@ type Msg =
     | StartMsg of Start.Msg
     | ApiKeyMsg of ApiKey.Msg
     | ErrorMsg of Error.Msg
-    | ModCheckerMsg of ModChecker.Msg
+    | PluginMsg of Plugin.Msg
 
 let init window =
-    let startPageModel, spCmd = Start.init window
+    let startPageModel, _ = Start.init window
 
     let key, ini =
         getProgramPath() +/ "Nir.ini"
@@ -59,10 +61,8 @@ let init window =
           { ApiKey = key
             RateLimits = RateLimits.initialLimits }
       Page = Start startPageModel
-      Window = window },
-    Cmd.batch
-        [ spCmd
-          Cmd.ofMsg <| ShellMsg VerifyApiKey ]
+      Window = window
+      Plugin = None }, Cmd.ofMsg (ShellMsg VerifyApiKey)
 
 type Update<'msg, 'model> = 'msg -> 'model -> ('model * Cmd<'msg>)
 
@@ -83,11 +83,11 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
     let showPage pageModelType model (pageModel, cmd) = { model with Page = pageModelType pageModel }, cmd
 
     let showMainPage model =
-        let pageModel, cmd = ModChecker.init model.Window model.Nexus
-        showPage ModChecker model (pageModel, Cmd.map ModCheckerMsg cmd)
+        let pageModel, cmd = Start.init model.Window
+        showPage Start model (pageModel, Cmd.map StartMsg cmd)
 
-    match msg, model.Page with
-    | ShellMsg msg', _ ->
+    match msg, model.Page, model.Plugin with
+    | ShellMsg msg', _, _ ->
         match msg' with
         | VerifyApiKey ->
             model,
@@ -101,8 +101,12 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
                 Error.init "Error Contacting Nexus" msg Error.Buttons.RetryCancel |> showPage ErrorModel model
         | DisplayApiKeyPage -> ApiKey.init model.Nexus |> showPage ApiKey model
 
+    | StartMsg(Start.Msg.LaunchPlugin plugin), Start _, _ ->
+        let pageModel, cmd = plugin.Init(model.Window, model.Nexus)
+        showPage PluginModel { model with Plugin = Some plugin } (pageModel, Cmd.map PluginMsg cmd)
+
     // Grab the results when the API Key page is done and write it to the .ini
-    | ApiKeyMsg(ApiKey.Msg.Done { Nexus = nexus; Result = user }), ApiKey _ ->
+    | ApiKeyMsg(ApiKey.Msg.Done { Nexus = nexus; Result = user }), ApiKey _, _ ->
         let ini = setNexusApiKey model.Ini user.Key
         saveIni ini
         showMainPage
@@ -110,30 +114,33 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
                   Ini = ini
                   Nexus = nexus }
 
-    | ErrorMsg(Error.Msg.Done "Retry"), ErrorModel _ -> model, Cmd.ofMsg (ShellMsg VerifyApiKey)
-    | ErrorMsg(Error.Msg.Done _), ErrorModel _ ->
+    | ErrorMsg(Error.Msg.Done "Retry"), ErrorModel _, _ -> model, Cmd.ofMsg (ShellMsg VerifyApiKey)
+    | ErrorMsg(Error.Msg.Done _), ErrorModel _, _ ->
         model.Window.Close()
         model, Cmd.none
 
-    | StartMsg msg', Start model' -> updatePage model Start.update StartMsg msg' Start model'
-    | ApiKeyMsg msg', ApiKey model' -> updatePage model ApiKey.update ApiKeyMsg msg' ApiKey model'
-    | ModCheckerMsg msg', ModChecker model' ->
-        updatePage model ModChecker.update ModCheckerMsg msg' ModChecker model'
+    | StartMsg msg', Start model', _ -> updatePage model Start.update StartMsg msg' Start model'
+    | ApiKeyMsg msg', ApiKey model', _ -> updatePage model ApiKey.update ApiKeyMsg msg' ApiKey model'
+    | PluginMsg msg', PluginModel model', Some plugin ->
+        let newModel, cmd = plugin.Update(msg', model')
+        { model with Page = PluginModel newModel }, Cmd.map PluginMsg cmd
 
     // Should never happen
-    | _, Start _
-    | _, ApiKey _
-    | _, ModChecker _
-    | _, ErrorModel _ -> failwith "Mismatch between current page and message"
+    | _, Start _, _
+    | _, ApiKey _, _
+    | _, ErrorModel _, _
+    | _, PluginModel _, Some _ -> failwith "Mismatch between current page and message"
+    | _, PluginModel _, None -> failwith "Mismatch between current page, message or plugin"
 
 // View
 
 let view (model: Model) (dispatch: Msg -> unit) =
-    match model.Page with
-    | Start m -> Start.view m (StartMsg >> dispatch)
-    | ApiKey m -> ApiKey.view m (ApiKeyMsg >> dispatch)
-    | ErrorModel m -> Error.view m (ErrorMsg >> dispatch)
-    | ModChecker m -> ModChecker.view m (ModCheckerMsg >> dispatch)
+    match model.Page, model.Plugin with
+    | Start m, _ -> Start.view m (StartMsg >> dispatch)
+    | ApiKey m, _ -> ApiKey.view m (ApiKeyMsg >> dispatch)
+    | ErrorModel m, _ -> Error.view m (ErrorMsg >> dispatch)
+    | PluginModel m, Some plugin -> plugin.View(m, PluginMsg >> dispatch)
+    | PluginModel _, None -> failwith "Plugin unexpectedly missing"
 
 // Main
 

@@ -12,6 +12,7 @@ nuget FsUnit.xUnit
 nuget JaggerJo.Avalonia.FuncUI 0.4.0
 nuget JaggerJo.Avalonia.FuncUI.DSL 0.4.0
 nuget JaggerJo.Avalonia.FuncUI.Elmish 0.4.0
+nuget McMaster.NETCore.Plugins
 nuget Microsoft.NET.Test.Sdk 16.5.0
 nuget xunit 2.4.0
 nuget xunit.runner.visualstudio 2.4.0

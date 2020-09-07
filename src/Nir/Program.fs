@@ -8,8 +8,6 @@ open Avalonia.Controls.ApplicationLifetimes
 open Avalonia.FuncUI
 open Avalonia.Platform
 
-open Nir.Utility.Path
-
 /// This is your application you can ose the initialize method to load styles
 /// or handle Life Cycle events of your application
 type App() =
@@ -34,5 +32,4 @@ module Program =
     [<STAThread>] // Required for Drag and drop from an external source
     [<EntryPoint>]
     let main (args: string []) =
-        getProgramPath() |> printfn "%s"
         AppBuilder.Configure<App>().UsePlatformDetect().UseSkia().StartWithClassicDesktopLifetime(args)

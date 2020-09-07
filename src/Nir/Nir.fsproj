@@ -7,13 +7,11 @@
     <VersionSuffix Condition=" '$(Configuration)' == 'Debug' ">dev</VersionSuffix>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Dialogs.fs" />
     <Compile Include="Controls.fs" />
-    <Compile Include="DragDrop.fs" />
+    <Compile Include="Plugin.fs" />
     <Compile Include="Pages\ApiKey.fs" />
     <Compile Include="Pages\Start.fs" />
     <Compile Include="Pages\Error.fs" />
-    <Compile Include="Pages\ModChecker.fs" />
     <Compile Include="Shell.fs" />
     <Compile Include="Program.fs" />
     <AvaloniaResource Include="**\*.xaml" />
@@ -21,6 +19,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Nir.Core\Nir.Core.fsproj" />
+    <ProjectReference Include="..\Nir.UI\Nir.UI.fsproj" />
   </ItemGroup>
-  <Import Project="..\.paket\Paket.Restore.targets" />
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

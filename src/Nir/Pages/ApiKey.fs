@@ -55,7 +55,7 @@ let update (msg: Msg) (model: Model): Model * Cmd<_> =
     | AfterVerification(Ok { Nexus = nexus; Result = user }) ->
         { Nexus = { nexus with ApiKey = user.Key }
           User = Some user }, Cmd.none
-    | AfterVerification _ -> failwith "Not Implemented"
+    | AfterVerification _
     | Done _ -> model, Cmd.none
 
 // View
