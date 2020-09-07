@@ -12,7 +12,9 @@ open Nir.Utility.INI.Parser
 
 let sectionPattern = "[^ \000\t\n\r\]]+"
 let propertyNamePattern = "^[^;\\[\000\n\r=][^\000\n\r=]*"
-let propertyLinePattern = "^[^;\\[\000\n\r=]+=[^\000\r\n]*[\r\n]*"
+
+// Make sure there is at least one usable character in the property name
+let propertyLinePattern = "^[^;\\[\000\n\r=]*[^ ;\\[\000\n\r=][^;\\[\000\n\r=]*=[^\000\r\n]*[\r\n]*"
 
 let inline parse p str = run p str
 
