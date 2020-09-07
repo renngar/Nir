@@ -5,6 +5,9 @@
 # Don't write my Nexus Mods API Key to the repo
 /src/Nir/Nir.ini
 
+### Fake ###
+/build.fsx.lock
+
 # Created by https://www.toptal.com/developers/gitignore/api/rider,fsharp,dotnetcore,visualstudio,visualstudiocode,windows,linux,macos,emacs
 # Edit at https://www.toptal.com/developers/gitignore?templates=rider,fsharp,dotnetcore,visualstudio,visualstudiocode,windows,linux,macos,emacs
 
