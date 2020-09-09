@@ -16,17 +16,20 @@ type Model =
       GotPlugins: bool
       Plugins: IPlugin list }
 
-// Update
+type ExternalMsg =
+    | NoOp
+    | LaunchPlugin of IPlugin
+
 type Msg =
     | GotPlugins of IPlugin []
-    | LaunchPlugin of IPlugin
+    | PluginSelected of IPlugin
 
 let init window =
     { Window = window
       GotPlugins = false
       Plugins = [] }, Cmd.OfFunc.perform findPlugins () GotPlugins
 
-let update (msg: Msg) (model: Model): Model * Cmd<_> =
+let update msg model =
     match msg with
     | GotPlugins ps ->
         let plugins = Seq.toList ps
@@ -36,16 +39,18 @@ let update (msg: Msg) (model: Model): Model * Cmd<_> =
                   GotPlugins = true
                   Plugins = plugins }
         match plugins with
-        | [ plugin ] -> newModel, Cmd.ofMsg (LaunchPlugin plugin)
-        | _ -> newModel, Cmd.none
-    | LaunchPlugin _ -> model, Cmd.none
+        // If there is only one plugin, launch it
+        | [ plugin ] -> newModel, Cmd.none, LaunchPlugin plugin
+        // Otherwise, do nothing and await manual selection
+        | _ -> newModel, Cmd.none, NoOp
+    | PluginSelected plugin -> model, Cmd.none, LaunchPlugin plugin
 
 let pluginListView (model: Model) (dispatch) =
     ListBox.create
         [ ListBox.borderThickness 0.0
           ListBox.padding 0.0
           ListBox.onSelectedItemChanged (function
-              | :? IPlugin as p -> LaunchPlugin p |> dispatch
+              | :? IPlugin as p -> PluginSelected p |> dispatch
               | _ -> ())
           ListBox.dataItems model.Plugins
           ListBox.itemTemplate

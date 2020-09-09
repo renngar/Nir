@@ -56,6 +56,7 @@ let init window =
         getProgramPath() +/ "Nir.ini"
         |> parseIniFile
         |> nexusApiKey
+
     { Ini = ini
       Nexus =
           { ApiKey = key
@@ -64,19 +65,7 @@ let init window =
       Window = window
       Plugin = None }, Cmd.ofMsg (ShellMsg VerifyApiKey)
 
-type Update<'msg, 'model> = 'msg -> 'model -> ('model * Cmd<'msg>)
-
-/// Update a specific page
-let updatePage<'msg, 'model>
-    (model: Model)
-    (update: Update<'msg, 'model>)
-    (msgType: 'msg -> Msg)
-    (msg: 'msg)
-    (modelType: 'model -> PageModel)
-    (pageModel: 'model)
-    =
-    let newModel, cmd = update msg pageModel
-    { model with Page = modelType newModel }, Cmd.map msgType cmd
+type Update<'externalMsg, 'msg, 'model> = 'msg -> 'model -> ('model * Cmd<'msg> * 'externalMsg)
 
 // Update
 let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
@@ -86,8 +75,10 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
         let pageModel, cmd = Start.init model.Window
         showPage Start model (pageModel, Cmd.map StartMsg cmd)
 
-    match msg, model.Page, model.Plugin with
-    | ShellMsg msg', _, _ ->
+    let mismatch() = failwith "Mismatch between current page and message"
+
+    match msg with
+    | ShellMsg msg' ->
         match msg' with
         | VerifyApiKey ->
             model,
@@ -98,39 +89,55 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
             | Ok _ -> showMainPage model
             | Error { StatusCode = Unauthorized; Message = _ } -> model, Cmd.ofMsg (ShellMsg DisplayApiKeyPage)
             | Error { StatusCode = _; Message = msg } ->
-                Error.init "Error Contacting Nexus" msg Error.Buttons.RetryCancel |> showPage ErrorModel model
+                Error.init "Error Contacting Nexus" msg Error.ButtonGroup.RetryCancel |> showPage ErrorModel model
         | DisplayApiKeyPage -> ApiKey.init model.Nexus |> showPage ApiKey model
 
-    | StartMsg(Start.Msg.LaunchPlugin plugin), Start _, _ ->
-        let pageModel, cmd = plugin.Init(model.Window, model.Nexus)
-        showPage PluginModel { model with Plugin = Some plugin } (pageModel, Cmd.map PluginMsg cmd)
 
-    // Grab the results when the API Key page is done and write it to the .ini
-    | ApiKeyMsg(ApiKey.Msg.Done { Nexus = nexus; Result = user }), ApiKey _, _ ->
-        let ini = setNexusApiKey model.Ini user.Key
-        saveIni ini
-        showMainPage
-            { model with
-                  Ini = ini
-                  Nexus = nexus }
+    | PluginMsg msg' ->
+        match model.Page, model.Plugin with
+        | PluginModel pluginModel, Some plugin ->
+            let newModel, cmd = plugin.Update(msg', pluginModel)
+            { model with Page = PluginModel newModel }, Cmd.map PluginMsg cmd
+        | PluginModel _, None -> failwith "Mismatch between current page, message or plugin"
+        | _ -> mismatch()
 
-    | ErrorMsg(Error.Msg.Done "Retry"), ErrorModel _, _ -> model, Cmd.ofMsg (ShellMsg VerifyApiKey)
-    | ErrorMsg(Error.Msg.Done _), ErrorModel _, _ ->
-        model.Window.Close()
-        model, Cmd.none
+    // Page Messages
+    | _ ->
+        match msg, model.Page with
+        | StartMsg startMsg, Start startModel ->
+            let newStartModel, startCmd, startExternalMsg = Start.update startMsg startModel
+            match startExternalMsg with
+            | Start.ExternalMsg.NoOp -> { model with Page = Start newStartModel }, Cmd.map StartMsg startCmd
+            | Start.ExternalMsg.LaunchPlugin plugin ->
+                let pageModel, cmd = plugin.Init(model.Window, model.Nexus)
+                showPage PluginModel { model with Plugin = Some plugin } (pageModel, Cmd.map PluginMsg cmd)
 
-    | StartMsg msg', Start model', _ -> updatePage model Start.update StartMsg msg' Start model'
-    | ApiKeyMsg msg', ApiKey model', _ -> updatePage model ApiKey.update ApiKeyMsg msg' ApiKey model'
-    | PluginMsg msg', PluginModel model', Some plugin ->
-        let newModel, cmd = plugin.Update(msg', model')
-        { model with Page = PluginModel newModel }, Cmd.map PluginMsg cmd
+        | ApiKeyMsg apiKeyMsg, ApiKey apiKeyModel ->
+            let newApiKeyModel, apiKeyCmd, apiKeyExternalMsg = ApiKey.update apiKeyMsg apiKeyModel
+            match apiKeyExternalMsg with
+            | ApiKey.ExternalMsg.NoOp -> { model with Page = ApiKey newApiKeyModel }, Cmd.map ApiKeyMsg apiKeyCmd
+            // Grab the results when the API Key page is done and write it to the .ini
+            | ApiKey.ExternalMsg.Verified { Nexus = nexus; Result = user } ->
+                let ini = setNexusApiKey model.Ini user.Key
+                saveIni ini
+                showMainPage
+                    { model with
+                          Ini = ini
+                          Nexus = nexus }
 
-    // Should never happen
-    | _, Start _, _
-    | _, ApiKey _, _
-    | _, ErrorModel _, _
-    | _, PluginModel _, Some _ -> failwith "Mismatch between current page and message"
-    | _, PluginModel _, None -> failwith "Mismatch between current page, message or plugin"
+        | ErrorMsg errorMsg, ErrorModel errorModel ->
+            let _, _, errorExternalMsg = Error.update errorMsg errorModel
+            match errorExternalMsg with
+            | Error.Retry -> model, Cmd.ofMsg (ShellMsg VerifyApiKey)
+            | Error.Cancel ->
+                model.Window.Close()
+                model, Cmd.none
+
+        // Should never happen
+        | _, Start _
+        | _, ApiKey _
+        | _, ErrorModel _
+        | _, PluginModel _ -> failwith "Mismatch between current page and message"
 
 // View
 
@@ -146,6 +153,7 @@ let view (model: Model) (dispatch: Msg -> unit) =
 
 type MainWindow() as this =
     inherit HostWindow()
+
     do
         base.Title <- "Nir"
         base.Width <- 800.0

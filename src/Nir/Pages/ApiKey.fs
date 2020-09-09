@@ -28,13 +28,17 @@ let init nexus =
 
 type Links = | NexusAccountPage
 
+type ExternalMsg =
+    | NoOp
+    | Verified of ApiSuccess<User>
+
 type Msg =
     | OpenUrl of Links
     | VerifyApiKey of ApiKey
     | AfterVerification of ApiResult<User>
-    | Done of ApiSuccess<User> // Tell the "caller", the Shell, there are results
+    | Continue of ApiSuccess<User>
 
-let update (msg: Msg) (model: Model): Model * Cmd<_> =
+let update msg model =
     match msg with
     | OpenUrl link ->
         let url =
@@ -48,15 +52,16 @@ let update (msg: Msg) (model: Model): Model * Cmd<_> =
         else if RuntimeInformation.IsOSPlatform(OSPlatform.OSX) then
             Process.Start("open", url) |> ignore
 
-        model, Cmd.none
+        model, Cmd.none, NoOp
 
     | VerifyApiKey apiKey ->
-        model, Cmd.OfAsync.perform usersValidate { model.Nexus with ApiKey = apiKey } AfterVerification
+        // TODO: Maybe switch ApiKey verification to Cmd.OfAsync.either splitting into two messages
+        model, Cmd.OfAsync.perform usersValidate { model.Nexus with ApiKey = apiKey } AfterVerification, NoOp
     | AfterVerification(Ok { Nexus = nexus; Result = user }) ->
         { Nexus = { nexus with ApiKey = user.Key }
-          User = Some user }, Cmd.none
-    | AfterVerification _
-    | Done _ -> model, Cmd.none
+          User = Some user }, Cmd.none, NoOp
+    | AfterVerification _ -> model, Cmd.none, NoOp
+    | Continue user -> model, Cmd.none, Verified user
 
 // View
 
@@ -124,7 +129,7 @@ let view (model: Model) (dispatch: Msg -> unit): IView =
                     Button.margin (0.0, 16.0)
                     Button.content "Continue"
                     Button.onClick (fun _ ->
-                        Done
+                        Continue
                             { Nexus = model.Nexus
                               Result = user }
                         |> dispatch) ] ]
