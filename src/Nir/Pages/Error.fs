@@ -25,11 +25,11 @@ let init title message buttons =
       Buttons = buttons }, Cmd.none
 
 // Update
-type ExternalMessage = ButtonType
+type ExternalMsg = ButtonType
 
 type Msg = ButtonClicked of ButtonType
 
-let update msg model: Model * Cmd<_> * ExternalMessage =
+let update msg model: Model * Cmd<_> * ExternalMsg =
     match msg with
     | ButtonClicked button -> model, Cmd.none, button
 
