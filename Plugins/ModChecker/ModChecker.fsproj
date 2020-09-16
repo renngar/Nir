@@ -16,6 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="ModInfo.fs" />
     <Compile Include="ModChecker.fs" />
   </ItemGroup>
 
