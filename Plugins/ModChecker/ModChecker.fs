@@ -16,6 +16,10 @@ open Nir.DSL // FuncUI DragDrop support
 open Nir.NexusApi
 open Nir.UI
 
+// TODO: Tell what game domain the mod was found in.
+// TODO: Support searching for multiple mods at the same time.
+// TODO: Consider using the error messages returned by Nexus.
+
 type private Msg =
     | FetchGames
     | GotGames of ApiResult<Game []>
@@ -198,11 +202,39 @@ let private titleAndSub title subtitle: seq<IView> =
     }
 
 let inline private processingFile model = model.State = Hashing || model.State = Checking
+let inline private isGameSelected model = not model.SelectedGames.IsEmpty
+
+
+let private gameSelector model dispatch =
+    if isGameSelected model then
+        ComboBox.create
+            [ ListBox.margin (0.0, 0.0, 8.0, 0.0)
+              ListBox.width 250.0
+              ComboBox.height 26.0
+              ListBox.maxHeight 2160.0
+              ComboBox.virtualizationMode ItemVirtualizationMode.Simple
+              ListBox.dataItems model.Games
+              ListBox.itemTemplate
+                  (DataTemplateView<Game>.create(fun data -> TextBlock.create [ TextBlock.text data.Name ]))
+              ComboBox.selectedItem model.SelectedGames.Head
+              ListBox.onSelectedIndexChanged (GameChanged >> dispatch)
+              ListBox.isEnabled (not <| processingFile model) ] :> IView
+    else
+        ListBox.create
+            [ ListBox.margin (0.0, 0.0, 8.0, 0.0)
+              ListBox.width 250.0
+              ListBox.maxHeight 2160.0
+              ListBox.virtualizationMode ItemVirtualizationMode.Simple
+              ListBox.dataItems model.Games
+              ListBox.itemTemplate
+                  (DataTemplateView<Game>.create(fun data -> TextBlock.create [ TextBlock.text data.Name ]))
+              ListBox.onSelectedIndexChanged (GameChanged >> dispatch)
+              ListBox.isEnabled (not <| processingFile model) ] :> IView
 
 let private modSelector model dispatch =
     let notProcessingFile = not <| processingFile model
     Grid.create
-        [ Grid.dock Dock.Top
+        [ Grid.column 1
           Grid.columnDefinitions "*, auto"
           Grid.rowDefinitions "auto, *"
           Grid.children
@@ -245,79 +277,70 @@ let private modSelector model dispatch =
                       Button.content "Browse..." ] ] ]
 
 let private view (model: Model) (dispatch: Dispatch<Msg>): IView =
-    let isGameSelected = not model.SelectedGames.IsEmpty
+    let rowDefs =
+        if model.Games.Length = 0 || isGameSelected model then
+            RowDefinitions("auto, *")
+        else
+            let defs = RowDefinitions()
+            let def = RowDefinition()
+            def.MaxHeight <- 2160.0
+            defs.Add(def)
+            defs
 
     let (contents: IView list) =
         [ yield! titleAndSub "Nexus Mod Checker"
                      (if model.State = Hashing then "Generating file hash. Please wait..."
                       elif model.State = Checking then "Checking with Nexus..."
                       elif model.Games.Length = 0 then "Fetching games from Nexus..."
-                      elif isGameSelected then "Drop a mod archive below to verify its contents"
+                      elif isGameSelected model then "Drop a mod archive below to verify its contents"
                       else "Select your game below")
-          if model.Games.Length = 0 then
-              yield Grid.create
-                        [ Grid.rowDefinitions "auto, *"
-                          Grid.children
-                              [ yield ProgressBar.create
-                                          [ ProgressBar.dock Dock.Top
-                                            ProgressBar.isIndeterminate true
-                                            ProgressBar.margin (0.0, 16.0) ] ] ]
-          else
-              let rowDefs = RowDefinitions()
-              let def = RowDefinition()
-              def.MaxHeight <- 2160.0
-              rowDefs.Add(def)
+          Grid.create
+              [ Grid.rowDefinitions rowDefs
+                Grid.columnDefinitions (if isGameSelected model then "auto, *" else "*")
+                Grid.margin (0.0, 16.0)
+                Grid.children
+                    (if model.Games.Length = 0 then
+                        [ ProgressBar.create
+                            [ ProgressBar.dock Dock.Top
+                              ProgressBar.isIndeterminate true ] ]
+                     elif not <| isGameSelected model then
+                         [ gameSelector model dispatch ]
+                     else
+                         [ gameSelector model dispatch
+                           modSelector model dispatch
+                           StackPanel.create
+                               [ Grid.columnSpan 2
+                                 Grid.row 1
+                                 StackPanel.spacing 8.0
+                                 StackPanel.margin (0.0, 8.0)
+                                 StackPanel.children
+                                     (match model.State with
+                                      | None -> []
+                                      | Hashing ->
+                                          [ ProgressBar.create
+                                              [ ProgressBar.dock Dock.Top
+                                                ProgressBar.maximum (double model.ProgressMax)
+                                                ProgressBar.value (double model.ProgressCurrent) ] ]
+                                      | Checking ->
+                                          [ ProgressBar.create
+                                              [ ProgressBar.dock Dock.Top
+                                                ProgressBar.isIndeterminate true ] ]
+                                      | Found rs ->
+                                          let r = rs.[0]
+                                          [ yield! titleAndSub r.Mod.Name r.Mod.Summary
 
-              yield Grid.create
-                        [ Grid.columnDefinitions (if isGameSelected then "auto, *" else "*")
-                          Grid.rowDefinitions rowDefs
-                          Grid.margin (0.0, 16.0)
-                          Grid.children
-                              [ yield ListBox.create
-                                          [ ListBox.margin (0.0, 0.0, 8.0, 0.0)
-                                            ListBox.width 250.0
-                                            ListBox.maxHeight 2160.0
-                                            ListBox.virtualizationMode ItemVirtualizationMode.Simple
-                                            ListBox.dataItems model.Games
-                                            ListBox.itemTemplate
-                                                (DataTemplateView<Game>
-                                                    .create(fun data -> TextBlock.create [ TextBlock.text data.Name ]))
-                                            ListBox.onSelectedIndexChanged (GameChanged >> dispatch)
-                                            ListBox.isEnabled (not <| processingFile model) ]
-                                if isGameSelected then
-                                    yield StackPanel.create
-                                              [ Grid.column 1
-                                                StackPanel.spacing 8.0
-                                                StackPanel.children
-                                                    [ yield modSelector model dispatch
-                                                      match model.State with
-                                                      | None -> ()
-                                                      | Hashing ->
-                                                          yield ProgressBar.create
-                                                                    [ ProgressBar.dock Dock.Top
-                                                                      ProgressBar.maximum (double model.ProgressMax)
-                                                                      ProgressBar.value (double model.ProgressCurrent) ]
-                                                      | Checking ->
-                                                          yield ProgressBar.create
-                                                                    [ ProgressBar.dock Dock.Top
-                                                                      ProgressBar.isIndeterminate true ]
-                                                      | Found rs ->
-                                                          let r = rs.[0]
-                                                          yield! titleAndSub r.Mod.Name r.Mod.Summary
-
-                                                          yield TextBlock.create
-                                                                    [ TextBlock.dock Dock.Top
-                                                                      TextBlock.fontWeight FontWeight.Bold
-                                                                      TextBlock.text r.FileDetails.Name ]
-                                                      | NotFound { StatusCode = code; Message = msg } ->
-                                                          yield TextBlock.create
-                                                                    [ TextBlock.dock Dock.Top
-                                                                      TextBlock.classes [ "error" ]
-                                                                      TextBlock.text
-                                                                          (match code with
-                                                                           | HttpStatusCodes.NotFound ->
-                                                                               "Unrecognized or Corrupted Archive"
-                                                                           | _ -> msg) ] ] ] ] ] ]
+                                            TextBlock.create
+                                                [ TextBlock.dock Dock.Top
+                                                  TextBlock.fontWeight FontWeight.Bold
+                                                  TextBlock.text r.FileDetails.Name ] ]
+                                      | NotFound { StatusCode = code; Message = msg } ->
+                                          [ TextBlock.create
+                                              [ TextBlock.dock Dock.Top
+                                                TextBlock.classes [ "error" ]
+                                                TextBlock.text
+                                                    (match code with
+                                                     | HttpStatusCodes.NotFound -> "Unrecognized or Corrupted Archive"
+                                                     | _ -> msg) ] ]) ] ]) ] ]
 
     DockPanel.create
         [ DockPanel.margin 10.0
