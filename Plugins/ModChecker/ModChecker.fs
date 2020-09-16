@@ -204,7 +204,6 @@ let private titleAndSub title subtitle: seq<IView> =
 let inline private processingFile model = model.State = Hashing || model.State = Checking
 let inline private isGameSelected model = not model.SelectedGames.IsEmpty
 
-
 let private gameSelector model dispatch =
     if isGameSelected model then
         ComboBox.create
@@ -276,6 +275,35 @@ let private modSelector model dispatch =
                       Button.onClick (fun _ -> dispatch OpenFileDialog)
                       Button.content "Browse..." ] ] ]
 
+let private modInfo model: IView list =
+    match model.State with
+        | None -> []
+        | Hashing ->
+            [ ProgressBar.create
+                [ ProgressBar.dock Dock.Top
+                  ProgressBar.maximum (double model.ProgressMax)
+                  ProgressBar.value (double model.ProgressCurrent) ] ]
+        | Checking ->
+            [ ProgressBar.create
+                [ ProgressBar.dock Dock.Top
+                  ProgressBar.isIndeterminate true ] ]
+        | Found rs ->
+            let r = rs.[0]
+            [ yield! titleAndSub r.Mod.Name r.Mod.Summary
+
+              TextBlock.create
+                  [ TextBlock.dock Dock.Top
+                    TextBlock.fontWeight FontWeight.Bold
+                    TextBlock.text r.FileDetails.Name ] ]
+        | NotFound { StatusCode = code; Message = msg } ->
+            [ TextBlock.create
+                [ TextBlock.dock Dock.Top
+                  TextBlock.classes [ "error" ]
+                  TextBlock.text
+                      (match code with
+                       | HttpStatusCodes.NotFound -> "Unrecognized or Corrupted Archive"
+                       | _ -> msg) ] ]
+ 
 let private view (model: Model) (dispatch: Dispatch<Msg>): IView =
     let rowDefs =
         if model.Games.Length = 0 || isGameSelected model then
@@ -314,33 +342,7 @@ let private view (model: Model) (dispatch: Dispatch<Msg>): IView =
                                  StackPanel.spacing 8.0
                                  StackPanel.margin (0.0, 8.0)
                                  StackPanel.children
-                                     (match model.State with
-                                      | None -> []
-                                      | Hashing ->
-                                          [ ProgressBar.create
-                                              [ ProgressBar.dock Dock.Top
-                                                ProgressBar.maximum (double model.ProgressMax)
-                                                ProgressBar.value (double model.ProgressCurrent) ] ]
-                                      | Checking ->
-                                          [ ProgressBar.create
-                                              [ ProgressBar.dock Dock.Top
-                                                ProgressBar.isIndeterminate true ] ]
-                                      | Found rs ->
-                                          let r = rs.[0]
-                                          [ yield! titleAndSub r.Mod.Name r.Mod.Summary
-
-                                            TextBlock.create
-                                                [ TextBlock.dock Dock.Top
-                                                  TextBlock.fontWeight FontWeight.Bold
-                                                  TextBlock.text r.FileDetails.Name ] ]
-                                      | NotFound { StatusCode = code; Message = msg } ->
-                                          [ TextBlock.create
-                                              [ TextBlock.dock Dock.Top
-                                                TextBlock.classes [ "error" ]
-                                                TextBlock.text
-                                                    (match code with
-                                                     | HttpStatusCodes.NotFound -> "Unrecognized or Corrupted Archive"
-                                                     | _ -> msg) ] ]) ] ]) ] ]
+                                     (modInfo model)] ]) ] ]
 
     DockPanel.create
         [ DockPanel.margin 10.0
