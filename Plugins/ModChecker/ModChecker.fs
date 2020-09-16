@@ -16,7 +16,7 @@ open Nir.DSL // FuncUI DragDrop support
 open Nir.NexusApi
 open Nir.UI
 
-type Msg =
+type private Msg =
     | FetchGames
     | GotGames of ApiResult<Game []>
     | GameChanged of int
@@ -26,9 +26,9 @@ type Msg =
     | CheckFile of string
     | MD5Progress of int64 * int64
     | MD5Complete of Result<string, string>
-    | SearchResult of ApiResult<Md5Search []>
+    | SearchResult of string list * ApiResult<Md5Search []>
 
-module Sub =
+module private Sub =
     let md5Search file onProgress onComplete dispatch =
         async {
             async {
@@ -43,17 +43,18 @@ module Sub =
 
 // Model
 
-type ArchiveState =
+type private ArchiveState =
     | None
     | Hashing
     | Checking
     | Found of Md5Search []
     | NotFound of ApiError
 
-type Model =
+type private Model =
     { Window: Window
       Nexus: Nexus
       Games: Game []
+      GamesByName: Map<string, Game>
       SelectedGames: Game list
       Archive: string
       Hash: string
@@ -61,10 +62,11 @@ type Model =
       ProgressCurrent: int64
       ProgressMax: int64 }
 
-let init window nexus =
+let private init window nexus =
     { Window = window
       Nexus = nexus
       Games = [||]
+      GamesByName = Map.empty
       SelectedGames = []
       Archive = ""
       Hash = ""
@@ -74,16 +76,42 @@ let init window nexus =
 
 // Update
 
-let update (msg: Msg) (model: Model): Model * Cmd<_> =
-    let checkHash model =
+let private searchInDomains model gameDomains notFoundModel =
+    let search model gameDomain remainingDomains =
         { model with State = Checking },
-        Cmd.OfAsync.perform md5Search (model.Nexus, model.SelectedGames.Head.DomainName, model.Hash) SearchResult
+        Cmd.OfAsync.perform md5Search (model.Nexus, gameDomain, model.Hash)
+            (fun result -> SearchResult(remainingDomains, result))
 
-    let maybeCheckFile games model =
-        let gameChanged = games <> model.SelectedGames
+    match Seq.toList gameDomains with
+    | [ d ] -> search model d []
+    | d :: rest -> search model d rest
+    | [] -> notFoundModel, Cmd.none
+
+let private update (msg: Msg) (model: Model): Model * Cmd<_> =
+    let checkHash model =
+        let domains = Seq.map (fun (g: Game) -> g.DomainName) model.SelectedGames
+        searchInDomains model domains model
+
+    let maybeCheckFile model games =
+        // If SSE or FoNV are selected, also search the older games whose mods may be used.
+        let sle = "Skyrim"
+        let sse = "Skyrim Special Edition"
+        let fonv = "Fallout New Vegas"
+        let fo3 = "Fallout 3"
+
+        let gs =
+            match games with
+            | [ (game: Game) ] ->
+                let findGames = List.map (fun name -> model.GamesByName.[name])
+                if game.Name = sse then findGames [ sse; sle ]
+                elif game.Name = fonv then findGames [ fonv; fo3 ]
+                else games
+            | _ -> games
+
+        let gameChanged = gs <> model.SelectedGames
 
         let newModel =
-            if gameChanged then { model with SelectedGames = games } else model
+            if gameChanged then { model with SelectedGames = gs } else model
 
         if model.Archive.Length = 0 then newModel, Cmd.none
         elif not gameChanged || model.Hash.Length = 0 then newModel, Cmd.ofMsg (CheckFile model.Archive)
@@ -96,12 +124,24 @@ let update (msg: Msg) (model: Model): Model * Cmd<_> =
         | Ok x ->
             { model with
                   Nexus = x.Nexus
-                  Games = x.Result |> Array.sortByDescending (fun g -> g.Downloads) }, Cmd.none
+                  Games = x.Result |> Array.sortByDescending (fun g -> g.Downloads)
+                  GamesByName =
+                      x.Result
+                      |> Seq.map (fun g -> g.Name, g)
+                      |> Map.ofSeq }, Cmd.none
         | Error _ -> model, Cmd.none
     | GameChanged n ->
-        if n >= 0
-        then maybeCheckFile [ model.Games.[n] ] model
-        else model, Cmd.none
+        if n >= 0 then
+            let game = model.Games.[n]
+            if game.Name = "Skyrim Special Edition" then
+                List.append [ game ]
+                    [ for g in model.Games do
+                        if g.Name = "Skyrim" then yield g ]
+            else
+                [ game ]
+            |> maybeCheckFile model
+        else
+            model, Cmd.none
     | OpenFileDialog -> model, Cmd.OfAsync.perform promptModArchive model.Window ChangeFile
     | ChangeFile fileNames ->
         // This will trigger SelectionChanged when the view updates the TextBlock
@@ -112,10 +152,10 @@ let update (msg: Msg) (model: Model): Model * Cmd<_> =
         if model.State = Hashing then
             model, Cmd.none
         else
-            maybeCheckFile model.SelectedGames
+            maybeCheckFile
                 { model with
                       Archive = fileNames.[0]
-                      State = None }
+                      State = None } model.SelectedGames
     | CheckFile file ->
         { model with
               Archive = file
@@ -133,17 +173,17 @@ let update (msg: Msg) (model: Model): Model * Cmd<_> =
                       NotFound
                           { StatusCode = -1
                             Message = e } }, Cmd.none
-    | SearchResult r ->
+    | SearchResult(gameDomains, r) ->
         match r with
         | Ok s ->
             { model with
                   Nexus = s.Nexus
                   State = Found s.Result }, Cmd.none
-        | Error e -> { model with State = NotFound e }, Cmd.none
+        | Error e -> searchInDomains model gameDomains { model with State = NotFound e }
 
 // View
 
-let titleAndSub title subtitle: seq<IView> =
+let private titleAndSub title subtitle: seq<IView> =
     seq {
         yield TextBlock.create
                   [ TextBlock.classes [ "h1" ]
@@ -157,9 +197,9 @@ let titleAndSub title subtitle: seq<IView> =
                     TextBlock.text subtitle ]
     }
 
-let inline processingFile model = model.State = Hashing || model.State = Checking
+let inline private processingFile model = model.State = Hashing || model.State = Checking
 
-let modSelector model dispatch =
+let private modSelector model dispatch =
     let notProcessingFile = not <| processingFile model
     Grid.create
         [ Grid.dock Dock.Top
@@ -204,7 +244,7 @@ let modSelector model dispatch =
                       Button.onClick (fun _ -> dispatch OpenFileDialog)
                       Button.content "Browse..." ] ] ]
 
-let view (model: Model) (dispatch: Dispatch<Msg>): IView =
+let private view (model: Model) (dispatch: Dispatch<Msg>): IView =
     let isGameSelected = not model.SelectedGames.IsEmpty
 
     let (contents: IView list) =
