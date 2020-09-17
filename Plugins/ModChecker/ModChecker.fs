@@ -27,7 +27,7 @@ type private Msg =
     | GameChanged of int
     | OpenFileDialog
     | ChangeFileSelection of string []
-    | ModInfoMsg of ModInfo.Msg
+    | ModInfoMsg of int * ModInfo.Msg
 
 // Model
 
@@ -87,11 +87,19 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> =
         if processingFile model || (fileNames.Length = 1 && fileNames.[0] = "") then
             model, Cmd.none
         else
-            let mi = Seq.map (ModInfo.init model.Nexus model.SelectedGames) fileNames |> Seq.toList
-            { model with ModInfo = List.map fst mi }, Cmd.batch (List.map (snd >> Cmd.map ModInfoMsg) mi)
-    | ModInfoMsg miMsg ->
-        let miModel, miCmd = ModInfo.update miMsg model.ModInfo.Head
-        { model with ModInfo = [ miModel ] }, Cmd.map ModInfoMsg miCmd
+            let models, cmds =
+                Array.toList fileNames
+                |> List.mapi (fun index file -> ModInfo.init model.Nexus model.SelectedGames index file)
+                |> List.unzip
+
+            let indexCmd n cmd = cmd |> Cmd.map (fun c -> ModInfoMsg(n, c))
+            { model with ModInfo = models }, Cmd.batch <| List.mapi indexCmd cmds
+    | ModInfoMsg(id, miMsg) ->
+        let miModel, miCmd = ModInfo.update miMsg (List.skip id model.ModInfo).Head
+        { model with
+              ModInfo =
+                  List.mapi (fun i m ->
+                      if i = id then miModel else m) model.ModInfo }, Cmd.map ModInfoMsg miCmd
 
 
 // View
@@ -208,7 +216,10 @@ let private view (model: Model) (dispatch: Dispatch<Msg>): IView =
                                      Grid.row 1
                                      StackPanel.spacing 8.0
                                      StackPanel.margin (0.0, 8.0)
-                                     StackPanel.children [ ModInfo.view model.ModInfo.Head (ModInfoMsg >> dispatch) ] ] ]) ] ]
+                                     StackPanel.children
+                                         [ yield! List.mapi (fun id mi ->
+                                                      ModInfo.view mi (fun msg -> ModInfoMsg(id, msg) |> dispatch))
+                                                      model.ModInfo ] ] ]) ] ]
 
     DockPanel.create
         [ DockPanel.margin 10.0

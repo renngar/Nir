@@ -24,7 +24,8 @@ type ArchiveState =
     | NotFound of ApiError
 
 type Model =
-    { Nexus: Nexus
+    { Id: int
+      Nexus: Nexus
       SelectedGames: Game list
       Archive: string
       Hash: string
@@ -34,8 +35,9 @@ type Model =
 
 let processingFile model = model.State = Hashing || model.State = Checking
 
-let init nexus selectedGames file =
-    { Nexus = nexus
+let init nexus selectedGames id file =
+    { Id = id
+      Nexus = nexus
       SelectedGames = selectedGames
       Archive = file
       Hash = ""
@@ -47,7 +49,7 @@ let private searchInDomains model gameDomains notFoundModel =
     let search model gameDomain remainingDomains =
         { model with State = Checking },
         Cmd.OfAsync.perform md5Search (model.Nexus, gameDomain, model.Hash)
-            (fun result -> SearchResult(remainingDomains, result))
+            (fun result -> model.Id, SearchResult(remainingDomains, result))
 
     match Seq.toList gameDomains with
     | [ d ] -> search model d []
@@ -74,13 +76,14 @@ let titleAndSub title subtitle: seq<IView> =
 
 
 module private Sub =
-    let md5Search file onProgress onComplete dispatch =
+    let md5Search model onProgress onComplete dispatch =
+        let dispatch' msg = (model.Id, msg) |> dispatch
         async {
             async {
                 try
-                    Nir.Utility.Md5sum.md5sum file (onProgress >> dispatch) |> Ok
+                    Nir.Utility.Md5sum.md5sum model.Archive (onProgress >> dispatch') |> Ok
                 with e -> e.Message |> Error
-                |> (onComplete >> dispatch)
+                |> (onComplete >> dispatch')
             }
             |> Async.Start
         }
@@ -88,7 +91,7 @@ module private Sub =
 
 let update msg (model: Model) =
     match msg with
-    | CheckFile -> { model with State = Hashing }, Cmd.ofSub (Sub.md5Search model.Archive MD5Progress MD5Complete)
+    | CheckFile -> { model with State = Hashing }, Cmd.ofSub (Sub.md5Search model MD5Progress MD5Complete)
     | MD5Progress(current, max) ->
         { model with
               ProgressCurrent = current
