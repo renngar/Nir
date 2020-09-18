@@ -6,8 +6,6 @@ open Avalonia.Controls
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
 open Avalonia.Media
-
-// FuncUI DragDrop support
 open Nir.NexusApi
 
 type Msg =
@@ -77,17 +75,14 @@ let titleAndSub title subtitle: seq<IView> =
 
 module private Sub =
     let md5Search model onProgress onComplete dispatch =
-        let dispatch' msg = (model.Id, msg) |> dispatch
         async {
-            async {
-                try
-                    Nir.Utility.Md5sum.md5sum model.Archive (onProgress >> dispatch') |> Ok
-                with e -> e.Message |> Error
-                |> (onComplete >> dispatch')
-            }
-            |> Async.Start
+            let dispatch' msg = (model.Id, msg) |> dispatch
+            try
+                Nir.Utility.Md5sum.md5sum model.Archive (onProgress >> dispatch') |> Ok
+            with e -> e.Message |> Error
+            |> (onComplete >> dispatch')
         }
-        |> Async.RunSynchronously
+        |> Async.Start
 
 let update msg (model: Model) =
     match msg with
