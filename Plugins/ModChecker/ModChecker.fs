@@ -17,10 +17,6 @@ open Nir.UI
 
 open ModChecker
 
-// TODO: Tell what game domain the mod was found in.
-// TODO: Support searching for multiple mods at the same time.
-// TODO: Consider using the error messages returned by Nexus.
-
 type private Msg =
     | FetchGames
     | GotGames of ApiResult<Game []>
@@ -37,11 +33,13 @@ type private Model =
       Games: Game []
       GamesByName: Map<string, Game>
       SelectedGames: Game list
-      ModInfo: ModInfo.Model list }
+      ModInfo: ModInfo.Model list
+      ThrottleUpdates: Plugin.ThrottleUpdates }
 
-let private init window nexus =
+let private init window nexus throttleUpdates =
     { Window = window
       Nexus = nexus
+      ThrottleUpdates = throttleUpdates
       Games = [||]
       GamesByName = Map.empty
       SelectedGames = []
@@ -89,7 +87,9 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> =
         else
             let models, cmds =
                 Array.toList fileNames
-                |> List.mapi (fun index file -> ModInfo.init model.Nexus model.SelectedGames index file)
+                |> List.mapi
+                    (fun index file ->
+                        ModInfo.init model.Nexus model.SelectedGames model.ThrottleUpdates index file)
                 |> List.unzip
 
             let indexCmd n cmd = cmd |> Cmd.map (fun c -> ModInfoMsg(n, c))
@@ -229,6 +229,8 @@ type ModChecker() =
     interface IPlugin with
         member __.Name = "Nexus Mod Checker"
         member __.Description = "Verifies mod archive integrity with Nexus "
-        member __.Init(window, nexus) = Plugin.mapInit init (window, nexus)
+
+        member __.Init(window, nexus, throttleUpdates) = Plugin.mapInit init (window, nexus, throttleUpdates)
+
         member __.Update(msg, model) = Plugin.mapUpdate update (msg, model)
         member __.View(model, dispatch) = Plugin.mapView view (model, dispatch)

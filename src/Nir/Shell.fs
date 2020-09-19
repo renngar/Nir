@@ -1,11 +1,14 @@
 module Nir.Shell
 
+open System
 open FSharp.Data.HttpStatusCodes
 
 open Elmish
 open Avalonia.Controls
 open Avalonia.FuncUI.Components.Hosts
 open Avalonia.FuncUI.Elmish
+open Avalonia.FuncUI.Types
+open Avalonia.Rendering
 open Avalonia.Threading
 
 #if DEBUG
@@ -34,9 +37,16 @@ type Model =
 
       // UI
       Page: PageModel
+      RenderRoot: IRenderRoot
       Window: Window }
 
+    /// Should progress updates be throttled or is the UI ready for more?
+    member this.ThrottleUpdates() = (this.RenderRoot.Renderer :?> IRenderLoopTask).NeedsUpdate
+
+let mutable retryMsgInFlight = false
+
 type ShellMsg =
+    | RetryView // Sent by setState if we are not ready to draw the next version of the view
     | VerifyApiKey
     | VerifiedApiKeyResult of ApiResult<User>
     | DisplayApiKeyPage
@@ -54,7 +64,7 @@ type ExternalMsg =
     | ApiKeyExtMsg of ApiKey.ExternalMsg
     | ErrorExtMsg of Error.ExternalMsg
 
-let init window =
+let init (window, renderRoot) =
     let startPageModel, _ = Start.init window
 
     let key, ini =
@@ -66,8 +76,9 @@ let init window =
       Nexus =
           { ApiKey = key
             RateLimits = RateLimits.initialLimits }
-      Page = Start startPageModel
-      Window = window }, Cmd.ofMsg (ShellMsg VerifyApiKey)
+      Window = window
+      RenderRoot = renderRoot
+      Page = Start startPageModel }, Cmd.ofMsg (ShellMsg VerifyApiKey)
 
 let private showPage pageModelType model (pageModel, cmd) = { model with Page = pageModelType pageModel }, cmd
 
@@ -78,6 +89,9 @@ let private showMainPage model =
 // Update
 let private updateShell msg model =
     match msg with
+    | RetryView ->
+        retryMsgInFlight <- false
+        model, Cmd.none
     | VerifyApiKey ->
         model,
         Cmd.OfAsync.either usersValidate model.Nexus (ShellMsg << VerifiedApiKeyResult)
@@ -123,7 +137,7 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
     | ApiKeyExtMsg ApiKey.ExternalMsg.NoOp -> newModel, cmd
 
     | StartExtMsg(Start.ExternalMsg.LaunchPlugin plugin) ->
-        let pageModel, cmd = plugin.Init(model.Window, model.Nexus)
+        let pageModel, cmd = plugin.Init(model.Window, model.Nexus, model.ThrottleUpdates)
         showPage Plugin model ((plugin, pageModel), Cmd.map PluginMsg cmd)
     | ApiKeyExtMsg(ApiKey.ExternalMsg.Verified { Nexus = nexus; Result = user }) ->
         // Grab the results when the API Key page is done and write it to the .ini
@@ -140,18 +154,43 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
 
 // View
 
-let view (model: Model) (dispatch: Msg -> unit) =
+let view (model: Model) (dispatch: Msg -> unit): IView =
     match model.Page with
     | Start m -> Start.view m (StartMsg >> dispatch)
     | ApiKey m -> ApiKey.view m (ApiKeyMsg >> dispatch)
     | ErrorModel m -> Error.view m (ErrorMsg >> dispatch)
     | Plugin(plugin, m) -> plugin.View(m, PluginMsg >> dispatch)
 
+
+// Give the deferred renderer a chance to draw the previous state before drawing the latest.
+let throttleUpdates (host: IViewHost) (retryMsg: 'msg) (program: Program<'arg, Model, 'msg, #IView>) =
+    let stateRef = ref None
+
+    let setState (state: Model) dispatch =
+        // create new view and update the host only if new model is not equal to a prev one
+        let stateDiffers = (Some state).Equals(!stateRef) |> not
+
+        if stateDiffers then
+            let updated = state.ThrottleUpdates() |> not
+            // Only build a new view if the screen has been updated with the previous one
+            if updated then
+                stateRef := Some state
+                let view = ((Program.view program) state dispatch)
+                host.Update(Some(view :> IView))
+            elif retryMsgInFlight |> not then
+                // Otherwise, dispatch a message after a while so that we can retry updating with the latest.
+                DispatcherTimer.RunOnce(Action(fun () -> retryMsg |> dispatch), TimeSpan.FromMilliseconds 50.0)
+                |> ignore
+                retryMsgInFlight <- true
+
+    program |> Program.withSetState setState
+
 // Main
 
 type MainWindow() as this =
     inherit HostWindow()
 
+    // Copied from Avalonia.FuncUI.Elmish
     do
         base.Title <- "Nir"
         base.Width <- 800.0
@@ -177,8 +216,9 @@ type MainWindow() as this =
 
         Program.mkProgram init update view
         |> Program.withHost this
+        |> throttleUpdates this (ShellMsg RetryView)
         |> Program.withSyncDispatch syncDispatch
 #if DEBUG
         |> Program.withTrace (fun msg _ -> printfn "New message: %A" msg)
 #endif
-        |> Program.runWith this
+        |> Program.runWith (this, this.VisualRoot)

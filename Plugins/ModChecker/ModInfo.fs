@@ -7,6 +7,7 @@ open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
 open Avalonia.Media
 open Nir.NexusApi
+open Nir.UI
 
 type Msg =
     | CheckFile
@@ -25,6 +26,7 @@ type Model =
     { Id: int
       Nexus: Nexus
       SelectedGames: Game list
+      ThrottleUpdates: Plugin.ThrottleUpdates
       Archive: string
       Hash: string
       State: ArchiveState
@@ -33,10 +35,11 @@ type Model =
 
 let processingFile model = model.State = Hashing || model.State = Checking
 
-let init nexus selectedGames id file =
+let init nexus selectedGames throttleUpdates id file =
     { Id = id
       Nexus = nexus
       SelectedGames = selectedGames
+      ThrottleUpdates = throttleUpdates
       Archive = file
       Hash = ""
       State = None
