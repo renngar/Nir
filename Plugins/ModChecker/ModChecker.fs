@@ -1,6 +1,6 @@
 module Nir.Plugins.ModChecker
 
-open System
+open System.IO
 open Elmish
 open Avalonia.Controls
 open Avalonia.FuncUI.Components
@@ -22,7 +22,8 @@ type private Msg =
     | GotGames of ApiResult<Game []>
     | GameChanged of int
     | OpenFileDialog
-    | ChangeFileSelection of string []
+    | FilesSelected of string []
+    | FileTextBoxChanged of string
     | ModInfoMsg of int * ModInfo.Msg
 
 // Model
@@ -80,8 +81,8 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> =
             { model with SelectedGames = gs }, Cmd.none
         else
             model, Cmd.none
-    | OpenFileDialog -> model, Cmd.OfAsync.perform promptModArchive model.Window ChangeFileSelection
-    | ChangeFileSelection fileNames ->
+    | OpenFileDialog -> model, Cmd.OfAsync.perform promptModArchive model.Window FilesSelected
+    | FilesSelected fileNames ->
         if processingFile model || (fileNames.Length = 1 && fileNames.[0] = "") then
             model, Cmd.none
         else
@@ -94,6 +95,9 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> =
 
             let indexCmd n cmd = cmd |> Cmd.map (fun c -> ModInfoMsg(n, c))
             { model with ModInfo = models }, Cmd.batch <| List.mapi indexCmd cmds
+    | FileTextBoxChanged fileName ->
+        model,
+        (if File.Exists(fileName) then Cmd.ofMsg (FilesSelected [| fileName |]) else Cmd.none)
     | ModInfoMsg(id, miMsg) ->
         let miModel, miCmd = ModInfo.update miMsg (List.skip id model.ModInfo).Head
         { model with
@@ -134,6 +138,7 @@ let private gameSelector model dispatch =
 
 let private modSelector model dispatch =
     let notProcessingFile = not <| processingFile model
+    let baseName path = FileInfo(path).Name
     Grid.create
         [ Grid.column 1
           Grid.columnDefinitions "*, auto"
@@ -152,7 +157,7 @@ let private modSelector model dispatch =
                         if e.Data.Contains(DataFormats.FileNames) then
                             e.Data.GetFileNames()
                             |> Seq.toArray
-                            |> ChangeFileSelection
+                            |> FilesSelected
                             |> dispatch)
                     TextBox.textWrapping TextWrapping.Wrap
                     TextBox.watermark "Mod archive to verify"
@@ -160,16 +165,12 @@ let private modSelector model dispatch =
                     TextBox.acceptsReturn false
                     TextBox.acceptsTab false
                     TextBox.isEnabled notProcessingFile
-                    // This is tacky, but Ctrl-Insert does not work with Avalonia
-                    TextBox.tip (ToolTip.create [ ToolTip.content [ "Ctrl-V to paste" ] ])
                     TextBox.text
-                        (model.ModInfo
-                         |> Seq.map (fun mi -> mi.Archive)
-                         |> String.concat Environment.NewLine)
-                    TextBox.onTextChanged (fun s ->
-                        s.Split Environment.NewLine
-                        |> ChangeFileSelection
-                        |> dispatch) ]
+                        (match model.ModInfo with
+                         | [] -> ""
+                         | [ mi ] -> baseName mi.Archive
+                         | mi :: _multiple -> baseName mi.Archive |> sprintf "%s, ...")
+                    TextBox.onTextChanged (FileTextBoxChanged >> dispatch) ]
                 Button.create
                     [ Grid.column 1
                       Button.margin (8.0, 0.0, 0.0, 0.0)
