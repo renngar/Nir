@@ -71,6 +71,7 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> =
             let sse = "Skyrim Special Edition"
             let fonv = "Fallout New Vegas"
             let fo3 = "Fallout 3"
+
             let findGames = List.map (fun name -> model.GamesByName.[name])
 
             let gs =
@@ -78,12 +79,24 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> =
                 if game.Name = sse then findGames [ sse; sle ]
                 elif game.Name = fonv then findGames [ fonv; fo3 ]
                 else [ game ]
+
             { model with SelectedGames = gs }, Cmd.none
         else
             model, Cmd.none
     | OpenFileDialog -> model, Cmd.OfAsync.perform promptModArchive model.Window FilesSelected
     | FilesSelected fileNames ->
-        if processingFile model || (fileNames.Length = 1 && fileNames.[0] = "") then
+        let noFileSelected = (fileNames.Length = 1 && fileNames.[0] = "")
+
+        let sameFiles() =
+            let current =
+                model.ModInfo
+                |> List.map (fun mi -> mi.Archive)
+                |> List.toArray
+                |> Array.sort
+
+            (fileNames |> Array.sort) = current
+
+        if processingFile model || noFileSelected || sameFiles() then
             model, Cmd.none
         else
             let models, cmds =
@@ -94,12 +107,14 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> =
                 |> List.unzip
 
             let indexCmd n cmd = cmd |> Cmd.map (fun c -> ModInfoMsg(n, c))
+
             { model with ModInfo = models }, Cmd.batch <| List.mapi indexCmd cmds
     | FileTextBoxChanged fileName ->
         model,
         (if File.Exists(fileName) then Cmd.ofMsg (FilesSelected [| fileName |]) else Cmd.none)
     | ModInfoMsg(id, miMsg) ->
         let miModel, miCmd = ModInfo.update miMsg (List.skip id model.ModInfo).Head
+
         { model with
               ModInfo =
                   List.mapi (fun i m ->
@@ -229,6 +244,7 @@ let private view (model: Model) (dispatch: Dispatch<Msg>): IView =
 type ModChecker() =
     interface IPlugin with
         member __.Name = "Nexus Mod Checker"
+
         member __.Description = "Verifies mod archive integrity with Nexus "
 
         member __.Init(window, nexus, throttleUpdates) = Plugin.mapInit init (window, nexus, throttleUpdates)
