@@ -5,35 +5,40 @@ open System.Collections.Generic
 
 open Avalonia.Controls
 
-let promptHtmlFileName window = async {
-    let filters =
-        let filter = FileDialogFilter()
-        filter.Extensions <- List([ "html"; "htm" ])
-        filter.Name <- "HTML Mod List"
-        seq { filter }
+type private FileQty =
+    | Single
+    | Multiple
 
+let inline private openFileDialog (fileQty: FileQty) window title directory filters =
     let dialog = OpenFileDialog()
-    dialog.Directory <-
-        Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
-    dialog.Title <- "Select a Mod List"
-    dialog.Filters <- List(filters)
+    dialog.Title <- title
+    dialog.Directory <- directory
+    dialog.Filters <- filters
+    dialog.AllowMultiple <- (fileQty = Multiple)
+    dialog.ShowAsync(window) |> Async.AwaitTask
 
-    let! files = dialog.ShowAsync(window) |> Async.AwaitTask
-    return files.[0]
-}
+/// Creates a FileDialogFilter
+let inline private fileFilter name (extensions: string list) =
+    FileDialogFilter(Name = name, Extensions = List extensions)
 
-let promptModArchive window = async {
-    let filters =
-        let filter = FileDialogFilter()
-        filter.Extensions <- List([ "7z"; "rar"; "zip" ])
-        filter.Name <- "Mod Archive"
-        seq { filter }
+let promptHtmlFileName window =
+    async {
+        let! files =
+            openFileDialog
+                Single
+                window
+                "Select a Mod List"
+                (Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments))
+                (List [ fileFilter "HTML Mod List" [ "html"; "htm" ] ])
 
-    let dialog = OpenFileDialog()
-    dialog.Directory <-
-        Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
-    dialog.Title <- "Select a Mod Archive"
-    dialog.Filters <- List(filters)
+        return files.[0]
+    }
 
-    return! dialog.ShowAsync(window) |> Async.AwaitTask
-}
+let promptModArchives window =
+    openFileDialog
+        Multiple
+        window
+        "Select Mod Archives"
+        (Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments))
+        (List [ fileFilter "Mod Archive" [ "7z"; "rar"; "zip" ]
+                fileFilter "All" [ "" ] ])

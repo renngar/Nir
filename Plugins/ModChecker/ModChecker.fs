@@ -83,7 +83,7 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> =
             { model with SelectedGames = gs }, Cmd.none
         else
             model, Cmd.none
-    | OpenFileDialog -> model, Cmd.OfAsync.perform promptModArchive model.Window FilesSelected
+    | OpenFileDialog -> model, Cmd.OfAsync.perform promptModArchives model.Window FilesSelected
     | FilesSelected fileNames ->
         let noFileSelected = (fileNames.Length = 1 && fileNames.[0] = "")
 
