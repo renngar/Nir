@@ -8,6 +8,7 @@ open Avalonia.FuncUI.Types
 open Avalonia.Media
 open Nir.NexusApi
 open Nir.UI
+open Nir.Utility
 
 type Msg =
     | CheckFile
@@ -81,7 +82,9 @@ module private Sub =
         async {
             let dispatch' msg = (model.Id, msg) |> dispatch
             try
-                Nir.Utility.Md5sum.md5sum model.Archive (onProgress >> dispatch') |> Ok
+                Md5sum.md5sum model.Archive
+                    (fun x -> if model.ThrottleUpdates() |> not then onProgress x |> dispatch')
+                |> Ok
             with e -> e.Message |> Error
             |> (onComplete >> dispatch')
         }
