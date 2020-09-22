@@ -16,7 +16,8 @@ let nexusApiKey ini: IniPropertyValue * Ini =
     |> property ApiKeyProp
     |> propertyValue
 
-let setNexusApiKey ini value = setIniProperty ini NexusSection ApiKeyProp value
+let setNexusApiKey ini value =
+    setIniProperty ini NexusSection ApiKeyProp value
 
 /// The rate limiting data returned by the Nexus Mods APIs. The limits are as follows:
 ///
@@ -40,6 +41,7 @@ type RateLimits =
     // Assume the full rate quota when initializing RateLimits.  The actual values will be retrieved soon enough.
     static member initialLimits =
         let now = DateTime.UtcNow
+
         { HourlyLimit = 100
           HourlyRemaining = 100
           HourlyReset = now
@@ -62,9 +64,7 @@ type Headers = Map<string, string>
 type StatusCode = int
 
 /// A Nexus Mods API call succeeded returning the given rate limits and value
-type ApiSuccess<'T> =
-    { Nexus: Nexus
-      Result: 'T }
+type ApiSuccess<'T> = { Nexus: Nexus; Result: 'T }
 
 /// A Nexus Mods API call failed with a given status code and message
 type ApiError =
@@ -83,6 +83,7 @@ type ApiResult<'T> = Result<ApiSuccess<'T>, ApiError>
 let private rateLimit (headers: Headers): RateLimits =
     let toInt (headers: Headers) value = headers.[value] |> int
     let toDateTime (headers: Headers) value = DateTime.Parse(headers.[value])
+
     { HourlyLimit = toInt headers "X-RL-Hourly-Limit"
       HourlyRemaining = toInt headers "X-RL-Hourly-Remaining"
       HourlyReset = toDateTime headers "X-RL-Hourly-Reset"
@@ -98,23 +99,29 @@ let callApi nexus parser apiUrl =
     async {
         try
             // Setting silentHttpErrors returns the error response rather than throwing an exception.
-            let! result = Http.AsyncRequest
-                              (apiUrl,
-                               headers =
-                                   [ "Accept", "application/json"
-                                     "apikey", nexus.ApiKey ], silentHttpErrors = true)
+            let! result =
+                Http.AsyncRequest
+                    (apiUrl,
+                     headers =
+                         [ "Accept", "application/json"
+                           "apikey", nexus.ApiKey ],
+                     silentHttpErrors = true)
 
-            return match result.Body with
-                   | Text json ->
-                       match result.StatusCode with
-                       | HttpStatusCodes.OK ->
-                           Ok
-                               { Nexus = { nexus with RateLimits = rateLimit result.Headers }
-                                 Result = parser (json) }
-                       | status -> NexusErrorProvider.Parse(json).Message |> apiError status
-                   | Binary data ->
-                       apiError result.StatusCode
-                           (sprintf "Expected text, but got a %d byte binary response" data.Length)
+            return
+                match result.Body with
+                | Text json ->
+                    match result.StatusCode with
+                    | HttpStatusCodes.OK ->
+                        Ok
+                            { Nexus =
+                                  { nexus with
+                                        RateLimits = rateLimit result.Headers }
+                              Result = parser (json) }
+                    | status ->
+                        NexusErrorProvider.Parse(json).Message
+                        |> apiError status
+                | Binary data ->
+                    apiError result.StatusCode (sprintf "Expected text, but got a %d byte binary response" data.Length)
         with exn -> return apiError exn.HResult exn.Message
     }
 
@@ -131,8 +138,8 @@ type Md5Search = Md5SearchProvider.Md5Search
 
 let md5Search (nexus, game, hash) =
     try
-       sprintf "https://api.nexusmods.com/v1/games/%s/mods/md5_search/%s.json" game hash
-       |> callApi nexus Md5SearchProvider.Parse
+        sprintf "https://api.nexusmods.com/v1/games/%s/mods/md5_search/%s.json" game hash
+        |> callApi nexus Md5SearchProvider.Parse
     with _ -> async { return apiError -1 "Non-existent file" }
 
 ////////////////////////////////////////////////////////////////////////////////

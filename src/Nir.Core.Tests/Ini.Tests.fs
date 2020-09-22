@@ -1,6 +1,6 @@
 module Nir.Tests.INI
 
-open Fare                               // Xeger
+open Fare // Xeger
 open FParsec
 
 open Xunit
@@ -14,7 +14,8 @@ let sectionPattern = "[^ \000\t\n\r\]]+"
 let propertyNamePattern = "^[^;\\[\000\n\r=][^\000\n\r=]*"
 
 // Make sure there is at least one usable character in the property name
-let propertyLinePattern = "^[^;\\[\000\n\r=]*[^ ;\\[\000\n\r=][^;\\[\000\n\r=]*=[^\000\r\n]*[\r\n]*"
+let propertyLinePattern =
+    "^[^;\\[\000\n\r=]*[^ ;\\[\000\n\r=][^;\\[\000\n\r=]*=[^\000\r\n]*[\r\n]*"
 
 let inline parse p str = run p str
 
@@ -32,6 +33,7 @@ let parsesAs p s expected =
 let genMatches pattern =
     Gen.sized (fun size ->
         let xeger = Xeger pattern
+
         match size with
         | 0 -> []
         | _ -> [ for _ in 1 .. size -> xeger.Generate() ]
@@ -58,25 +60,20 @@ let generate rx =
     |> Printf.StringFormat<string -> string>
 
 [<Property>]
-let ``Addition is commutative`` a b =
-    a + b = b + a
+let ``Addition is commutative`` a b = a + b = b + a
 
 [<Property>]
-let ``Stringed floats parse as floats`` (NormalFloat n) =
-    parsesAs pfloat (string n) n
+let ``Stringed floats parse as floats`` (NormalFloat n) = parsesAs pfloat (string n) n
 
 [<Fact>]
-let ``Section names cannot be empty`` () =
-    parsesAsSection "" |> should be False
+let ``Section names cannot be empty`` () = parsesAsSection "" |> should be False
 
 [<Fact>]
-let ``Empty file parses`` () =
-    parses iniFile "" |> should be True
+let ``Empty file parses`` () = parses iniFile "" |> should be True
 
 [<Fact>]
 let ``Empty property value parses`` () =
-    parses propertyValue "\n"
-    |> should be True
+    parses propertyValue "\n" |> should be True
 
 [<Fact>]
 let ``Empty assignment value parses`` () =
@@ -89,18 +86,15 @@ let ``Strings without whitespace parse as valid section names`` () =
 
 [<Property>]
 let ``Section names cannot have whitespace`` () =
-    testPatterns (sprintf "%s[ \t\n\r]%s+" sectionPattern sectionPattern)
-                 (not << parsesAsSection)
+    testPatterns (sprintf "%s[ \t\n\r]%s+" sectionPattern sectionPattern) (not << parsesAsSection)
 
 [<Property>]
 let ``Section names cannot have nulls`` () =
-    testPatterns (sprintf "%s\000%s" sectionPattern sectionPattern)
-        (not << parsesAsSection)
+    testPatterns (sprintf "%s\000%s" sectionPattern sectionPattern) (not << parsesAsSection)
 
 [<Property>]
 let ``Section ignores left space padding`` () =
-    testPatterns sectionPattern
-        (parsesAsSectionFormat (generate "\[[ \t]+%s\]"))
+    testPatterns sectionPattern (parsesAsSectionFormat (generate "\[[ \t]+%s\]"))
 
 [<Property>]
 let ``Section ignores right space padding`` () =
@@ -108,8 +102,7 @@ let ``Section ignores right space padding`` () =
 
 [<Property>]
 let ``Section ignores space padding on both sides`` () =
-    testPatterns sectionPattern
-        (parsesAsSectionFormat (generate "\[[ \t]+%s[ \t]+\]"))
+    testPatterns sectionPattern (parsesAsSectionFormat (generate "\[[ \t]+%s[ \t]+\]"))
 
 [<Property>]
 let ``Whitespace only parses`` () =
@@ -121,8 +114,7 @@ let ``Single character property name parses`` () =
 
 [<Property>]
 let ``Property without a value parses`` () =
-    testPatterns (sprintf "%s=[ \r\n]?" propertyNamePattern)
-        (parses propertyLine)
+    testPatterns (sprintf "%s=[ \r\n]?" propertyNamePattern) (parses propertyLine)
 
 [<Property>]
 let ``Property lines parse`` () =
@@ -132,8 +124,7 @@ let ``Property lines parse`` () =
 let ``Property name does not end with a space`` () =
     testPatterns (sprintf "%s " propertyLinePattern) (fun s ->
         match parse propertyLine s with
-        | Success (IniProperty { Name = n }, _, _) ->
-            (not << Text.IsWhitespace) n.[n.Length - 1]
+        | Success (IniProperty { Name = n }, _, _) -> (not << Text.IsWhitespace) n.[n.Length - 1]
         | _ -> false)
 
 [<Property>]
@@ -142,5 +133,4 @@ let ``Multiple sections parse`` () =
 
 [<Property>]
 let ``Multiple sections parse with random space in between`` () =
-    testPatterns
-        (sprintf "(\[%s\]\n[ \t\r\n]+)+" sectionPattern) (parses iniFile)
+    testPatterns (sprintf "(\[%s\]\n[ \t\r\n]+)+" sectionPattern) (parses iniFile)

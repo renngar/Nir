@@ -23,4 +23,5 @@ let private tbProperty =
     | VerticalAlignment a -> TextBlock.verticalAlignment a
 
 let textBlock properties text =
-    TextBlock.create <| List.append (List.map tbProperty properties) [ TextBlock.text text ]
+    TextBlock.create
+    <| List.append (List.map tbProperty properties) [ TextBlock.text text ]

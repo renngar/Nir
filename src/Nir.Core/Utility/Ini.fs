@@ -41,9 +41,7 @@ module Parser =
     ////////////////////////////////////////////////////////////////////////
     /// INI Parsing Logic
     ////////////////////////////////////////////////////////////////////////
-    type PropertyLine =
-        { Name: string
-          Value: string }
+    type PropertyLine = { Name: string; Value: string }
 
     type INI =
         | IniComment of string
@@ -64,14 +62,15 @@ module Parser =
     let strExcept exceptions = manyChars (noneOf exceptions) .>> lineWs
 
     /// `str1Except exceptions` parses a sequence of *one* or more characters that do not appear in `exceptions`.
-    let str1Except exceptions = many1Chars (noneOf exceptions) .>> lineWs
+    let str1Except exceptions =
+        many1Chars (noneOf exceptions) .>> lineWs
 
     /// parse a comment line beginning with `;`
-    let lineComment = pchar ';' >>. restOfLine true |>> IniComment
+    let lineComment =
+        pchar ';' >>. restOfLine true |>> IniComment
 
     /// parses a section name, not the whole section header
-    let sectionName =
-        str1Except "] \t\n\r\000"
+    let sectionName = str1Except "] \t\n\r\000"
 
     /// parses a section header
     let sectionHeader =
@@ -82,28 +81,33 @@ module Parser =
 
     // Cannot start with a square, open bracket or a semicolon.  That would
     // be a section header or comment.
-    let propertyChar1 =
-        noneOf ";[\n\r\000="
+    let propertyChar1 = noneOf ";[\n\r\000="
 
     let private trimEnd (s: string) = s.TrimEnd()
 
     // Should not end with whitespace.  Trimming it is easier than
-    let propertyCharRest =
-        strExcept "\n\r\000="
-        |>> trimEnd
+    let propertyCharRest = strExcept "\n\r\000=" |>> trimEnd
 
-    let propertyName = propertyChar1 .>>. propertyCharRest .>> lineWs |>> fun (i, r) -> (string i) + r
+    let propertyName =
+        propertyChar1
+        .>>. propertyCharRest
+        .>> lineWs
+        |>> fun (i, r) -> (string i) + r
 
     let propertyValue = restOfLine true |>> trimEnd
     let assignment = strLineWs "="
 
     let propertyLine =
-        propertyName .>> assignment .>>. propertyValue |>> fun (n, v) ->
-            IniProperty
-                { Name = n
-                  Value = v }
+        propertyName
+        .>> assignment
+        .>>. propertyValue
+        |>> fun (n, v) -> IniProperty { Name = n; Value = v }
 
-    let line = lineComment <|> sectionHeader <|> propertyLine .>> ws
+    let line =
+        lineComment
+        <|> sectionHeader
+        <|> propertyLine
+        .>> ws
 
     let iniFile = ws >>. many line
 
@@ -117,23 +121,28 @@ module Parser =
 
         let mutable sections = []
 
-        let useComments() =
+        let useComments () =
             let cs = List.rev (comments)
             comments <- []
             cs
 
-        let finishPreviousSection() =
+        let finishPreviousSection () =
             match section with
             | sec when sec.Comments.IsEmpty && sec.Properties.IsEmpty -> ()
-            | _ -> sections <- { section with Properties = List.rev (section.Properties) } :: sections
+            | _ ->
+                sections <-
+                    { section with
+                          Properties = List.rev (section.Properties) }
+                    :: sections
 
         for line in ini do
             match line with
             | IniComment c -> comments <- c :: comments
             | IniSection s ->
-                finishPreviousSection()
+                finishPreviousSection ()
+
                 section <-
-                    { Comments = useComments()
+                    { Comments = useComments ()
                       Section = s
                       Properties = [] }
 
@@ -141,11 +150,13 @@ module Parser =
                 section <-
                     { section with
                           Properties =
-                              { Comments = useComments()
+                              { Comments = useComments ()
                                 Property = n
                                 Value = v }
                               :: section.Properties }
-        finishPreviousSection()
+
+        finishPreviousSection ()
+
         { FileName = ""
           Sections = List.rev (sections)
           TrailingComments = List.rev (comments) }
@@ -159,8 +170,8 @@ open Parser
 /// `Ini` data model.
 let parseIni (s: string): Ini =
     match run iniFile s with
-    | Failure(msg, _, _) -> failwith msg
-    | Success(ini, _, _) -> convertToTree ini
+    | Failure (msg, _, _) -> failwith msg
+    | Success (ini, _, _) -> convertToTree ini
 
 /// `parseIniFile fileName` loads and parses the .ini file into an internal
 /// `Ini` data model.
@@ -179,16 +190,21 @@ let saveIni (ini: Ini) =
             sw.WriteLine(comment)
 
     use sw = new StreamWriter(ini.FileName)
+
     for section in ini.Sections do
         writeComments sw section.Comments
         fprintfn sw "[%s]" section.Section
+
         for property in section.Properties do
             writeComments sw property.Comments
             fprintfn sw "%s=%s" property.Property property.Value
+
     writeComments sw ini.TrailingComments
 
 /// Try to fined the named section in the ini
-let trySection section ini: Section option = ini.Sections |> List.tryFind (fun s -> s.Section = section)
+let trySection section ini: Section option =
+    ini.Sections
+    |> List.tryFind (fun s -> s.Section = section)
 
 let newSection section properties =
     { Comments = []
@@ -202,7 +218,9 @@ let section section ini: Section * Ini =
     | None -> newSection section [], ini
 
 /// Try to fined the named section in the ini
-let tryProperty property section: Property option = section.Properties |> List.tryFind (fun s -> s.Property = property)
+let tryProperty property section: Property option =
+    section.Properties
+    |> List.tryFind (fun s -> s.Property = property)
 
 let newProperty name value: Property =
     { Comments = []
@@ -229,9 +247,11 @@ let setIniProperty ini sectionName propertyName value =
         | Some _ -> List.map updateProperty section.Properties
 
     let updateSection s =
-        if s.Section = sectionName
-        then { s with Properties = updateProperties s }
-        else s
+        if s.Section = sectionName then
+            { s with
+                  Properties = updateProperties s }
+        else
+            s
 
     { ini with
           Sections =

@@ -9,8 +9,7 @@ open FsUnit.Xunit
 
 [<Fact>]
 let ``getProgramPath returns not empty`` () =
-    getProgramPath ()
-    |> should not' (be EmptyString)
+    getProgramPath () |> should not' (be EmptyString)
 
 [<Fact>]
 let ``program path exists`` () =

@@ -27,7 +27,8 @@ type Msg =
 let init window =
     { Window = window
       GotPlugins = false
-      Plugins = [] }, Cmd.OfFunc.perform findPlugins () GotPlugins
+      Plugins = [] },
+    Cmd.OfFunc.perform findPlugins () GotPlugins
 
 let update msg model =
     match msg with
@@ -38,6 +39,7 @@ let update msg model =
             { model with
                   GotPlugins = true
                   Plugins = plugins }
+
         match plugins with
         // If there is only one plugin, launch it
         | [ plugin ] -> newModel, Cmd.none, LaunchPlugin plugin
@@ -46,39 +48,37 @@ let update msg model =
     | PluginSelected plugin -> model, Cmd.none, LaunchPlugin plugin
 
 let pluginListView (model: Model) (dispatch) =
-    ListBox.create
-        [ ListBox.borderThickness 0.0
-          ListBox.padding 0.0
-          ListBox.onSelectedItemChanged (function
-              | :? IPlugin as p -> PluginSelected p |> dispatch
-              | _ -> ())
-          ListBox.dataItems model.Plugins
-          ListBox.itemTemplate
-              (DataTemplateView<IPlugin>
-                  .create
-                      (fun p ->
-                          Border.create
-                              [ Border.classes [ "plugin" ]
-                                Border.child
-                                    (StackPanel.create
-                                        [ StackPanel.spacing 8.0
-                                          StackPanel.children
-                                              [ textBlock [ Class "h1" ] p.Name
-                                                textBlock [ Class "h2" ] p.Description ] ]) ])) ]
+    ListBox.create [ ListBox.borderThickness 0.0
+                     ListBox.padding 0.0
+                     ListBox.onSelectedItemChanged (function
+                         | :? IPlugin as p -> PluginSelected p |> dispatch
+                         | _ -> ())
+                     ListBox.dataItems model.Plugins
+                     ListBox.itemTemplate
+                         (DataTemplateView<IPlugin>
+                             .create(fun p ->
+                                    Border.create [ Border.classes [ "plugin" ]
+                                                    Border.child
+                                                        (StackPanel.create [ StackPanel.spacing 8.0
+                                                                             StackPanel.children [ textBlock
+                                                                                                       [ Class "h1" ]
+                                                                                                       p.Name
+                                                                                                   textBlock
+                                                                                                       [ Class "h2" ]
+                                                                                                       p.Description ] ]) ])) ]
 
 // View
 let view (model: Model) (dispatch: Msg -> unit): IView =
-    StackPanel.create
-        [ StackPanel.margin 10.0
-          StackPanel.spacing 4.0
-          StackPanel.children
-              [ if not model.GotPlugins then
-                  yield textBlock [] "Loading plugins..."
-                  yield ProgressBar.create
-                            [ ProgressBar.isIndeterminate true
-                              ProgressBar.margin (0.0, 16.0) ]
-                elif model.Plugins.IsEmpty then
-                    yield textBlock [] "No plugins found" :> IView
-                else
-                    yield textBlock [ Class "h1" ] "Tools"
-                    yield pluginListView model dispatch ] ] :> IView
+    StackPanel.create [ StackPanel.margin 10.0
+                        StackPanel.spacing 4.0
+                        StackPanel.children [ if not model.GotPlugins then
+                                                  yield textBlock [] "Loading plugins..."
+
+                                                  yield
+                                                      ProgressBar.create [ ProgressBar.isIndeterminate true
+                                                                           ProgressBar.margin (0.0, 16.0) ]
+                                              elif model.Plugins.IsEmpty then
+                                                  yield textBlock [] "No plugins found" :> IView
+                                              else
+                                                  yield textBlock [ Class "h1" ] "Tools"
+                                                  yield pluginListView model dispatch ] ] :> IView

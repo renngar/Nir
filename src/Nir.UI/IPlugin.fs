@@ -1,4 +1,4 @@
-﻿namespace Nir.UI
+namespace Nir.UI
 
 open Elmish
 open Avalonia.Controls
@@ -16,7 +16,8 @@ module Plugin =
 
     /// Map an init function to the `IPlugin.Init` signature
     let mapInit (init: Init<'Model, 'Msg>) (window: Window, nexus: Nexus, throttleUpdates: ThrottleUpdates) =
-        init window nexus throttleUpdates |> fun (model, cmd) -> model :> Model, Cmd.map (fun msg -> msg :> Msg) cmd
+        init window nexus throttleUpdates
+        |> fun (model, cmd) -> model :> Model, Cmd.map (fun msg -> msg :> Msg) cmd
 
     /// Map an update function to the `IPlugin.Update` signature
     let mapUpdate (update: 'Msg -> 'Model -> ('Model * Cmd<'Msg>)) (msg: Msg, model: Model) =

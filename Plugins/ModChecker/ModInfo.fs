@@ -1,4 +1,4 @@
-﻿module ModChecker.ModInfo
+module ModChecker.ModInfo
 
 open FSharp.Data
 open Elmish
@@ -34,7 +34,8 @@ type Model =
       ProgressCurrent: int64
       ProgressMax: int64 }
 
-let processingFile model = model.State = Hashing || model.State = Checking
+let processingFile model =
+    model.State = Hashing || model.State = Checking
 
 let init nexus selectedGames throttleUpdates id file =
     { Id = id
@@ -45,13 +46,14 @@ let init nexus selectedGames throttleUpdates id file =
       Hash = ""
       State = None
       ProgressCurrent = 0L
-      ProgressMax = 0L }, Cmd.ofMsg CheckFile
+      ProgressMax = 0L },
+    Cmd.ofMsg CheckFile
 
 let private searchInDomains model gameDomains notFoundModel =
     let search model gameDomain remainingDomains =
         { model with State = Checking },
-        Cmd.OfAsync.perform md5Search (model.Nexus, gameDomain, model.Hash)
-            (fun result -> model.Id, SearchResult(remainingDomains, result))
+        Cmd.OfAsync.perform md5Search (model.Nexus, gameDomain, model.Hash) (fun result ->
+            model.Id, SearchResult(remainingDomains, result))
 
     match Seq.toList gameDomains with
     | [ d ] -> search model d []
@@ -59,21 +61,23 @@ let private searchInDomains model gameDomains notFoundModel =
     | [] -> notFoundModel, Cmd.none
 
 let private checkHash model =
-    let domains = Seq.map (fun (g: Game) -> g.DomainName) model.SelectedGames
+    let domains =
+        Seq.map (fun (g: Game) -> g.DomainName) model.SelectedGames
+
     searchInDomains model domains model
 
 let titleAndSub title subtitle: seq<IView> =
     seq {
-        yield TextBlock.create
-                  [ TextBlock.classes [ "h1" ]
-                    TextBlock.dock Dock.Top
-                    TextBlock.text title ]
+        yield
+            TextBlock.create [ TextBlock.classes [ "h1" ]
+                               TextBlock.dock Dock.Top
+                               TextBlock.text title ]
 
-        yield TextBlock.create
-                  [ TextBlock.classes [ "h2" ]
-                    TextBlock.dock Dock.Top
-                    TextBlock.textWrapping TextWrapping.Wrap
-                    TextBlock.text subtitle ]
+        yield
+            TextBlock.create [ TextBlock.classes [ "h2" ]
+                               TextBlock.dock Dock.Top
+                               TextBlock.textWrapping TextWrapping.Wrap
+                               TextBlock.text subtitle ]
     }
 
 
@@ -81,9 +85,9 @@ module private Sub =
     let md5Search model onProgress onComplete dispatch =
         async {
             let dispatch' msg = (model.Id, msg) |> dispatch
+
             try
-                Md5sum.md5sum model.Archive
-                    (fun x -> if model.ThrottleUpdates() |> not then onProgress x |> dispatch')
+                Md5sum.md5sum model.Archive (fun x -> if model.ThrottleUpdates() |> not then onProgress x |> dispatch')
                 |> Ok
             with e -> e.Message |> Error
             |> (onComplete >> dispatch')
@@ -93,25 +97,25 @@ module private Sub =
 let update msg (model: Model) =
     match msg with
     | CheckFile -> { model with State = Hashing }, Cmd.ofSub (Sub.md5Search model MD5Progress MD5Complete)
-    | MD5Progress(current, max) ->
+    | MD5Progress (current, max) ->
         { model with
               ProgressCurrent = current
-              ProgressMax = max }, Cmd.none
+              ProgressMax = max },
+        Cmd.none
     | MD5Complete r ->
         match r with
         | Ok hash -> { model with Hash = hash } |> checkHash
         | Error e ->
             { model with
-                  State =
-                      NotFound
-                          { StatusCode = -1
-                            Message = e } }, Cmd.none
-    | SearchResult(gameDomains, r) ->
+                  State = NotFound { StatusCode = -1; Message = e } },
+            Cmd.none
+    | SearchResult (gameDomains, r) ->
         match r with
         | Ok s ->
             { model with
                   Nexus = s.Nexus
-                  State = Found s.Result }, Cmd.none
+                  State = Found s.Result },
+            Cmd.none
         | Error e -> searchInDomains model gameDomains { model with State = NotFound e }
 
 let view model (_: Dispatch<Msg>): IView =
@@ -119,27 +123,29 @@ let view model (_: Dispatch<Msg>): IView =
         match model.State with
         | None -> []
         | Hashing ->
-            [ StackPanel.create
-                [ StackPanel.spacing 8.0
-                  StackPanel.children
-                      [ yield TextBlock.create [ Path.baseName model.Archive |> TextBlock.text ]
-                        if model.ProgressMax > 0L then
-                            yield ProgressBar.create
-                                      [ ProgressBar.maximum (double model.ProgressMax)
-                                        ProgressBar.value (double model.ProgressCurrent) ] ] ] ]
+            [ StackPanel.create [ StackPanel.spacing 8.0
+                                  StackPanel.children [ yield
+                                                            TextBlock.create [ Path.baseName model.Archive
+                                                                               |> TextBlock.text ]
+                                                        if model.ProgressMax > 0L then
+                                                            yield
+                                                                ProgressBar.create [ ProgressBar.maximum
+                                                                                         (double model.ProgressMax)
+                                                                                     ProgressBar.value
+                                                                                         (double model.ProgressCurrent) ] ] ] ]
         | Checking -> [ ProgressBar.create [ ProgressBar.isIndeterminate true ] ]
         | Found rs ->
             let r = rs.[0]
+
             [ yield! titleAndSub r.Mod.Name r.Mod.Summary
 
-              TextBlock.create
-                  [ TextBlock.fontWeight FontWeight.Bold
-                    TextBlock.text r.FileDetails.Name ] ]
+              TextBlock.create [ TextBlock.fontWeight FontWeight.Bold
+                                 TextBlock.text r.FileDetails.Name ] ]
         | NotFound { StatusCode = code; Message = msg } ->
-            [ TextBlock.create
-                [ TextBlock.classes [ "error" ]
-                  TextBlock.text
-                      (match code with
-                       | HttpStatusCodes.NotFound -> "Unrecognized or Corrupted Archive"
-                       | _ -> msg) ] ]
+            [ TextBlock.create [ TextBlock.classes [ "error" ]
+                                 TextBlock.text
+                                     (match code with
+                                      | HttpStatusCodes.NotFound -> "Unrecognized or Corrupted Archive"
+                                      | _ -> msg) ] ]
+
     DockPanel.create [ if not <| contents.IsEmpty then DockPanel.children contents ] :> IView

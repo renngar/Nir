@@ -1,4 +1,4 @@
-﻿module Nir.Utility.Path
+module Nir.Utility.Path
 
 open System.IO
 open System.Text.RegularExpressions
@@ -10,7 +10,7 @@ let (+/) path1 path2 = Path.Combine(path1, path2)
 ///
 /// For example if the executable is in C:\Program\bin\Debug\netcoreapp3.1, this
 /// will return C:\Program.
-let getProgramPath() =
+let getProgramPath () =
     let tryMatch rx path =
         let m = Regex.Match(path, rx)
         if m.Success then m.Groups.[1].Value else path

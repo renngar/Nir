@@ -1,4 +1,4 @@
-﻿module Fesl.State
+module Fesl.State
 
 [<Struct>]
 type S<'State, 'Value> = S of ('State -> ('Value * 'State))
@@ -7,14 +7,20 @@ type S<'State, 'Value> = S of ('State -> ('Value * 'State))
 let runS (S f) state = f state
 let evalS f state = runS f state |> fst
 let execS f state = runS f state |> snd
-let mapS f (S xS) = (xS >> fun (x, state) -> (f x), state) |> S
+
+let mapS f (S xS) =
+    (xS
+     >> fun (x, state) -> (f x), state)
+    |> S
 
 /// lift a value
 let returnS x = (fun state -> x, state) |> S
 
 /// lift a monadic function
 let bindS (f: 'a -> S<'State, 'b>) xS =
-    (runS xS >> fun (x, state) -> runS (f x) state) |> S
+    (runS xS
+     >> fun (x, state) -> runS (f x) state)
+    |> S
 
 type StateBuilder() =
     member _.Return(x) = returnS x

@@ -8,11 +8,14 @@ let md5sum (fileName: string) onProgress =
     let info = FileInfo(fileName)
     use sr = new StreamReader(fileName)
     use br = new BinaryReader(sr.BaseStream)
-    use md5hash = IncrementalHash.CreateHash(HashAlgorithmName.MD5)
+
+    use md5hash =
+        IncrementalHash.CreateHash(HashAlgorithmName.MD5)
 
     let mutable atEnd = false
     let mutable processed = 0L
     onProgress (processed, info.Length)
+
     while not atEnd do
         let block = br.ReadBytes(blockSize)
         md5hash.AppendData(block)
