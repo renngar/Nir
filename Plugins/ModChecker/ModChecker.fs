@@ -14,6 +14,7 @@ open Nir.Dialogs
 open Nir.DSL // FuncUI DragDrop support
 open Nir.NexusApi
 open Nir.UI
+open Nir.Utility
 
 open ModChecker
 
@@ -153,7 +154,6 @@ let private gameSelector model dispatch =
 
 let private modSelector model dispatch =
     let notProcessingFile = not <| processingFile model
-    let baseName path = FileInfo(path).Name
     Grid.create
         [ Grid.column 1
           Grid.columnDefinitions "*, auto"
@@ -183,8 +183,8 @@ let private modSelector model dispatch =
                     TextBox.text
                         (match model.ModInfo with
                          | [] -> ""
-                         | [ mi ] -> baseName mi.Archive
-                         | mi :: _multiple -> baseName mi.Archive |> sprintf "%s, ...")
+                         | [ mi ] -> Path.baseName mi.Archive
+                         | mi :: _multiple -> Path.baseName mi.Archive |> sprintf "%s, ...")
                     TextBox.onTextChanged (FileTextBoxChanged >> dispatch) ]
                 Button.create
                     [ Grid.column 1
@@ -215,7 +215,7 @@ let private view (model: Model) (dispatch: Dispatch<Msg>): IView =
           Grid.create
               [ Grid.rowDefinitions rowDefs
                 Grid.columnDefinitions (if isGameSelected model then "auto, *" else "*")
-                Grid.margin (0.0, 16.0)
+                Grid.margin (0.0, 16.0, 0.0, 0.0)
                 Grid.children
                     (if model.Games.Length = 0 then
                         [ ProgressBar.create
@@ -227,15 +227,17 @@ let private view (model: Model) (dispatch: Dispatch<Msg>): IView =
                          [ gameSelector model dispatch
                            modSelector model dispatch
                            if not <| model.ModInfo.IsEmpty then
-                               StackPanel.create
+                               ScrollViewer.create
                                    [ Grid.columnSpan 2
                                      Grid.row 1
-                                     StackPanel.spacing 8.0
-                                     StackPanel.margin (0.0, 8.0)
-                                     StackPanel.children
-                                         [ yield! List.mapi (fun id mi ->
-                                                      ModInfo.view mi (fun msg -> ModInfoMsg(id, msg) |> dispatch))
-                                                      model.ModInfo ] ] ]) ] ]
+                                     ScrollViewer.margin (0.0, 8.0, 0.0, 0.0)
+                                     ScrollViewer.content
+                                         (StackPanel.create
+                                             [ StackPanel.spacing 8.0
+                                               StackPanel.children
+                                                   [ yield! List.mapi (fun id mi ->
+                                                                ModInfo.view mi (fun msg ->
+                                                                    ModInfoMsg(id, msg) |> dispatch)) model.ModInfo ] ]) ] ]) ] ]
 
     DockPanel.create
         [ DockPanel.margin 10.0

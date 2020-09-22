@@ -1,9 +1,10 @@
 ﻿module Nir.Utility.Path
 
+open System.IO
 open System.Text.RegularExpressions
 
 /// Custom operator for combining paths
-let (+/) path1 path2 = System.IO.Path.Combine(path1, path2)
+let (+/) path1 path2 = Path.Combine(path1, path2)
 
 /// Returns the root directory of the currently running program
 ///
@@ -20,3 +21,6 @@ let getProgramPath() =
         |> tryMatch @"^(.*)/[^/]*\.(exe|dll)" // Published Release
 
     System.Uri(root).LocalPath
+
+/// Return just the file name without any directories
+let baseName path = FileInfo(path).Name

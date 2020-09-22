@@ -119,9 +119,14 @@ let view model (_: Dispatch<Msg>): IView =
         match model.State with
         | None -> []
         | Hashing ->
-            [ ProgressBar.create
-                [ ProgressBar.maximum (double model.ProgressMax)
-                  ProgressBar.value (double model.ProgressCurrent) ] ]
+            [ StackPanel.create
+                [ StackPanel.spacing 8.0
+                  StackPanel.children
+                      [ yield TextBlock.create [ Path.baseName model.Archive |> TextBlock.text ]
+                        if model.ProgressMax > 0L then
+                            yield ProgressBar.create
+                                      [ ProgressBar.maximum (double model.ProgressMax)
+                                        ProgressBar.value (double model.ProgressCurrent) ] ] ] ]
         | Checking -> [ ProgressBar.create [ ProgressBar.isIndeterminate true ] ]
         | Found rs ->
             let r = rs.[0]
