@@ -41,7 +41,12 @@ type Model =
       Window: Window }
 
     /// Should progress updates be throttled or is the UI ready for more?
-    member this.ThrottleUpdates() = (this.RenderRoot.Renderer :?> IRenderLoopTask).NeedsUpdate
+    member this.ThrottleUpdates() =
+        match this.RenderRoot.Renderer with
+        | :? IRenderLoopTask as task -> task.NeedsUpdate
+        // The renderer may go away if the application is closed while background threads are updating.  Throttle
+        // updates in this situation, because they won't be displayed anyway.
+        | _ -> true
 
 let mutable retryMsgInFlight = false
 
