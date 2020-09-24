@@ -115,17 +115,20 @@ let update msg (model: Model) =
         | Error e -> searchInDomains model gameDomains { model with State = NotFound e }
 
 let view model (_: Dispatch<Msg>): IView =
+    let modName model =
+        textBlock [] (Path.baseName model.Archive)
+
+    let stack content = [ stackPanel [ spacing 8.0 ] content ]
+
     dockPanel []
     <| match model.State with
        | None -> []
        | Hashing ->
-           [ stackPanel [ spacing 8.0 ] [
-               yield textBlock [] (Path.baseName model.Archive)
-               if model.ProgressMax > 0L then
-                   yield
-                       progressBar [ maximum (double model.ProgressMax)
-                                     value (double model.ProgressCurrent) ]
-             ] ]
+           stack [ yield modName model
+                   if model.ProgressMax > 0L then
+                       yield
+                           progressBar [ maximum (double model.ProgressMax)
+                                         value (double model.ProgressCurrent) ] ]
        | Checking -> [ progressBar [ isIndeterminate true ] ]
        | Found rs ->
            let r = rs.[0]
@@ -133,8 +136,10 @@ let view model (_: Dispatch<Msg>): IView =
            [ yield! titleAndSub r.Mod.Name r.Mod.Summary
              yield textBlock [ fontWeight FontWeight.Bold ] r.FileDetails.Name ]
        | NotFound { StatusCode = code; Message = msg } ->
-           [ textBlock
-               [ classes [ "error" ] ]
-                 (match code with
-                  | HttpStatusCodes.NotFound -> "Unrecognized or Corrupted Archive"
-                  | _ -> msg) ]
+           stack [ yield
+                       textBlock
+                           [ classes [ "error" ] ]
+                           (match code with
+                            | HttpStatusCodes.NotFound -> "Unrecognized or Corrupted Archive"
+                            | _ -> msg)
+                   yield modName model ]
