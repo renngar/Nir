@@ -1,10 +1,9 @@
 module Nir.Pages.Error
 
 open Elmish
-open Avalonia.Controls
-open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
 open Avalonia.Layout
+open Nir.UI.Controls
 
 type ButtonType =
     | Retry
@@ -36,20 +35,21 @@ let update msg model: Model * Cmd<_> * ExternalMsg =
 
 // View
 
-let textBlock cls text =
-    TextBlock.create [ TextBlock.classes [ cls ]
-                       TextBlock.horizontalAlignment HorizontalAlignment.Center
-                       TextBlock.text text ]
+let textBlock cls contents =
+    TextBlock.textBlock
+        [ classes [ cls ]
+          horizontalAlignment HorizontalAlignment.Center ]
+        contents
 
-let button button' isDefault (dispatch: Msg -> unit): IView<Button> =
-    Button.create [ if isDefault then yield (Button.classes [ "default" ])
-                    yield!
-                        [ Button.isDefault isDefault
-                          Button.content
-                              (match button' with
-                               | Retry -> "Retry"
-                               | Cancel -> "Cancel")
-                          Button.onClick (fun _ -> dispatch (ButtonClicked button')) ] ]
+let button button' isDefault' (dispatch: Dispatch<Msg>) =
+    textButton
+        [ if isDefault' then yield (classes [ "default" ])
+          yield!
+              [ isDefault isDefault'
+                onClick (fun _ -> dispatch (ButtonClicked button')) ] ]
+        (match button' with
+         | Retry -> "Retry"
+         | Cancel -> "Cancel")
 
 let getButtons model dispatch: IView list =
     match model.Buttons with
@@ -58,14 +58,15 @@ let getButtons model dispatch: IView list =
           button Cancel false dispatch ]
 
 let view (model: Model) (dispatch: Msg -> unit): IView =
-    StackPanel.create [ StackPanel.horizontalAlignment HorizontalAlignment.Center
-                        StackPanel.margin 10.0
-                        StackPanel.spacing 4.0
-                        StackPanel.children [ textBlock "error" model.Title
-                                              textBlock "h2" model.Message
-                                              StackPanel.create [ StackPanel.orientation Orientation.Horizontal
-                                                                  StackPanel.margin (0.0, 16.0)
-                                                                  StackPanel.spacing 16.0
-                                                                  StackPanel.horizontalAlignment
-                                                                      HorizontalAlignment.Center
-                                                                  StackPanel.children (getButtons model dispatch) ] ] ] :> IView
+    stackPanel [ horizontalAlignment HorizontalAlignment.Center
+                 margin 10.0
+                 spacing 4.0 ] [
+        textBlock "error" model.Title
+        textBlock "h2" model.Message
+        stackPanel
+            [ orientation Orientation.Horizontal
+              marginTopBottom 16.0
+              spacing 16.0
+              horizontalAlignment HorizontalAlignment.Center ]
+            (getButtons model dispatch)
+    ]

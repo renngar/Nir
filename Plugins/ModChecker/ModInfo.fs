@@ -8,6 +8,7 @@ open Avalonia.FuncUI.Types
 open Avalonia.Media
 open Nir.NexusApi
 open Nir.UI
+open Nir.UI.Controls
 open Nir.Utility
 
 type Msg =
@@ -66,19 +67,14 @@ let private checkHash model =
 
     searchInDomains model domains model
 
-let titleAndSub title subtitle: seq<IView> =
-    seq {
-        yield
-            TextBlock.create [ TextBlock.classes [ "h1" ]
-                               TextBlock.dock Dock.Top
-                               TextBlock.text title ]
-
-        yield
-            TextBlock.create [ TextBlock.classes [ "h2" ]
-                               TextBlock.dock Dock.Top
-                               TextBlock.textWrapping TextWrapping.Wrap
-                               TextBlock.text subtitle ]
-    }
+let titleAndSub title subtitle =
+    [ yield textBlock [ classes [ "h1" ]; dock Dock.Top ] title
+      yield
+          textBlock
+              [ classes [ "h2" ]
+                dock Dock.Top
+                TextBlock.textWrapping TextWrapping.Wrap ]
+              subtitle ]
 
 
 module private Sub =
@@ -119,33 +115,26 @@ let update msg (model: Model) =
         | Error e -> searchInDomains model gameDomains { model with State = NotFound e }
 
 let view model (_: Dispatch<Msg>): IView =
-    let contents: IView list =
-        match model.State with
-        | None -> []
-        | Hashing ->
-            [ StackPanel.create [ StackPanel.spacing 8.0
-                                  StackPanel.children [ yield
-                                                            TextBlock.create [ Path.baseName model.Archive
-                                                                               |> TextBlock.text ]
-                                                        if model.ProgressMax > 0L then
-                                                            yield
-                                                                ProgressBar.create [ ProgressBar.maximum
-                                                                                         (double model.ProgressMax)
-                                                                                     ProgressBar.value
-                                                                                         (double model.ProgressCurrent) ] ] ] ]
-        | Checking -> [ ProgressBar.create [ ProgressBar.isIndeterminate true ] ]
-        | Found rs ->
-            let r = rs.[0]
+    dockPanel []
+    <| match model.State with
+       | None -> []
+       | Hashing ->
+           [ stackPanel [ spacing 8.0 ] [
+               yield textBlock [] (Path.baseName model.Archive)
+               if model.ProgressMax > 0L then
+                   yield
+                       progressBar [ maximum (double model.ProgressMax)
+                                     value (double model.ProgressCurrent) ]
+             ] ]
+       | Checking -> [ progressBar [ isIndeterminate true ] ]
+       | Found rs ->
+           let r = rs.[0]
 
-            [ yield! titleAndSub r.Mod.Name r.Mod.Summary
-
-              TextBlock.create [ TextBlock.fontWeight FontWeight.Bold
-                                 TextBlock.text r.FileDetails.Name ] ]
-        | NotFound { StatusCode = code; Message = msg } ->
-            [ TextBlock.create [ TextBlock.classes [ "error" ]
-                                 TextBlock.text
-                                     (match code with
-                                      | HttpStatusCodes.NotFound -> "Unrecognized or Corrupted Archive"
-                                      | _ -> msg) ] ]
-
-    DockPanel.create [ if not <| contents.IsEmpty then DockPanel.children contents ] :> IView
+           [ yield! titleAndSub r.Mod.Name r.Mod.Summary
+             yield textBlock [ fontWeight FontWeight.Bold ] r.FileDetails.Name ]
+       | NotFound { StatusCode = code; Message = msg } ->
+           [ textBlock
+               [ classes [ "error" ] ]
+                 (match code with
+                  | HttpStatusCodes.NotFound -> "Unrecognized or Corrupted Archive"
+                  | _ -> msg) ]

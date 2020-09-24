@@ -7,6 +7,21 @@
     <Compile Include="Dialogs.fs" />
     <Compile Include="DragDrop.fs" />
     <Compile Include="IPlugin.fs" />
+    <Compile Include="Controls\Attrs.fs" />
+    <Compile Include="Controls\Border.fs" />
+    <Compile Include="Controls\Button.fs" />
+    <Compile Include="Controls\ComboBox.fs" />
+    <Compile Include="Controls\Grid.fs" />
+    <Compile Include="Controls\DataBinding.fs" />
+    <Compile Include="Controls\DockPanel.fs" />
+    <Compile Include="Controls\ListBox.fs" />
+    <Compile Include="Controls\DragDrop.fs" />
+    <Compile Include="Controls\ProgressBar.fs" />
+    <Compile Include="Controls\ScrollViewer.fs" />
+    <Compile Include="Controls\StackPanel.fs" />
+    <Compile Include="Controls\TextBlock.fs" />
+    <Compile Include="Controls\TextBox.fs" />
+    <Compile Include="Controls\ToolTip.fs" />
 <!--    <Compile Include="Controls\TextBox.fs" />-->
   </ItemGroup>
   <ItemGroup>

@@ -3,7 +3,6 @@ module Nir.Plugins.ModChecker
 open System.IO
 open Elmish
 open Avalonia.Controls
-open Avalonia.FuncUI.Components
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
 open Avalonia.Input // DragDrop
@@ -11,9 +10,9 @@ open Avalonia.Layout
 open Avalonia.Media
 
 open Nir.Dialogs
-open Nir.DSL // FuncUI DragDrop support
 open Nir.NexusApi
 open Nir.UI
+open Nir.UI.Controls
 open Nir.Utility
 
 open ModChecker
@@ -110,7 +109,7 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> =
            || sameFiles () then
             model, Cmd.none
         else
-            let models, cmds =
+            let models, commands =
                 Array.toList fileNames
                 |> List.mapi (fun index file ->
                     ModInfo.init model.Nexus model.SelectedGames model.ThrottleUpdates index file)
@@ -119,7 +118,7 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> =
             let indexCmd n cmd =
                 cmd |> Cmd.map (fun c -> ModInfoMsg(n, c))
 
-            { model with ModInfo = models }, Cmd.batch <| List.mapi indexCmd cmds
+            { model with ModInfo = models }, Cmd.batch <| List.mapi indexCmd commands
     | FileTextBoxChanged fileName ->
         model, (if File.Exists(fileName) then Cmd.ofMsg (FilesSelected [| fileName |]) else Cmd.none)
     | ModInfoMsg (id, miMsg) ->
@@ -136,69 +135,71 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> =
 let inline private isGameSelected model = not model.SelectedGames.IsEmpty
 
 let private gameSelector model dispatch =
+    let gameName (data: Game): IView = textBlock [] data.Name
+
     if isGameSelected model then
-        ComboBox.create [ ListBox.margin (0.0, 0.0, 8.0, 0.0)
-                          ListBox.width 250.0
-                          ComboBox.height 26.0
-                          ListBox.maxHeight 2160.0
-                          ComboBox.virtualizationMode ItemVirtualizationMode.Simple
-                          ListBox.dataItems model.Games
-                          ListBox.itemTemplate
-                              (DataTemplateView<Game>.create(fun data -> TextBlock.create [ TextBlock.text data.Name ]))
-                          ComboBox.selectedItem model.SelectedGames.Head
-                          ListBox.onSelectedIndexChanged (GameChanged >> dispatch)
-                          ListBox.isEnabled (not <| processingFile model) ] :> IView
+        comboBox [ marginRight 8.0
+                   width 250.0
+                   height 26.0
+                   maxHeight 2160.0
+                   ComboBox.virtualizationMode ItemVirtualizationMode.Simple
+                   dataItems model.Games
+                   itemTemplate gameName
+                   selectedItem model.SelectedGames.Head
+                   onSelectedIndexChanged (GameChanged >> dispatch)
+                   isEnabled (not <| processingFile model) ]
     else
-        ListBox.create [ ListBox.margin (0.0, 0.0, 8.0, 0.0)
-                         ListBox.width 250.0
-                         ListBox.maxHeight 2160.0
-                         ListBox.virtualizationMode ItemVirtualizationMode.Simple
-                         ListBox.dataItems model.Games
-                         ListBox.itemTemplate
-                             (DataTemplateView<Game>.create(fun data -> TextBlock.create [ TextBlock.text data.Name ]))
-                         ListBox.onSelectedIndexChanged (GameChanged >> dispatch)
-                         ListBox.isEnabled (not <| processingFile model) ] :> IView
+        listBox [ marginRight 8.0
+                  width 250.0
+                  maxHeight 2160.0
+                  ListBox.virtualizationMode ItemVirtualizationMode.Simple
+                  dataItems model.Games
+                  itemTemplate gameName
+                  onSelectedIndexChanged (GameChanged >> dispatch)
+                  isEnabled (not <| processingFile model) ]
 
 let private modSelector model dispatch =
     let notProcessingFile = not <| processingFile model
 
-    Grid.create [ Grid.column 1
-                  Grid.columnDefinitions "*, auto"
-                  Grid.rowDefinitions "auto, *"
-                  Grid.children [ TextBox.create [ Grid.column 0
-                                                   DragDrop.allowDrop true
-                                                   DragDrop.onDragOver (fun e ->
-                                                       e.DragEffects <-
-                                                           if e.Data.Contains(DataFormats.FileNames) then
-                                                               e.DragEffects &&& DragDropEffects.Copy
-                                                           else
-                                                               DragDropEffects.None)
-                                                   DragDrop.onDrop (fun e ->
-                                                       if e.Data.Contains(DataFormats.FileNames) then
-                                                           e.Data.GetFileNames()
-                                                           |> Seq.toArray
-                                                           |> FilesSelected
-                                                           |> dispatch)
-                                                   TextBox.textWrapping TextWrapping.Wrap
-                                                   TextBox.watermark "Mod archive to verify"
-                                                   TextBox.verticalAlignment VerticalAlignment.Center
-                                                   TextBox.acceptsReturn false
-                                                   TextBox.acceptsTab false
-                                                   TextBox.isEnabled notProcessingFile
-                                                   TextBox.text
-                                                       (match model.ModInfo with
-                                                        | [] -> ""
-                                                        | [ mi ] -> Path.baseName mi.Archive
-                                                        | mi :: _multiple ->
-                                                            Path.baseName mi.Archive |> sprintf "%s, ...")
-                                                   TextBox.onTextChanged (FileTextBoxChanged >> dispatch) ]
-                                  Button.create [ Grid.column 1
-                                                  Button.margin (8.0, 0.0, 0.0, 0.0)
-                                                  Button.isDefault true
-                                                  Button.classes [ "default" ]
-                                                  Button.isEnabled notProcessingFile
-                                                  Button.onClick (fun _ -> dispatch OpenFileDialog)
-                                                  Button.content "Browse..." ] ] ]
+    grid [ column 1
+           toColumnDefinitions "*, auto"
+           toRowDefinitions "auto, *" ] [
+        textBox
+            [ column 0
+              allowDrop true
+              onDragOver (fun e ->
+                  e.DragEffects <-
+                      if e.Data.Contains(DataFormats.FileNames) then
+                          e.DragEffects &&& DragDropEffects.Copy
+                      else
+                          DragDropEffects.None)
+              onDrop (fun e ->
+                  if e.Data.Contains(DataFormats.FileNames) then
+                      e.Data.GetFileNames()
+                      |> Seq.toArray
+                      |> FilesSelected
+                      |> dispatch)
+              textWrapping TextWrapping.Wrap
+              TextBox.watermark "Mod archive to verify"
+              verticalAlignment VerticalAlignment.Center
+              acceptsReturn false
+              acceptsTab false
+              isEnabled notProcessingFile
+              onTextChanged (FileTextBoxChanged >> dispatch) ]
+            (match model.ModInfo with
+             | [] -> ""
+             | [ mi ] -> Path.baseName mi.Archive
+             | mi :: _multiple -> Path.baseName mi.Archive |> sprintf "%s, ...")
+
+        textButton
+            [ column 1
+              marginLeft 8.0
+              isDefault true
+              classes [ "default" ]
+              isEnabled notProcessingFile
+              onClick (fun _ -> dispatch OpenFileDialog) ]
+            "Browse..."
+    ]
 
 let private view (model: Model) (dispatch: Dispatch<Msg>): IView =
     let rowDefs =
@@ -211,43 +212,35 @@ let private view (model: Model) (dispatch: Dispatch<Msg>): IView =
             defs.Add(def)
             defs
 
-    let (contents: IView list) =
-        [ yield!
-            ModInfo.titleAndSub
-                "Nexus Mod Checker"
-                (if processingFile model then "Processing files. Please wait..."
-                 elif model.Games.Length = 0 then "Fetching games from Nexus..."
-                 elif isGameSelected model then "Drop a mod archive below to verify its contents"
-                 else "Select your game below")
-          Grid.create [ Grid.rowDefinitions rowDefs
-                        Grid.columnDefinitions (if isGameSelected model then "auto, *" else "*")
-                        Grid.margin (0.0, 16.0, 0.0, 0.0)
-                        Grid.children
-                            (if model.Games.Length = 0 then
-                                [ ProgressBar.create [ ProgressBar.dock Dock.Top
-                                                       ProgressBar.isIndeterminate true ] ]
-                             elif not <| isGameSelected model then
-                                 [ gameSelector model dispatch ]
-                             else
-                                 [ gameSelector model dispatch
-                                   modSelector model dispatch
-                                   if not <| model.ModInfo.IsEmpty then
-                                       ScrollViewer.create [ Grid.columnSpan 2
-                                                             Grid.row 1
-                                                             ScrollViewer.margin (0.0, 8.0, 0.0, 0.0)
-                                                             ScrollViewer.content
-                                                                 (StackPanel.create [ StackPanel.spacing 8.0
-                                                                                      StackPanel.children [ yield!
-                                                                                                                List.mapi (fun id mi ->
-                                                                                                                    ModInfo.view
-                                                                                                                        mi (fun msg ->
-                                                                                                                            ModInfoMsg
-                                                                                                                                (id,
-                                                                                                                                 msg)
-                                                                                                                            |> dispatch))
-                                                                                                                    model.ModInfo ] ]) ] ]) ] ]
-    DockPanel.create [ DockPanel.margin 10.0
-                       DockPanel.children contents ] :> IView
+    dockPanel [ margin 10.0 ]
+    <| [ yield!
+             ModInfo.titleAndSub
+                 "Nexus Mod Checker"
+                 (if processingFile model then "Processing files. Please wait..."
+                  elif model.Games.Length = 0 then "Fetching games from Nexus..."
+                  elif isGameSelected model then "Drop a mod archive below to verify its contents"
+                  else "Select your game below")
+         grid
+             [ rowDefinitions rowDefs
+               toColumnDefinitions (if isGameSelected model then "auto, *" else "*")
+               marginTop 16.0 ]
+             (if model.Games.Length = 0 then
+                 [ progressBar [ dock Dock.Top
+                                 isIndeterminate true ] ]
+              elif not <| isGameSelected model then
+                  [ gameSelector model dispatch ]
+              else
+                  [ gameSelector model dispatch
+                    modSelector model dispatch
+                    if model.ModInfo.IsEmpty |> not then
+                        scrollViewer [ columnSpan 2
+                                       row 1
+                                       marginTop 8.0 ]
+                        <| stackPanel [ spacing 8.0 ] [
+                            yield!
+                                List.mapi (fun id mi -> ModInfo.view mi (fun msg -> ModInfoMsg(id, msg) |> dispatch))
+                                    model.ModInfo
+                           ] ]) ]
 
 type ModChecker() =
     interface IPlugin with
