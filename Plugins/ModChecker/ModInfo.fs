@@ -35,6 +35,16 @@ type Model =
       ProgressCurrent: int64
       ProgressMax: int64 }
 
+let orderBy mi =
+    let baseName = Path.baseName mi.Archive
+
+    match mi.State with
+    | Found m -> 1, m.[0].Mod.Name, m.[0].Mod.GameId, baseName
+    | NotFound _ -> 2, "", 0, baseName
+    | Hashing
+    | Checking -> 3, "", 0, baseName
+    | None -> 4, "", 0, baseName
+
 let processingFile model =
     model.State = Hashing || model.State = Checking
 
@@ -120,16 +130,21 @@ let view model (_: Dispatch<Msg>): IView =
 
     let stack content = [ stackPanel [ spacing 8.0 ] content ]
 
+    let checking model =
+        stack [ yield modName model
+                if model.ProgressMax > 0L then
+                    if model.State = Hashing then
+                        yield
+                            progressBar [ maximum (double model.ProgressMax)
+                                          value (double model.ProgressCurrent) ]
+                    else
+                        yield progressBar [ isIndeterminate true ] ]
+
     dockPanel []
     <| match model.State with
        | None -> []
-       | Hashing ->
-           stack [ yield modName model
-                   if model.ProgressMax > 0L then
-                       yield
-                           progressBar [ maximum (double model.ProgressMax)
-                                         value (double model.ProgressCurrent) ] ]
-       | Checking -> [ progressBar [ isIndeterminate true ] ]
+       | Hashing
+       | Checking -> checking model
        | Found rs ->
            let r = rs.[0]
 

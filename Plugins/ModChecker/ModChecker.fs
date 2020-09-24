@@ -238,8 +238,9 @@ let private view (model: Model) (dispatch: Dispatch<Msg>): IView =
                                        marginTop 8.0 ]
                         <| stackPanel [ spacing 8.0 ] [
                             yield!
-                                List.mapi (fun id mi -> ModInfo.view mi (fun msg -> ModInfoMsg(id, msg) |> dispatch))
-                                    model.ModInfo
+                                model.ModInfo
+                                |> List.sortBy ModInfo.orderBy
+                                |> List.map (fun mi -> ModInfo.view mi (fun msg -> ModInfoMsg(mi.Id, msg) |> dispatch))
                            ] ]) ]
 
 type ModChecker() =
