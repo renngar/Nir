@@ -6,6 +6,11 @@
   <StyleInclude Source="avares://Avalonia.Themes.Default/Accents/BaseLight.xaml"/>
   <StyleInclude Source="avares://Nir/Styles/Button.xaml" />
   
+  <Style Selector="TextBlock.accent">
+    <Setter Property="Foreground" Value="{DynamicResource ThemeAccentBrush}" />
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeLarge}"/>
+    <Setter Property="FontWeight" Value="Medium"/>
+  </Style>
   <Style Selector="TextBlock.error">
     <Setter Property="Foreground" Value="{DynamicResource ErrorBrush}" />
     <Setter Property="FontSize" Value="{DynamicResource FontSizeLarge}"/>

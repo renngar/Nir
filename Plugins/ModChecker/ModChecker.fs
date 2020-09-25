@@ -16,6 +16,7 @@ open Nir.UI.Controls
 open Nir.Utility
 
 open ModChecker
+open ModChecker.ModInfo
 
 type private Msg =
     | FetchGames
@@ -49,8 +50,7 @@ let private init window nexus throttleUpdates =
 
 // Update
 
-let inline private processingFile model =
-    Seq.exists ModInfo.processingFile model.ModInfo
+let inline private processingFile model = Seq.exists processingFile model.ModInfo
 
 let private update (msg: Msg) (model: Model): Model * Cmd<_> =
     match msg with
@@ -123,7 +123,7 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> =
         model, (if File.Exists(fileName) then Cmd.ofMsg (FilesSelected [| fileName |]) else Cmd.none)
     | ModInfoMsg (id, miMsg) ->
         let miModel, miCmd =
-            ModInfo.update miMsg (List.skip id model.ModInfo).Head
+            update miMsg (List.skip id model.ModInfo).Head
 
         { model with
               ModInfo = List.mapi (fun i m -> if i = id then miModel else m) model.ModInfo },
@@ -214,7 +214,7 @@ let private view (model: Model) (dispatch: Dispatch<Msg>): IView =
 
     dockPanel [ margin 10.0 ]
     <| [ yield!
-             ModInfo.titleAndSub
+             titleAndSub
                  "Nexus Mod Checker"
                  (if processingFile model then "Processing files. Please wait..."
                   elif model.Games.Length = 0 then "Fetching games from Nexus..."
@@ -237,10 +237,22 @@ let private view (model: Model) (dispatch: Dispatch<Msg>): IView =
                                        row 1
                                        marginTop 8.0 ]
                         <| stackPanel [ spacing 8.0 ] [
-                            yield!
-                                model.ModInfo
-                                |> List.sortBy ModInfo.orderBy
-                                |> List.map (fun mi -> ModInfo.view mi (fun msg -> ModInfoMsg(mi.Id, msg) |> dispatch))
+                            for (group, files) in groupByState model.ModInfo |> List.sortBy fst do
+                                match group with
+                                | FoundGroup -> printfn "Group %A" group
+                                | NotFoundGroup
+                                | WorkingGroup ->
+                                    match groupHeader group files with
+                                    | Some header -> yield header
+                                    | None -> ()
+                                | _ -> ()
+
+                                // yield textBlock [] (sprintf "*** GROUP --- %A ***" files.Head.State)
+
+                                yield!
+                                    files
+                                    |> List.sortBy orderBy
+                                    |> List.map (fun mi -> view mi (fun msg -> ModInfoMsg(mi.Id, msg) |> dispatch))
                            ] ]) ]
 
 type ModChecker() =

@@ -18,7 +18,7 @@ type Msg =
     | SearchResult of string list * ApiResult<Md5Search []>
 
 type ArchiveState =
-    | None
+    | Starting
     | Hashing
     | Checking
     | Found of Md5Search []
@@ -35,15 +35,43 @@ type Model =
       ProgressCurrent: int64
       ProgressMax: int64 }
 
-let orderBy mi =
-    let baseName = Path.baseName mi.Archive
+let orderBy modInfo =
+    let baseName = Path.baseName modInfo.Archive
 
-    match mi.State with
+    match modInfo.State with
     | Found m -> 1, m.[0].Mod.Name, m.[0].Mod.GameId, baseName
     | NotFound _ -> 2, "", 0, baseName
     | Hashing
     | Checking -> 3, "", 0, baseName
-    | None -> 4, "", 0, baseName
+    | Starting -> 4, "", 0, baseName
+
+type StateOrder =
+    | FoundGroup
+    | NotFoundGroup
+    | WorkingGroup
+    | WaitingGroup
+
+let groupByState =
+    List.groupBy (fun modInfo ->
+        match modInfo.State with
+        | Found _ -> FoundGroup
+        | NotFound _ -> NotFoundGroup
+        | Hashing
+        | Checking -> WorkingGroup
+        | Starting -> WaitingGroup)
+
+let groupHeader group (modInfos: Model list) =
+    match group, modInfos.Head.State with
+    | _, NotFound { StatusCode = code; Message = msg } ->
+        match code with
+        | HttpStatusCodes.NotFound -> "Unrecognized or Corrupted Archive "
+        | _ -> msg
+        |> textBlock [ classes [ "error" ] ]
+        |> Some
+    | WorkingGroup, _ ->
+        textBlock [ classes [ "accent" ] ] "Processing"
+        |> Some
+    | _, _ -> None
 
 let processingFile model =
     model.State = Hashing || model.State = Checking
@@ -55,7 +83,7 @@ let init nexus selectedGames throttleUpdates id file =
       ThrottleUpdates = throttleUpdates
       Archive = file
       Hash = ""
-      State = None
+      State = Starting
       ProgressCurrent = 0L
       ProgressMax = 0L },
     Cmd.ofMsg CheckFile
@@ -85,7 +113,6 @@ let titleAndSub title subtitle =
                 dock Dock.Top
                 TextBlock.textWrapping TextWrapping.Wrap ]
               subtitle ]
-
 
 module private Sub =
     let md5Search model onProgress onComplete dispatch =
@@ -142,7 +169,7 @@ let view model (_: Dispatch<Msg>): IView =
 
     dockPanel []
     <| match model.State with
-       | None -> []
+       | Starting -> []
        | Hashing
        | Checking -> checking model
        | Found rs ->
@@ -150,11 +177,4 @@ let view model (_: Dispatch<Msg>): IView =
 
            [ yield! titleAndSub r.Mod.Name r.Mod.Summary
              yield textBlock [ fontWeight FontWeight.Bold ] r.FileDetails.Name ]
-       | NotFound { StatusCode = code; Message = msg } ->
-           stack [ yield
-                       textBlock
-                           [ classes [ "error" ] ]
-                           (match code with
-                            | HttpStatusCodes.NotFound -> "Unrecognized or Corrupted Archive"
-                            | _ -> msg)
-                   yield modName model ]
+       | NotFound _ -> [ yield modName model ]
