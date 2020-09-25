@@ -201,6 +201,39 @@ let private modSelector model dispatch =
             "Browse..."
     ]
 
+let private modInfo modInfos dispatch =
+    stackPanel [ spacing 8.0 ] [
+        for (group, infos) in groupByState modInfos |> List.sortBy fst do
+            // Output the group header, if any
+            match groupHeader group infos with
+            | Some header -> yield header
+            | None -> ()
+
+            if group = FoundGroup then
+                let filesByMod =
+                    infos
+                    |> List.map (fun mi ->
+                        match mi.State with
+                        | Found x -> x
+                        | _ -> failwith "should not happen")
+                    // Get the first (and likely only) match where the file was found
+                    // TODO Handle the case of multiple matches, such as occurs with a zero-length file
+                    |> List.map Array.head
+                    |> List.groupBy (fun result -> result.Mod)
+
+                for (_, searchResults) in filesByMod do
+                    yield! modHeader searchResults.Head
+
+                    for result in searchResults do
+                        yield modDetail result
+
+            // Output the file info
+            for mi in List.sortBy orderBy infos do
+                match mi.State with
+                | Found _ -> () // Handled separately above
+                | _ -> yield view mi (fun msg -> ModInfoMsg(mi.Id, msg) |> dispatch)
+    ]
+
 let private view (model: Model) (dispatch: Dispatch<Msg>): IView =
     let rowDefs =
         if model.Games.Length = 0 || isGameSelected model then
@@ -220,40 +253,24 @@ let private view (model: Model) (dispatch: Dispatch<Msg>): IView =
                   elif model.Games.Length = 0 then "Fetching games from Nexus..."
                   elif isGameSelected model then "Drop a mod archive below to verify its contents"
                   else "Select your game below")
-         grid
-             [ rowDefinitions rowDefs
-               toColumnDefinitions (if isGameSelected model then "auto, *" else "*")
-               marginTop 16.0 ]
-             (if model.Games.Length = 0 then
-                 [ progressBar [ dock Dock.Top
-                                 isIndeterminate true ] ]
-              elif not <| isGameSelected model then
-                  [ gameSelector model dispatch ]
-              else
-                  [ gameSelector model dispatch
-                    modSelector model dispatch
-                    if model.ModInfo.IsEmpty |> not then
-                        scrollViewer [ columnSpan 2
-                                       row 1
-                                       marginTop 8.0 ]
-                        <| stackPanel [ spacing 8.0 ] [
-                            for (group, files) in groupByState model.ModInfo |> List.sortBy fst do
-                                match group with
-                                | FoundGroup -> printfn "Group %A" group
-                                | NotFoundGroup
-                                | WorkingGroup ->
-                                    match groupHeader group files with
-                                    | Some header -> yield header
-                                    | None -> ()
-                                | _ -> ()
-
-                                // yield textBlock [] (sprintf "*** GROUP --- %A ***" files.Head.State)
-
-                                yield!
-                                    files
-                                    |> List.sortBy orderBy
-                                    |> List.map (fun mi -> view mi (fun msg -> ModInfoMsg(mi.Id, msg) |> dispatch))
-                           ] ]) ]
+         yield
+             grid
+                 [ rowDefinitions rowDefs
+                   toColumnDefinitions (if isGameSelected model then "auto, *" else "*")
+                   marginTop 16.0 ]
+                 (if model.Games.Length = 0 then
+                     [ progressBar [ dock Dock.Top
+                                     isIndeterminate true ] ]
+                  elif not <| isGameSelected model then
+                      [ gameSelector model dispatch ]
+                  else
+                      [ gameSelector model dispatch
+                        modSelector model dispatch
+                        if model.ModInfo.IsEmpty |> not then
+                            scrollViewer [ columnSpan 2
+                                           row 1
+                                           marginTop 8.0 ]
+                            <| modInfo model.ModInfo dispatch ]) ]
 
 type ModChecker() =
     interface IPlugin with

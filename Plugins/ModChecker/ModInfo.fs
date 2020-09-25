@@ -114,6 +114,11 @@ let titleAndSub title subtitle =
                 TextBlock.textWrapping TextWrapping.Wrap ]
               subtitle ]
 
+let modHeader (r: Md5Search) = titleAndSub r.Mod.Name r.Mod.Summary
+
+let modDetail (r: Md5Search) =
+    textBlock [ fontWeight FontWeight.Bold ] r.FileDetails.Name
+
 module private Sub =
     let md5Search model onProgress onComplete dispatch =
         async {
@@ -175,6 +180,6 @@ let view model (_: Dispatch<Msg>): IView =
        | Found rs ->
            let r = rs.[0]
 
-           [ yield! titleAndSub r.Mod.Name r.Mod.Summary
-             yield textBlock [ fontWeight FontWeight.Bold ] r.FileDetails.Name ]
+           [ yield! modHeader r
+             yield modDetail r ]
        | NotFound _ -> [ yield modName model ]
