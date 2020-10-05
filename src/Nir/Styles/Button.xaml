@@ -1,5 +1,25 @@
 ﻿<Styles xmlns="https://github.com/avaloniaui">
-  <Style Selector="Button.default">
+  <Style Selector="Button[IsDefault=true]">
     <Setter Property="Background" Value="{DynamicResource ThemeAccentBrush}"/>
   </Style>
+
+  <!-- You would expect the :pressed and :pointerover selectors to have the same form, but they do not, -->
+  <!-- because if you exchange pressed and pointerover in these selectors, it will affect the button -->
+  <!-- borders rather than the button face. -->
+  <Style Selector="Button[IsDefault=true]:pressed  /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ThemeAccentBrush3}"/>
+  </Style>  
+  
+  <Style Selector="Button[IsDefault=true]:pointerover">
+    <Setter Property="Background" Value="{DynamicResource ThemeAccentBrush2}"/>
+  </Style>
+
+  <!-- These affect the buttons border -->
+  
+  <!-- <Style Selector="Button[IsDefault=true]:pointerover /template/ ContentPresenter"> -->
+  <!--   <Setter Property="BorderBrush" Value="{DynamicResource ThemeAccentBrush2}"/> -->
+  <!-- </Style> -->
+  <!-- <Style Selector="Button[IsDefault=true]:pressed"> -->
+  <!--   <Setter Property="Background" Value="{DynamicResource ThemeAccentBrush3}"/> -->
+  <!-- </Style> -->
 </Styles>

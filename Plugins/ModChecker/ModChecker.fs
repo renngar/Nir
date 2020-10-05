@@ -1,6 +1,7 @@
 module Nir.Plugins.ModChecker
 
 open System.IO
+open Avalonia.Controls.Primitives
 open Elmish
 open Avalonia.Controls
 open Avalonia.FuncUI.DSL
@@ -137,31 +138,27 @@ let inline private isGameSelected model = not model.SelectedGames.IsEmpty
 let private gameSelector model dispatch =
     let gameName (data: Game): IView = textBlock [] data.Name
 
-    if isGameSelected model then
-        comboBox [ marginRight 8.0
-                   width 250.0
-                   height 26.0
-                   maxHeight 2160.0
+    if not (isGameSelected model) then
+        listBox [ cls "gameSelector"
+                  ListBox.virtualizationMode ItemVirtualizationMode.Simple
+                  dataItems model.Games
+                  itemTemplate gameName
+                  onSelectedIndexChanged (GameChanged >> dispatch)
+                  isEnabled (not <| processingFile model) ]
+    else
+        comboBox [ cls "gameSelector"
                    ComboBox.virtualizationMode ItemVirtualizationMode.Simple
                    dataItems model.Games
                    itemTemplate gameName
                    selectedItem model.SelectedGames.Head
                    onSelectedIndexChanged (GameChanged >> dispatch)
                    isEnabled (not <| processingFile model) ]
-    else
-        listBox [ marginRight 8.0
-                  width 250.0
-                  maxHeight 2160.0
-                  ListBox.virtualizationMode ItemVirtualizationMode.Simple
-                  dataItems model.Games
-                  itemTemplate gameName
-                  onSelectedIndexChanged (GameChanged >> dispatch)
-                  isEnabled (not <| processingFile model) ]
 
 let private modSelector model dispatch =
     let notProcessingFile = not <| processingFile model
 
-    grid [ column 1
+    grid [ cls "modSelector"
+           column 1
            toColumnDefinitions "*, auto"
            toRowDefinitions "auto, *" ] [
         textBox
@@ -193,17 +190,27 @@ let private modSelector model dispatch =
 
         textButton
             [ column 1
-              marginLeft 8.0
               isDefault true
-              classes [ "default" ]
               isEnabled notProcessingFile
               onClick (fun _ -> dispatch OpenFileDialog) ]
             "Browse..."
     ]
 
-let private modInfo modInfos dispatch =
-    stackPanel [ spacing 8.0 ] [
-        for (group, infos) in groupByState modInfos |> List.sortBy fst do
+let private modHeader name summary =
+    [ textBlockCls "h1" name
+      textBlockCls "modSummary" summary ]
+
+// The JSON provider thinks the MD5 output is a GUID, remove the dashes
+let private md5Result (result: Md5Search) =
+    result.FileDetails.Md5.ToString().Replace("-", "")
+
+// Convert things like "under_moderation" to "under moderation"
+let private statusText (result: Md5Search) = result.Mod.Status.Replace("_", " ")
+
+let private modInfo (model: Model) (dispatch: Msg -> unit): IView =
+    stackPanelCls
+        "modInfo"
+        [ for (group, infos) in groupByState model.ModInfo |> List.sortBy fst do
             // Output the group header, if any
             match groupHeader group infos with
             | Some header -> yield header
@@ -219,58 +226,68 @@ let private modInfo modInfos dispatch =
                     // Get the first (and likely only) match where the file was found
                     // TODO Handle the case of multiple matches, such as occurs with a zero-length file
                     |> List.map Array.head
-                    |> List.groupBy (fun result -> result.Mod)
+                    |> List.groupBy (fun result ->
+                        let m = result.Mod
+                        m.Available, m.Status, m.GameId, m.ModId, m.Name)
 
                 for (_, searchResults) in filesByMod do
-                    yield! modHeader searchResults.Head
+                    let r = searchResults.Head
 
-                    for result in searchResults do
-                        yield modDetail result
+                    yield
+                        stackPanelCls
+                            "mod"
+                            [ yield!
+                                modHeader
+                                <|| if r.Mod.Available then
+                                        r.Mod.Name, r.Mod.Summary
+                                    else
+                                        let game =
+                                            Array.find (fun (g: Game) -> g.Id = r.Mod.GameId) model.Games
+
+                                        sprintf "%s Mod %d Unavailable" game.Name r.Mod.ModId,
+                                        sprintf "It iss %s" (statusText r)
+
+                              for result in searchResults do
+                                  yield
+                                      textBlock [ md5Result result |> toTip ]
+                                      <| sprintf "%s — %s" result.FileDetails.Name result.FileDetails.FileName ]
 
             // Output the file info
             for mi in List.sortBy orderBy infos do
                 match mi.State with
                 | Found _ -> () // Handled separately above
-                | _ -> yield view mi (fun msg -> ModInfoMsg(mi.Id, msg) |> dispatch)
-    ]
+                | _ -> yield view mi (fun msg -> ModInfoMsg(mi.Id, msg) |> dispatch) ]
 
 let private view (model: Model) (dispatch: Dispatch<Msg>): IView =
-    let rowDefs =
-        if model.Games.Length = 0 || isGameSelected model then
-            RowDefinitions("auto, *")
-        else
-            let defs = RowDefinitions()
-            let def = RowDefinition()
-            def.MaxHeight <- 2160.0
-            defs.Add(def)
-            defs
+    dockPanel [ cls "modChecker" ] [
+        yield
+            pageHeader
+                "Nexus Mod Checker"
+                (if processingFile model then "Processing files. Please wait..."
+                 elif model.Games.Length = 0 then "Fetching games from Nexus..."
+                 elif isGameSelected model then "Drop a mod archive below to verify its contents"
+                 else "Select your game below")
+        if model.Games.Length = 0 then
+            yield
+                progressBar [ dock Dock.Top
+                              isIndeterminate true ]
 
-    dockPanel [ margin 10.0 ]
-    <| [ yield!
-             titleAndSub
-                 "Nexus Mod Checker"
-                 (if processingFile model then "Processing files. Please wait..."
-                  elif model.Games.Length = 0 then "Fetching games from Nexus..."
-                  elif isGameSelected model then "Drop a mod archive below to verify its contents"
-                  else "Select your game below")
-         yield
-             grid
-                 [ rowDefinitions rowDefs
-                   toColumnDefinitions (if isGameSelected model then "auto, *" else "*")
-                   marginTop 16.0 ]
-                 (if model.Games.Length = 0 then
-                     [ progressBar [ dock Dock.Top
-                                     isIndeterminate true ] ]
-                  elif not <| isGameSelected model then
-                      [ gameSelector model dispatch ]
-                  else
-                      [ gameSelector model dispatch
-                        modSelector model dispatch
-                        if model.ModInfo.IsEmpty |> not then
-                            scrollViewer [ columnSpan 2
-                                           row 1
-                                           marginTop 8.0 ]
-                            <| modInfo model.ModInfo dispatch ]) ]
+            yield textBlock [] "" // Let's the progress bar take it's natural height and fills the rest with nothing
+        elif not <| isGameSelected model then
+            yield gameSelector model dispatch
+        else
+            yield
+                grid [ dock Dock.Top
+                       cls "selectors"
+                       toColumnDefinitions "auto,*"
+                       toRowDefinitions "auto,*" ] [
+                    yield gameSelector model dispatch
+                    yield modSelector model dispatch
+                ]
+
+            if model.ModInfo.IsEmpty |> not
+            then yield scrollViewer [] <| modInfo model dispatch
+    ]
 
 type ModChecker() =
     interface IPlugin with
@@ -278,6 +295,9 @@ type ModChecker() =
 
         member __.Description =
             "Verifies mod archive integrity with Nexus "
+
+        member __.DarkStyle = "avares://ModChecker/ModChecker.xaml"
+        member __.LightStyle = "avares://ModChecker/ModChecker.xaml"
 
         member __.Init(window, nexus, throttleUpdates) =
             Plugin.mapInit init (window, nexus, throttleUpdates)

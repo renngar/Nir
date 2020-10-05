@@ -45,32 +45,27 @@ let update msg model =
         | _ -> newModel, Cmd.none, NoOp
     | PluginSelected plugin -> model, Cmd.none, LaunchPlugin plugin
 
-let pluginListView (model: Model) (dispatch) =
-    listBox [ borderThicknessAll 0.0
-              paddingAll 0.0
-              onSelectedItemChanged (function
+let private pluginListView (model: Model) (dispatch) =
+    listBox [ onSelectedItemChanged (function
                   | :? IPlugin as p -> PluginSelected p |> dispatch
                   | _ -> ())
               dataItems model.Plugins
               itemTemplate (fun (p: IPlugin) ->
-                  border [ classes [ "plugin" ] ]
-                  <| stackPanel [ spacing 8.0 ] [
-                      textBlock [ classes [ "h1" ] ] p.Name
-                      textBlock [ classes [ "h2" ] ] p.Description
+                  border [ cls "plugin" ]
+                  <| stackPanel [] [
+                      textBlock [ cls "h1" ] p.Name
+                      textBlock [ cls "h2" ] p.Description
                      ]) ]
 
 // View
 let view (model: Model) (dispatch: Msg -> unit): IView =
-    stackPanel [ margin 10.0; spacing 4.0 ] [
-        if not model.GotPlugins then
-            yield textBlock [] "Loading plugins..."
-
-            yield
-                progressBar [ isIndeterminate true
-                              marginTopBottom 16.0 ]
-        elif model.Plugins.IsEmpty then
-            yield textBlock [] "No plugins found"
-        else
-            yield textBlock [ classes [ "h1" ] ] "Tools"
-            yield pluginListView model dispatch
-    ]
+    stackPanelCls
+        "start"
+        [ if not model.GotPlugins then
+            yield pageHeader "Loading Plugins" ""
+            yield progressBar [ isIndeterminate true ]
+          elif model.Plugins.IsEmpty then
+              yield textBlock [] "No plugins found"
+          else
+              yield pageHeader "Tools" "Which tool would you like to run?"
+              yield pluginListView model dispatch ]

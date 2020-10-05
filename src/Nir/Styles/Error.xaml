@@ -1,0 +1,10 @@
+﻿<Styles
+    xmlns="https://github.com/avaloniaui">
+
+    <Style Selector="StackPanel.error">
+        <Setter Property="Spacing" Value="8" />
+    </Style>
+    <Style Selector="StackPanel.buttons">
+        <Setter Property="Spacing" Value="8" />
+    </Style>
+</Styles>

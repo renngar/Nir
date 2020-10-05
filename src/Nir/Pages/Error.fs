@@ -35,38 +35,34 @@ let update msg model: Model * Cmd<_> * ExternalMsg =
 
 // View
 
-let textBlock cls contents =
+let private textBlock (cls: string list) contents =
     TextBlock.textBlock
-        [ classes [ cls ]
+        [ classes cls
           horizontalAlignment HorizontalAlignment.Center ]
         contents
 
-let button button' isDefault' (dispatch: Dispatch<Msg>) =
+let private button button' isDefault' (dispatch: Dispatch<Msg>) =
     textButton
-        [ if isDefault' then yield (classes [ "default" ])
-          yield!
-              [ isDefault isDefault'
-                onClick (fun _ -> dispatch (ButtonClicked button')) ] ]
+        [ isDefault isDefault'
+          onClick (fun _ -> dispatch (ButtonClicked button')) ]
         (match button' with
          | Retry -> "Retry"
          | Cancel -> "Cancel")
 
-let getButtons model dispatch: IView list =
+let private getButtons model dispatch: IView list =
     match model.Buttons with
     | RetryCancel ->
         [ button Retry true dispatch
           button Cancel false dispatch ]
 
 let view (model: Model) (dispatch: Msg -> unit): IView =
-    stackPanel [ horizontalAlignment HorizontalAlignment.Center
-                 margin 10.0
-                 spacing 4.0 ] [
-        textBlock "error" model.Title
-        textBlock "h2" model.Message
+    stackPanel [ cls "error"
+                 horizontalAlignment HorizontalAlignment.Center ] [
+        textBlock [ "h1"; "error" ] model.Title
+        textBlock [ "h2" ] model.Message
         stackPanel
-            [ orientation Orientation.Horizontal
-              marginTopBottom 16.0
-              spacing 16.0
+            [ cls "buttons"
+              orientation Orientation.Horizontal
               horizontalAlignment HorizontalAlignment.Center ]
             (getButtons model dispatch)
     ]

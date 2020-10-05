@@ -3,11 +3,12 @@ module Nir.UI.Controls.Grid
 
 open Avalonia.Controls
 open Avalonia.FuncUI.DSL
+open Avalonia.FuncUI.Types
 
 /// Create a Grid
 let grid attributes children =
     Grid.create [ Grid.children children
-                  yield! attributes ]
+                  yield! attributes ] :> IView
 
 let column = Grid.column
 let columnDefinitions (defs: ColumnDefinitions) = Grid.columnDefinitions defs

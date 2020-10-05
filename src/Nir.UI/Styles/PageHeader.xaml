@@ -1,0 +1,6 @@
+﻿<Styles xmlns="https://github.com/avaloniaui">
+    <Style Selector="StackPanel.pageHeader">
+        <Setter Property="Margin" Value="0,0,0,8" />
+        <Setter Property="Spacing" Value="4" />
+    </Style>
+</Styles>

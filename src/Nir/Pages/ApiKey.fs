@@ -34,26 +34,30 @@ type Msg =
     | AfterVerification of ApiResult<User>
     | Continue of ApiSuccess<User>
 
+let openLink link =
+    let url =
+        match link with
+        | NexusAccountPage -> "https://www.nexusmods.com/users/myaccount?tab=api"
+
+    if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
+        let start = sprintf "/c start %s" url
+
+        Process.Start(ProcessStartInfo("cmd", start))
+        |> ignore
+    else if RuntimeInformation.IsOSPlatform(OSPlatform.Linux) then
+        Process.Start("xdg-open", url) |> ignore
+    else if RuntimeInformation.IsOSPlatform(OSPlatform.OSX) then
+        Process.Start("open", url) |> ignore
+
+
+
+
+
 let update msg model =
     match msg with
     | OpenUrl link ->
-        let url =
-            match link with
-            | NexusAccountPage -> "https://www.nexusmods.com/users/myaccount?tab=api"
-
-        if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
-            let start = sprintf "/c start %s" url
-
-            Process.Start(ProcessStartInfo("cmd", start))
-            |> ignore
-        else if RuntimeInformation.IsOSPlatform(OSPlatform.Linux) then
-            Process.Start("xdg-open", url) |> ignore
-        else if RuntimeInformation.IsOSPlatform(OSPlatform.OSX) then
-            Process.Start("open", url) |> ignore
-
-
+        openLink link
         model, Cmd.none, NoOp
-
     | VerifyApiKey apiKey ->
         // TODO: Maybe switch ApiKey verification to Cmd.OfAsync.either splitting into two messages
         model, Cmd.OfAsync.perform usersValidate { model.Nexus with ApiKey = apiKey } AfterVerification, NoOp
@@ -71,17 +75,13 @@ let view (model: Model) (dispatch: Msg -> unit): IView =
     let goodApiKey = model.User.IsSome
 
     let (children: IView list) =
-        [ textBlock [ classes [ "h1" ] ] "Nexus API Key"
-          textBlock
-              [ classes [ "h2" ]
-                TextBlock.textWrapping TextWrapping.Wrap ]
+        [ pageHeader
+            "Nexus API Key"
               ("Nir needs an API Key to communicate with Nexus.  You can get your Personal API "
                + "Key from the API tab of the Nexus My Account Page.")
-          grid [ toColumnDefinitions "auto, *"
-                 marginTopBottom 16.0 ] [
+          grid [ toColumnDefinitions "auto, *" ] [
               textButton
                   [ column 0
-                    marginRight 16.0
                     isDefault (not goodApiKey)
                     classes (if goodApiKey then [] else [ "default" ])
                     onClick (fun _ -> dispatch (OpenUrl NexusAccountPage)) ]
@@ -100,7 +100,6 @@ let view (model: Model) (dispatch: Msg -> unit): IView =
                         then e.Data.GetText() |> VerifyApiKey |> dispatch)
                     textWrapping TextWrapping.Wrap
                     TextBox.watermark "Enter Your Personal API Key Manually"
-                    height 30.0
                     verticalAlignment VerticalAlignment.Center
                     acceptsReturn false
                     acceptsTab false
@@ -114,21 +113,18 @@ let view (model: Model) (dispatch: Msg -> unit): IView =
     let extra: IView list =
         match model.User with
         | Some user ->
-            [ textBlock
-                [ classes [ "h2" ]
-                  TextBlock.textWrapping TextWrapping.Wrap ]
+            [ textBlockCls
+                "h2"
                   ("Thanks "
                    + user.Name
                    + if user.IsPremium then " you're premium!" else "!")
 
               textButton
                   [ isDefault true
-                    classes [ "default" ]
-                    marginTopBottom 16.0
                     onClick (fun _ ->
                         Continue { Nexus = model.Nexus; Result = user }
                         |> dispatch) ]
                   "Continue" ]
         | None -> []
 
-    stackPanel [ margin 10.0; spacing 4.0 ] (List.append children extra)
+    stackPanelCls "apiKey" (List.append children extra)

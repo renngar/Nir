@@ -24,7 +24,7 @@ type App() =
             let assets =
                 AvaloniaLocator.Current.GetService<IAssetLoader>()
 
-            let window = Shell.MainWindow()
+            let window = Shell.MainWindow(this.Styles)
             window.Icon <- WindowIcon(assets.Open(Uri("avares://Nir/Assets/Icons/Nir.ico")))
             desktopLifetime.MainWindow <- window
         | _ -> ()

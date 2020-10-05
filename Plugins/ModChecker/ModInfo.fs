@@ -2,10 +2,8 @@ module ModChecker.ModInfo
 
 open FSharp.Data
 open Elmish
-open Avalonia.Controls
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
-open Avalonia.Media
 open Nir.NexusApi
 open Nir.UI
 open Nir.UI.Controls
@@ -61,16 +59,15 @@ let groupByState =
         | Starting -> WaitingGroup)
 
 let groupHeader group (modInfos: Model list) =
+    let text cls = textBlockCls cls >> Some
+
     match group, modInfos.Head.State with
     | _, NotFound { StatusCode = code; Message = msg } ->
         match code with
-        | HttpStatusCodes.NotFound -> "Unrecognized or Corrupted Archive "
+        | HttpStatusCodes.NotFound -> "Unrecognized or Corrupted Archives"
         | _ -> msg
-        |> textBlock [ classes [ "error" ] ]
-        |> Some
-    | WorkingGroup, _ ->
-        textBlock [ classes [ "accent" ] ] "Processing"
-        |> Some
+        |> text "error"
+    | WorkingGroup, _ -> text "processing" "Processing"
     | _, _ -> None
 
 let processingFile model =
@@ -88,7 +85,7 @@ let init nexus selectedGames throttleUpdates id file =
       ProgressMax = 0L },
     Cmd.ofMsg CheckFile
 
-let private searchInDomains model gameDomains notFoundModel =
+let private searchInDomains model notFoundModel gameDomains =
     let search model gameDomain remainingDomains =
         { model with State = Checking },
         Cmd.OfAsync.perform md5Search (model.Nexus, gameDomain, model.Hash) (fun result ->
@@ -100,24 +97,8 @@ let private searchInDomains model gameDomains notFoundModel =
     | [] -> notFoundModel, Cmd.none
 
 let private checkHash model =
-    let domains =
-        Seq.map (fun (g: Game) -> g.DomainName) model.SelectedGames
-
-    searchInDomains model domains model
-
-let titleAndSub title subtitle =
-    [ yield textBlock [ classes [ "h1" ]; dock Dock.Top ] title
-      yield
-          textBlock
-              [ classes [ "h2" ]
-                dock Dock.Top
-                TextBlock.textWrapping TextWrapping.Wrap ]
-              subtitle ]
-
-let modHeader (r: Md5Search) = titleAndSub r.Mod.Name r.Mod.Summary
-
-let modDetail (r: Md5Search) =
-    textBlock [ fontWeight FontWeight.Bold ] r.FileDetails.Name
+    Seq.map (fun (g: Game) -> g.DomainName) model.SelectedGames
+    |> searchInDomains model model
 
 module private Sub =
     let md5Search model onProgress onComplete dispatch =
@@ -154,32 +135,29 @@ let update msg (model: Model) =
                   Nexus = s.Nexus
                   State = Found s.Result },
             Cmd.none
-        | Error e -> searchInDomains model gameDomains { model with State = NotFound e }
+        | Error e -> searchInDomains model { model with State = NotFound e } gameDomains
 
 let view model (_: Dispatch<Msg>): IView =
     let modName model =
         textBlock [] (Path.baseName model.Archive)
 
-    let stack content = [ stackPanel [ spacing 8.0 ] content ]
-
     let checking model =
-        stack [ yield modName model
+        [ stackPanelCls
+            "checking"
+              [ yield modName model
                 if model.ProgressMax > 0L then
-                    if model.State = Hashing then
-                        yield
-                            progressBar [ maximum (double model.ProgressMax)
-                                          value (double model.ProgressCurrent) ]
-                    else
-                        yield progressBar [ isIndeterminate true ] ]
+                    yield
+                        progressBar
+                            (if model.State = Hashing then
+                                [ maximum (double model.ProgressMax)
+                                  value (double model.ProgressCurrent) ]
+                             else
+                                 [ isIndeterminate true ]) ] ]
 
     dockPanel []
     <| match model.State with
        | Starting -> []
        | Hashing
        | Checking -> checking model
-       | Found rs ->
-           let r = rs.[0]
-
-           [ yield! modHeader r
-             yield modDetail r ]
+       | Found _ -> failwith "Should be rendered in ModChecker"
        | NotFound _ -> [ yield modName model ]

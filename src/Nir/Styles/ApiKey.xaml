@@ -1,0 +1,10 @@
+﻿<Styles
+    xmlns="https://github.com/avaloniaui">
+
+    <Style Selector="StackPanel.apiKey">
+        <Setter Property="Spacing" Value="8" />
+    </Style>
+    <Style Selector="StackPanel.apiKey > Grid > Button">
+        <Setter Property="Margin" Value="0,0,8,0" />
+    </Style>
+</Styles>

@@ -32,6 +32,8 @@ module Plugin =
 type IPlugin =
     abstract Name: string
     abstract Description: string
+    abstract DarkStyle: string
+    abstract LightStyle: string
     abstract Init: Window * Nexus * Plugin.ThrottleUpdates -> Plugin.Model * Cmd<Plugin.Msg>
     abstract Update: Plugin.Msg * Plugin.Model -> Plugin.Model * Cmd<Plugin.Msg>
     abstract View: Plugin.Model * Dispatch<Plugin.Msg> -> IView

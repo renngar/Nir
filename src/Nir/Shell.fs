@@ -4,16 +4,18 @@ open System
 open FSharp.Data.HttpStatusCodes
 
 open Elmish
+open Avalonia
 open Avalonia.Controls
+open Avalonia.FuncUI
 open Avalonia.FuncUI.Components.Hosts
 open Avalonia.FuncUI.Elmish
 open Avalonia.FuncUI.Types
 open Avalonia.Rendering
+open Avalonia.Styling
 open Avalonia.Threading
 
 #if DEBUG
 // Contrary to what IntelliSense may say, these are needed for setting up AttachDevTools in a debug build
-open Avalonia // AttachDevTools
 open Avalonia.Input // KeyGesture
 #endif
 
@@ -36,6 +38,7 @@ type Model =
       Nexus: Nexus
 
       // UI
+      Styles: Styles
       Page: PageModel
       RenderRoot: IRenderRoot
       Window: Window }
@@ -48,7 +51,7 @@ type Model =
         // updates in this situation, because they won't be displayed anyway.
         | _ -> true
 
-let mutable retryMsgInFlight = false
+let mutable private retryMsgInFlight = false
 
 type ShellMsg =
     | RetryView // Sent by setState if we are not ready to draw the next version of the view
@@ -69,7 +72,7 @@ type ExternalMsg =
     | ApiKeyExtMsg of ApiKey.ExternalMsg
     | ErrorExtMsg of Error.ExternalMsg
 
-let init (window, renderRoot) =
+let init (window, renderRoot, styles) =
     let startPageModel, _ = Start.init window
 
     let key, ini =
@@ -82,6 +85,7 @@ let init (window, renderRoot) =
       Nexus =
           { ApiKey = key
             RateLimits = RateLimits.initialLimits }
+      Styles = styles
       Window = window
       RenderRoot = renderRoot
       Page = Start startPageModel },
@@ -154,6 +158,7 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
         let pageModel, cmd =
             plugin.Init(model.Window, model.Nexus, model.ThrottleUpdates)
 
+        model.Styles.Load plugin.LightStyle
         showPage Plugin model ((plugin, pageModel), Cmd.map PluginMsg cmd)
     | ApiKeyExtMsg (ApiKey.ExternalMsg.Verified { Nexus = nexus; Result = user }) ->
         // Grab the results when the API Key page is done and write it to the .ini
@@ -175,34 +180,34 @@ let view (model: Model) (dispatch: Msg -> unit): IView =
     | Plugin (plugin, m) -> plugin.View(m, PluginMsg >> dispatch)
 
 
-// Give the deferred renderer a chance to draw the previous state before drawing the latest.
-let throttleUpdates (host: IViewHost) (retryMsg: 'msg) (program: Program<'arg, Model, 'msg, #IView>) =
-    let stateRef = ref None
+let private stateRef = ref None
 
-    let setState (state: Model) dispatch =
-        // create new view and update the host only if new model is not equal to a prev one
-        let stateDiffers = (Some state).Equals(!stateRef) |> not
+let private setState (host: IViewHost) retryMsg program (state: Model) dispatch =
+    // create new view and update the host only if new model is not equal to a prev one
+    let stateDiffers = (Some state).Equals(!stateRef) |> not
 
-        if stateDiffers then
-            let updated = state.ThrottleUpdates() |> not
-            // Only build a new view if the screen has been updated with the previous one
-            if updated then
-                stateRef := Some state
-                let view = ((Program.view program) state dispatch)
-                host.Update(Some(view :> IView))
-            elif retryMsgInFlight |> not then
-                // Otherwise, dispatch a message after a while so that we can retry updating with the latest.
-                DispatcherTimer.RunOnce(Action(fun () -> retryMsg |> dispatch), TimeSpan.FromMilliseconds 50.0)
-                |> ignore
+    if stateDiffers then
+        let updated = state.ThrottleUpdates() |> not
+        // Only build a new view if the screen has been updated with the previous one
+        if updated then
+            stateRef := Some state
+            let view = ((Program.view program) state dispatch)
+            host.Update(Some(view :> IView))
+        elif retryMsgInFlight |> not then
+            // Otherwise, dispatch a message after a while so that we can retry updating with the latest.
+            DispatcherTimer.RunOnce(Action(fun () -> retryMsg |> dispatch), TimeSpan.FromMilliseconds 50.0)
+            |> ignore
 
-                retryMsgInFlight <- true
+            retryMsgInFlight <- true
 
-
-    program |> Program.withSetState setState
+/// Gives the deferred renderer a chance to draw the previous state before drawing the latest.
+let private throttleUpdates host retryMsg program =
+    program
+    |> Program.withSetState (setState host retryMsg program)
 
 // Main
 
-type MainWindow() as this =
+type MainWindow(styles: Styles) as this =
     inherit HostWindow()
 
     // Copied from Avalonia.FuncUI.Elmish
@@ -212,6 +217,7 @@ type MainWindow() as this =
         base.Height <- 600.0
         base.MinWidth <- 800.0
         base.MinHeight <- 600.0
+        base.Padding <- Thickness(10.0, 5.0, 10.0, 10.0)
 
         //this.VisualRoot.VisualRoot.Renderer.DrawFps <- true
         //this.VisualRoot.VisualRoot.Renderer.DrawDirtyRects <- true
@@ -236,4 +242,4 @@ type MainWindow() as this =
 #if DEBUG
         |> Program.withTrace (fun msg _ -> printfn "New message: %A" msg)
 #endif
-        |> Program.runWith (this, this.VisualRoot)
+        |> Program.runWith (this, this.VisualRoot, styles)
