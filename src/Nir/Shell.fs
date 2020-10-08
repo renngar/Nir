@@ -222,7 +222,10 @@ let private setState (host: IViewHost) retryMsg program (state: Model) dispatch 
             |> ignore
 
             retryMsgInFlight <- true
-
+        else
+            () // Avoid Fantomas formatting problems
+    else
+        () // Avoid Fantomas formatting problems
 
 /// Gives the deferred renderer a chance to draw the previous state before drawing the latest.
 let private throttleUpdates host retryMsg program =

@@ -34,24 +34,19 @@ type Msg =
     | AfterVerification of ApiResult<User>
     | Continue of ApiSuccess<User>
 
-let openLink link =
+let openLink (link: Links): unit =
     let url =
         match link with
         | NexusAccountPage -> "https://www.nexusmods.com/users/myaccount?tab=api"
 
-    if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
-        let start = sprintf "/c start %s" url
-
-        Process.Start(ProcessStartInfo("cmd", start))
-        |> ignore
-    else if RuntimeInformation.IsOSPlatform(OSPlatform.Linux) then
-        Process.Start("xdg-open", url) |> ignore
-    else if RuntimeInformation.IsOSPlatform(OSPlatform.OSX) then
-        Process.Start("open", url) |> ignore
-
-
-
-
+    if RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+    then Process.Start(ProcessStartInfo("cmd", sprintf "/c start %s" url))
+    elif RuntimeInformation.IsOSPlatform(OSPlatform.Linux)
+    then Process.Start("xdg-open", url)
+    elif RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
+    then Process.Start("open", url)
+    else failwith "Unsupported OS Platform"
+    |> ignore
 
 let update msg model =
     match msg with
