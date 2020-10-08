@@ -1,7 +1,7 @@
 module Nir.Plugins.ModChecker
 
+open System
 open System.IO
-open Avalonia.Controls.Primitives
 open Elmish
 open Avalonia.Controls
 open Avalonia.FuncUI.DSL
@@ -15,6 +15,7 @@ open Nir.NexusApi
 open Nir.UI
 open Nir.UI.Controls
 open Nir.Utility
+open Nir.Utility.INI
 
 open ModChecker
 open ModChecker.ModInfo
@@ -33,15 +34,17 @@ type private Msg =
 type private Model =
     { Window: Window
       Nexus: Nexus
+      Properties: Properties
       Games: Game []
       GamesByName: Map<string, Game>
       SelectedGames: Game list
       ModInfo: ModInfo.Model list
       ThrottleUpdates: Plugin.ThrottleUpdates }
 
-let private init window nexus throttleUpdates =
+let private init window nexus properties throttleUpdates =
     { Window = window
       Nexus = nexus
+      Properties = properties
       ThrottleUpdates = throttleUpdates
       Games = [||]
       GamesByName = Map.empty
@@ -53,9 +56,18 @@ let private init window nexus throttleUpdates =
 
 let inline private processingFile model = Seq.exists processingFile model.ModInfo
 
-let private update (msg: Msg) (model: Model): Model * Cmd<_> =
+let modDirProperty = "ModDir"
+
+let private getModDir model =
+    match tryProperty modDirProperty model.Properties with
+    | Some p -> p.Value
+    | None -> (Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments))
+
+let private update (msg: Msg) (model: Model): Model * Cmd<_> * Plugin.ExternalMsg =
+    let NoOp = Plugin.NoOp
+
     match msg with
-    | FetchGames -> model, Cmd.OfAsync.perform games (model.Nexus, false) GotGames
+    | FetchGames -> model, Cmd.OfAsync.perform games (model.Nexus, false) GotGames, NoOp
     | GotGames games ->
         match games with
         | Ok x ->
@@ -68,8 +80,9 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> =
                       x.Result
                       |> Seq.map (fun g -> g.Name, g)
                       |> Map.ofSeq },
-            Cmd.none
-        | Error _ -> model, Cmd.none
+            Cmd.none,
+            NoOp
+        | Error _ -> model, Cmd.none, NoOp
     | GameChanged n ->
         if n >= 0 then
             // If SSE or FoNV are selected, also search the older games whose mods may be used.
@@ -88,10 +101,12 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> =
                 elif game.Name = fonv then findGames [ fonv; fo3 ]
                 else [ game ]
 
-            { model with SelectedGames = gs }, Cmd.none
+            { model with SelectedGames = gs }, Cmd.none, NoOp
         else
-            model, Cmd.none
-    | OpenFileDialog -> model, Cmd.OfAsync.perform promptModArchives model.Window FilesSelected
+            model, Cmd.none, NoOp
+    | OpenFileDialog ->
+        let dir = getModDir model
+        model, Cmd.OfAsync.perform promptModArchives (model.Window, dir) FilesSelected, NoOp
     | FilesSelected fileNames ->
         let noFileSelected =
             (fileNames.Length = 1 && fileNames.[0] = "")
@@ -108,7 +123,7 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> =
         if processingFile model
            || noFileSelected
            || sameFiles () then
-            model, Cmd.none
+            model, Cmd.none, NoOp
         else
             let models, commands =
                 Array.toList fileNames
@@ -119,16 +134,28 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> =
             let indexCmd n cmd =
                 cmd |> Cmd.map (fun c -> ModInfoMsg(n, c))
 
-            { model with ModInfo = models }, Cmd.batch <| List.mapi indexCmd commands
+            let mutable newModel = { model with ModInfo = models }
+            let mutable extMsg = NoOp
+            let directory = Path.GetDirectoryName fileNames.[0]
+
+            if getModDir model <> directory then
+                newModel <-
+                    { newModel with
+                          Properties = setProperty model.Properties modDirProperty directory }
+
+                extMsg <- Plugin.SaveProperties newModel.Properties
+
+            newModel, Cmd.batch <| List.mapi indexCmd commands, extMsg
     | FileTextBoxChanged fileName ->
-        model, (if File.Exists(fileName) then Cmd.ofMsg (FilesSelected [| fileName |]) else Cmd.none)
+        model, (if File.Exists(fileName) then Cmd.ofMsg (FilesSelected [| fileName |]) else Cmd.none), NoOp
     | ModInfoMsg (id, miMsg) ->
         let miModel, miCmd =
             update miMsg (List.skip id model.ModInfo).Head
 
         { model with
               ModInfo = List.mapi (fun i m -> if i = id then miModel else m) model.ModInfo },
-        Cmd.map ModInfoMsg miCmd
+        Cmd.map ModInfoMsg miCmd,
+        NoOp
 
 
 // View
@@ -233,24 +260,21 @@ let private modInfo (model: Model) (dispatch: Msg -> unit): IView =
                 for (_, searchResults) in filesByMod do
                     let r = searchResults.Head
 
-                    yield
-                        stackPanelCls
-                            "mod"
-                            [ yield!
-                                modHeader
-                                <|| if r.Mod.Available then
-                                        r.Mod.Name, r.Mod.Summary
-                                    else
-                                        let game =
-                                            Array.find (fun (g: Game) -> g.Id = r.Mod.GameId) model.Games
+                    yield stackPanelCls
+                              "mod"
+                              [ yield! modHeader
+                                       <|| if r.Mod.Available then
+                                               r.Mod.Name, r.Mod.Summary
+                                           else
+                                               let game =
+                                                   Array.find (fun (g: Game) -> g.Id = r.Mod.GameId) model.Games
 
-                                        sprintf "%s Mod %d Unavailable" game.Name r.Mod.ModId,
-                                        sprintf "It iss %s" (statusText r)
+                                               sprintf "%s Mod %d Unavailable" game.Name r.Mod.ModId,
+                                               sprintf "It iss %s" (statusText r)
 
-                              for result in searchResults do
-                                  yield
-                                      textBlock [ md5Result result |> toTip ]
-                                      <| sprintf "%s — %s" result.FileDetails.Name result.FileDetails.FileName ]
+                                for result in searchResults do
+                                    yield textBlock [ md5Result result |> toTip ]
+                                          <| sprintf "%s — %s" result.FileDetails.Name result.FileDetails.FileName ]
 
             // Output the file info
             for mi in List.sortBy orderBy infos do
@@ -260,30 +284,27 @@ let private modInfo (model: Model) (dispatch: Msg -> unit): IView =
 
 let private view (model: Model) (dispatch: Dispatch<Msg>): IView =
     dockPanel [ cls "modChecker" ] [
-        yield
-            pageHeader
-                "Nexus Mod Checker"
-                (if processingFile model then "Processing files. Please wait..."
-                 elif model.Games.Length = 0 then "Fetching games from Nexus..."
-                 elif isGameSelected model then "Drop a mod archive below to verify its contents"
-                 else "Select your game below")
+        yield pageHeader
+                  "Nexus Mod Checker"
+                  (if processingFile model then "Processing files. Please wait..."
+                   elif model.Games.Length = 0 then "Fetching games from Nexus..."
+                   elif isGameSelected model then "Drop a mod archive below to verify its contents"
+                   else "Select your game below")
         if model.Games.Length = 0 then
-            yield
-                progressBar [ dock Dock.Top
-                              isIndeterminate true ]
+            yield progressBar [ dock Dock.Top
+                                isIndeterminate true ]
 
             yield textBlock [] "" // Let's the progress bar take it's natural height and fills the rest with nothing
         elif not <| isGameSelected model then
             yield gameSelector model dispatch
         else
-            yield
-                grid [ dock Dock.Top
-                       cls "selectors"
-                       toColumnDefinitions "auto,*"
-                       toRowDefinitions "auto,*" ] [
-                    yield gameSelector model dispatch
-                    yield modSelector model dispatch
-                ]
+            yield grid [ dock Dock.Top
+                         cls "selectors"
+                         toColumnDefinitions "auto,*"
+                         toRowDefinitions "auto,*" ] [
+                      yield gameSelector model dispatch
+                      yield modSelector model dispatch
+                  ]
 
             if model.ModInfo.IsEmpty |> not
             then yield scrollViewer [] <| modInfo model dispatch
@@ -299,8 +320,8 @@ type ModChecker() =
         member __.DarkStyle = "avares://ModChecker/ModChecker.xaml"
         member __.LightStyle = "avares://ModChecker/ModChecker.xaml"
 
-        member __.Init(window, nexus, throttleUpdates) =
-            Plugin.mapInit init (window, nexus, throttleUpdates)
+        member __.Init(window, nexus, initialProperties, throttleUpdates) =
+            Plugin.mapInit init (window, nexus, initialProperties, throttleUpdates)
 
         member __.Update(msg, model) = Plugin.mapUpdate update (msg, model)
         member __.View(model, dispatch) = Plugin.mapView view (model, dispatch)

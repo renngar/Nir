@@ -71,6 +71,7 @@ type ExternalMsg =
     | StartExtMsg of Start.ExternalMsg
     | ApiKeyExtMsg of ApiKey.ExternalMsg
     | ErrorExtMsg of Error.ExternalMsg
+    | PluginExtMsg of Plugin.ExternalMsg
 
 let init (window, renderRoot, styles) =
     let startPageModel, _ = Start.init window
@@ -120,43 +121,47 @@ let private updateShell msg model =
     | DisplayApiKeyPage -> ApiKey.init model.Nexus |> showPage ApiKey model
     |> fun (fst, snd) -> fst, snd, NoOp // Match the shape of the page-specific update functions
 
-let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
+let private removeSpaces (s: string) = s.Replace(" ", "")
+
+let private processPageMessage msg model =
     let updatePage update msg pageModel modelType msgType extMsgType =
         let newModel, cmd, extMsg = update msg pageModel
         { model with Page = modelType newModel }, Cmd.map msgType cmd, extMsgType extMsg
 
-    // Do the page updates
-    let newModel, cmd, externalMsg =
-        match msg, model.Page with
-        | ShellMsg shellMsg, _ -> updateShell shellMsg model
-        | StartMsg startMsg, Start startModel -> updatePage Start.update startMsg startModel Start StartMsg StartExtMsg
-        | ApiKeyMsg apiKeyMsg, ApiKey apiKeyModel ->
-            updatePage ApiKey.update apiKeyMsg apiKeyModel ApiKey ApiKeyMsg ApiKeyExtMsg
-        | ErrorMsg errorMsg, ErrorModel errorModel ->
-            updatePage Error.update errorMsg errorModel ErrorModel ErrorMsg ErrorExtMsg
-        | PluginMsg msg', Plugin (plugin, pluginModel) ->
-            let newModel, cmd = plugin.Update(msg', pluginModel)
+    match msg, model.Page with
+    | ShellMsg shellMsg, _ -> updateShell shellMsg model
+    | StartMsg startMsg, Start startModel -> updatePage Start.update startMsg startModel Start StartMsg StartExtMsg
+    | ApiKeyMsg apiKeyMsg, ApiKey apiKeyModel ->
+        updatePage ApiKey.update apiKeyMsg apiKeyModel ApiKey ApiKeyMsg ApiKeyExtMsg
+    | ErrorMsg errorMsg, ErrorModel errorModel ->
+        updatePage Error.update errorMsg errorModel ErrorModel ErrorMsg ErrorExtMsg
+    | PluginMsg msg', Plugin (plugin, pluginModel) ->
+        let newModel, cmd, extMsg = plugin.Update(msg', pluginModel)
 
-            { model with
-                  Page = Plugin(plugin, newModel) },
-            Cmd.map PluginMsg cmd,
-            NoOp
+        { model with
+              Page = Plugin(plugin, newModel) },
+        Cmd.map PluginMsg cmd,
+        PluginExtMsg extMsg
 
-        // These should never happen, but are required for full pattern matching
-        | StartMsg _, _
-        | ApiKeyMsg _, _
-        | ErrorMsg _, _
-        | PluginMsg _, _ -> failwith "Mismatch between current page and message"
+    // These should never happen, but are required for full pattern matching
+    | StartMsg _, _
+    | ApiKeyMsg _, _
+    | ErrorMsg _, _
+    | PluginMsg _, _ -> failwith "Mismatch between current page and message"
 
-    // Then process the external messages they send
+let private processExternalMessage model cmd externalMsg =
     match externalMsg with
     | NoOp
     | StartExtMsg Start.ExternalMsg.NoOp
-    | ApiKeyExtMsg ApiKey.ExternalMsg.NoOp -> newModel, cmd
+    | ApiKeyExtMsg ApiKey.ExternalMsg.NoOp
+    | PluginExtMsg Plugin.ExternalMsg.NoOp -> model, cmd
 
     | StartExtMsg (Start.ExternalMsg.LaunchPlugin plugin) ->
+        let { Properties = props }, _ =
+            section (removeSpaces plugin.Name) model.Ini
+
         let pageModel, cmd =
-            plugin.Init(model.Window, model.Nexus, model.ThrottleUpdates)
+            plugin.Init(model.Window, model.Nexus, props, model.ThrottleUpdates)
 
         model.Styles.Load plugin.LightStyle
         showPage Plugin model ((plugin, pageModel), Cmd.map PluginMsg cmd)
@@ -169,6 +174,24 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
     | ErrorExtMsg Error.ExternalMsg.Cancel ->
         model.Window.Close()
         model, Cmd.none
+    | PluginExtMsg (Plugin.ExternalMsg.SaveProperties properties) ->
+        match model.Page with
+        | Plugin (plugin, pluginModel) ->
+            let ini =
+                (model.Ini, properties)
+                ||> List.fold (fun ini p -> setIniProperty ini (removeSpaces plugin.Name) p.Property p.Value)
+
+            saveIni ini
+
+            { model with
+                  Ini = ini
+                  Page = Plugin(plugin, pluginModel) },
+            Cmd.none
+        | _ -> failwith "Only plugins should send a SaveProperties message"
+
+let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
+    processPageMessage msg model
+    |||> processExternalMessage
 
 // View
 
@@ -199,6 +222,7 @@ let private setState (host: IViewHost) retryMsg program (state: Model) dispatch 
             |> ignore
 
             retryMsgInFlight <- true
+
 
 /// Gives the deferred renderer a chance to draw the previous state before drawing the latest.
 let private throttleUpdates host retryMsg program =

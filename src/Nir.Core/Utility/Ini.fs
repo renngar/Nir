@@ -14,11 +14,14 @@ type Property =
       Property: string
       Value: IniPropertyValue }
 
+/// A list of INI Property settings that go in a Section
+type Properties = Property list
+
 /// An INI file section including its name, properties and any preceding comments
 type Section =
     { Comments: string list
       Section: string
-      Properties: Property list }
+      Properties: Properties }
 
 /// An INI file including its sections with their properties and any trailing comments
 type Ini =
@@ -50,27 +53,27 @@ module Parser =
 
 
     // Parse a sequence of any whitespace
-    let ws = spaces
+    let private ws = spaces
 
     // Parse intraline whitespace
-    let lineWs = manyChars (anyOf " \t")
+    let private lineWs = manyChars (anyOf " \t")
 
     /// parse a string throwing away any trailing spaces or tabs
-    let strLineWs s = pstring s .>> lineWs
+    let private strLineWs s = pstring s .>> lineWs
 
     /// `strExcept exception` parses a sequence of *zero* or more characters that do not appear in `exceptions`.
-    let strExcept exceptions = manyChars (noneOf exceptions) .>> lineWs
+    let private strExcept exceptions = manyChars (noneOf exceptions) .>> lineWs
 
     /// `str1Except exceptions` parses a sequence of *one* or more characters that do not appear in `exceptions`.
-    let str1Except exceptions =
+    let private str1Except exceptions =
         many1Chars (noneOf exceptions) .>> lineWs
 
     /// parse a comment line beginning with `;`
-    let lineComment =
+    let private lineComment =
         pchar ';' >>. restOfLine true |>> IniComment
 
     /// parses a section name, not the whole section header
-    let sectionName = str1Except "] \t\n\r\000"
+    let private sectionName = str1Except "] \t\n\r\000"
 
     /// parses a section header
     let sectionHeader =
@@ -81,12 +84,12 @@ module Parser =
 
     // Cannot start with a square, open bracket or a semicolon.  That would
     // be a section header or comment.
-    let propertyChar1 = noneOf ";[\n\r\000="
+    let private propertyChar1 = noneOf ";[\n\r\000="
 
     let private trimEnd (s: string) = s.TrimEnd()
 
     // Should not end with whitespace.  Trimming it is easier than
-    let propertyCharRest = strExcept "\n\r\000=" |>> trimEnd
+    let private propertyCharRest = strExcept "\n\r\000=" |>> trimEnd
 
     let propertyName =
         propertyChar1
@@ -103,7 +106,7 @@ module Parser =
         .>>. propertyValue
         |>> fun (n, v) -> IniProperty { Name = n; Value = v }
 
-    let line =
+    let private line =
         lineComment
         <|> sectionHeader
         <|> propertyLine
@@ -111,7 +114,7 @@ module Parser =
 
     let iniFile = ws >>. many line
 
-    let convertToTree ini =
+    let internal convertToTree ini =
         let mutable comments = []
 
         let mutable section =
@@ -202,27 +205,26 @@ let saveIni (ini: Ini) =
     writeComments sw ini.TrailingComments
 
 /// Try to fined the named section in the ini
-let trySection section ini: Section option =
+let private trySection section ini: Section option =
     ini.Sections
     |> List.tryFind (fun s -> s.Section = section)
 
-let newSection section properties =
+let private newSection section properties =
     { Comments = []
       Section = section
       Properties = properties }
 
 /// Returns the named `section` of the `ini`
-let section section ini: Section * Ini =
+let section (section: string) (ini: Ini): Section * Ini =
     match trySection section ini with
     | Some s -> s, ini
     | None -> newSection section [], ini
 
-/// Try to fined the named section in the ini
-let tryProperty property section: Property option =
-    section.Properties
-    |> List.tryFind (fun s -> s.Property = property)
+/// Try to find the named property in the list of properties
+let tryProperty property properties: Property option =
+    List.tryFind (fun s -> s.Property = property) properties
 
-let newProperty name value: Property =
+let private newProperty name value: Property =
     { Comments = []
       Property = name
       Value = value }
@@ -230,31 +232,36 @@ let newProperty name value: Property =
 /// Returns the named `property` within the given `section`, which may
 /// be looked up using the `section` function.
 let property (property: string) (section, ini): Property * Ini =
-    match tryProperty property section with
+    match tryProperty property section.Properties with
     | Some p -> p, ini
     | None -> newProperty property "", ini
 
 /// Return the value of `property`
 let propertyValue (property: Property, ini: Ini): IniPropertyValue * Ini = property.Value, ini
 
-let setIniProperty ini sectionName propertyName value =
-    let updateProperty p =
-        if p.Property = propertyName then { p with Value = value } else p
+let setProperty properties propertyName value: Properties =
+    match tryProperty propertyName properties with
+    | None -> List.append properties [ newProperty propertyName value ]
+    | Some _ -> List.map (fun p -> if p.Property = propertyName then { p with Value = value } else p) properties
 
-    let updateProperties section =
-        match tryProperty propertyName section with
-        | None -> List.append section.Properties [ newProperty propertyName value ]
-        | Some _ -> List.map updateProperty section.Properties
-
-    let updateSection s =
+let updateSection sectionName propertyUpdater =
+    List.map (fun s ->
         if s.Section = sectionName then
             { s with
-                  Properties = updateProperties s }
+                  Properties = propertyUpdater s }
         else
-            s
+            s)
 
+let setSectionProperties ini sectionName properties: Ini =
+    { ini with
+          Sections =
+              match trySection sectionName ini with
+              | None -> List.append ini.Sections [ newSection sectionName properties ]
+              | Some _ -> updateSection sectionName (fun _ -> properties) ini.Sections }
+
+let setIniProperty ini sectionName propertyName value: Ini =
     { ini with
           Sections =
               match trySection sectionName ini with
               | None -> List.append ini.Sections [ newSection sectionName [ newProperty propertyName value ] ]
-              | Some _ -> List.map updateSection ini.Sections }
+              | Some _ -> updateSection sectionName (fun s -> setProperty s.Properties propertyName value) ini.Sections }

@@ -4,6 +4,7 @@ open Elmish
 open Avalonia.Controls
 open Avalonia.FuncUI.Types
 open Nir.NexusApi
+open Nir.Utility
 
 module Plugin =
     type Msg = obj
@@ -12,17 +13,23 @@ module Plugin =
 
     type ThrottleUpdates = unit -> bool
 
-    type Init<'Model, 'Msg> = Window -> Nexus -> ThrottleUpdates -> ('Model * Cmd<'Msg>)
+    type ExternalMsg =
+        | NoOp
+        | SaveProperties of INI.Properties
+
+    type Init<'Model, 'Msg> = Window -> Nexus -> INI.Properties -> ThrottleUpdates -> ('Model * Cmd<'Msg>)
 
     /// Map an init function to the `IPlugin.Init` signature
-    let mapInit (init: Init<'Model, 'Msg>) (window: Window, nexus: Nexus, throttleUpdates: ThrottleUpdates) =
-        init window nexus throttleUpdates
+    let mapInit (init: Init<'Model, 'Msg>)
+                (window: Window, nexus: Nexus, initialProperties: INI.Properties, throttleUpdates: ThrottleUpdates)
+                =
+        init window nexus initialProperties throttleUpdates
         |> fun (model, cmd) -> model :> Model, Cmd.map (fun msg -> msg :> Msg) cmd
 
     /// Map an update function to the `IPlugin.Update` signature
-    let mapUpdate (update: 'Msg -> 'Model -> ('Model * Cmd<'Msg>)) (msg: Msg, model: Model) =
+    let mapUpdate (update: 'Msg -> 'Model -> ('Model * Cmd<'Msg> * ExternalMsg)) (msg: Msg, model: Model) =
         update (msg :?> 'Msg) (model :?> 'Model)
-        |> fun (model, cmd) -> model :> Model, Cmd.map (fun x -> x :> Msg) cmd
+        |> fun (model, cmd, extMsg) -> model :> Model, Cmd.map (fun x -> x :> Msg) cmd, extMsg
 
     /// Map a view function to the `IPlugin.View` signature
     let mapView (view: 'Model -> Dispatch<'Msg> -> IView) (model: Model, dispatch: Dispatch<Model>) =
@@ -34,6 +41,8 @@ type IPlugin =
     abstract Description: string
     abstract DarkStyle: string
     abstract LightStyle: string
-    abstract Init: Window * Nexus * Plugin.ThrottleUpdates -> Plugin.Model * Cmd<Plugin.Msg>
-    abstract Update: Plugin.Msg * Plugin.Model -> Plugin.Model * Cmd<Plugin.Msg>
+
+    abstract Init: Window * Nexus * INI.Properties * Plugin.ThrottleUpdates -> Plugin.Model * Cmd<Plugin.Msg>
+
+    abstract Update: Plugin.Msg * Plugin.Model -> Plugin.Model * Cmd<Plugin.Msg> * Plugin.ExternalMsg
     abstract View: Plugin.Model * Dispatch<Plugin.Msg> -> IView

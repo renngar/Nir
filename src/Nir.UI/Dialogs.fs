@@ -34,11 +34,11 @@ let promptHtmlFileName window =
         return files.[0]
     }
 
-let promptModArchives window =
+let promptModArchives (window, directory) =
     openFileDialog
         Multiple
         window
         "Select Mod Archives"
-        (Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments))
+        directory
         (List [ fileFilter "Mod Archive" [ "7z"; "rar"; "zip" ]
                 fileFilter "All" [ "" ] ])
