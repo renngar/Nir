@@ -260,21 +260,24 @@ let private modInfo (model: Model) (dispatch: Msg -> unit): IView =
                 for (_, searchResults) in filesByMod do
                     let r = searchResults.Head
 
-                    yield stackPanelCls
-                              "mod"
-                              [ yield! modHeader
-                                       <|| if r.Mod.Available then
-                                               r.Mod.Name, r.Mod.Summary
-                                           else
-                                               let game =
-                                                   Array.find (fun (g: Game) -> g.Id = r.Mod.GameId) model.Games
+                    yield
+                        stackPanelCls
+                            "mod"
+                            [ yield!
+                                modHeader
+                                <|| if r.Mod.Available then
+                                        r.Mod.Name, r.Mod.Summary
+                                    else
+                                        let game =
+                                            Array.find (fun (g: Game) -> g.Id = r.Mod.GameId) model.Games
 
-                                               sprintf "%s Mod %d Unavailable" game.Name r.Mod.ModId,
-                                               sprintf "It iss %s" (statusText r)
+                                        sprintf "%s Mod %d Unavailable" game.Name r.Mod.ModId,
+                                        sprintf "It iss %s" (statusText r)
 
-                                for result in searchResults do
-                                    yield textBlock [ md5Result result |> toTip ]
-                                          <| sprintf "%s — %s" result.FileDetails.Name result.FileDetails.FileName ]
+                              for result in searchResults do
+                                  yield
+                                      textBlock [ md5Result result |> toTip ]
+                                      <| sprintf "%s — %s" result.FileDetails.Name result.FileDetails.FileName ]
 
             // Output the file info
             for mi in List.sortBy orderBy infos do
@@ -284,27 +287,30 @@ let private modInfo (model: Model) (dispatch: Msg -> unit): IView =
 
 let private view (model: Model) (dispatch: Dispatch<Msg>): IView =
     dockPanel [ cls "modChecker" ] [
-        yield pageHeader
-                  "Nexus Mod Checker"
-                  (if processingFile model then "Processing files. Please wait..."
-                   elif model.Games.Length = 0 then "Fetching games from Nexus..."
-                   elif isGameSelected model then "Drop a mod archive below to verify its contents"
-                   else "Select your game below")
+        yield
+            pageHeader
+                "Nexus Mod Checker"
+                (if processingFile model then "Processing files. Please wait..."
+                 elif model.Games.Length = 0 then "Fetching games from Nexus..."
+                 elif isGameSelected model then "Drop a mod archive below to verify its contents"
+                 else "Select your game below")
         if model.Games.Length = 0 then
-            yield progressBar [ dock Dock.Top
-                                isIndeterminate true ]
+            yield
+                progressBar [ dock Dock.Top
+                              isIndeterminate true ]
 
             yield textBlock [] "" // Let's the progress bar take it's natural height and fills the rest with nothing
         elif not <| isGameSelected model then
             yield gameSelector model dispatch
         else
-            yield grid [ dock Dock.Top
-                         cls "selectors"
-                         toColumnDefinitions "auto,*"
-                         toRowDefinitions "auto,*" ] [
-                      yield gameSelector model dispatch
-                      yield modSelector model dispatch
-                  ]
+            yield
+                grid [ dock Dock.Top
+                       cls "selectors"
+                       toColumnDefinitions "auto,*"
+                       toRowDefinitions "auto,*" ] [
+                    yield gameSelector model dispatch
+                    yield modSelector model dispatch
+                ]
 
             if model.ModInfo.IsEmpty |> not
             then yield scrollViewer [] <| modInfo model dispatch
