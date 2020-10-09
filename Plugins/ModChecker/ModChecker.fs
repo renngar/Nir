@@ -272,7 +272,7 @@ let private modInfo (model: Model) (dispatch: Msg -> unit): IView =
                                             Array.find (fun (g: Game) -> g.Id = r.Mod.GameId) model.Games
 
                                         sprintf "%s Mod %d Unavailable" game.Name r.Mod.ModId,
-                                        sprintf "It iss %s" (statusText r)
+                                        sprintf "It is %s" (statusText r)
 
                               for result in searchResults do
                                   yield
