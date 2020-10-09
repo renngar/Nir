@@ -38,7 +38,7 @@ type private Model =
       Games: Game []
       GamesByName: Map<string, Game>
       SelectedGames: Game list
-      ModInfo: ModInfo.Model list
+      ModInfo: Map<int, ModInfo.Model>
       ThrottleUpdates: Plugin.ThrottleUpdates }
 
 let private init window nexus properties throttleUpdates =
@@ -49,12 +49,29 @@ let private init window nexus properties throttleUpdates =
       Games = [||]
       GamesByName = Map.empty
       SelectedGames = []
-      ModInfo = [] },
+      ModInfo = Map.empty },
     Cmd.ofMsg FetchGames
+
+module private Sub =
+    let checkFiles fileNames nexus selectedGames throttleUpdates dispatch =
+        async {
+            fileNames
+            |> Seq.mapi (fun index file ->
+                Sub.processFile nexus selectedGames throttleUpdates index file (ModInfoMsg >> dispatch))
+            // This process may not be processor bound, but this is a good place to start for max parallelism.
+            |> fun xs ->
+                let cpus = Environment.ProcessorCount
+                xs, cpus
+            |> Async.Parallel
+            |> Async.RunSynchronously
+            |> ignore
+        }
+        |> Async.Start
 
 // Update
 
-let inline private processingFile model = Seq.exists processingFile model.ModInfo
+let inline private processingFile model =
+    Map.exists (fun _ x -> x.State = Hashing) model.ModInfo
 
 let modDirProperty = "ModDir"
 
@@ -114,8 +131,9 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> * Plugin.ExternalMs
         let sameFiles () =
             let current =
                 model.ModInfo
-                |> List.map (fun mi -> mi.Archive)
-                |> List.toArray
+                |> Map.toSeq
+                |> Seq.map (fun (_, mi) -> mi.Archive)
+                |> Seq.toArray
                 |> Array.sort
 
             (fileNames |> Array.sort) = current
@@ -125,37 +143,29 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> * Plugin.ExternalMs
            || sameFiles () then
             model, Cmd.none, NoOp
         else
-            let models, commands =
-                Array.toList fileNames
-                |> List.mapi (fun index file ->
-                    ModInfo.init model.Nexus model.SelectedGames model.ThrottleUpdates index file)
-                |> List.unzip
-
-            let indexCmd n cmd =
-                cmd |> Cmd.map (fun c -> ModInfoMsg(n, c))
-
-            let mutable newModel = { model with ModInfo = models }
-            let mutable extMsg = NoOp
             let directory = Path.GetDirectoryName fileNames.[0]
 
-            if getModDir model <> directory then
-                newModel <-
-                    { newModel with
+            let cmd =
+                Cmd.ofSub (Sub.checkFiles fileNames model.Nexus model.SelectedGames model.ThrottleUpdates)
+
+            if getModDir model = directory then
+                { model with ModInfo = Map.empty }, cmd, NoOp
+            else
+                let newModel =
+                    { model with
+                          ModInfo = Map.empty
                           Properties = setProperty model.Properties modDirProperty directory }
 
-                extMsg <- Plugin.SaveProperties newModel.Properties
-
-            newModel, Cmd.batch <| List.mapi indexCmd commands, extMsg
+                newModel, cmd, Plugin.SaveProperties newModel.Properties
     | FileTextBoxChanged fileName ->
         model, (if File.Exists(fileName) then Cmd.ofMsg (FilesSelected [| fileName |]) else Cmd.none), NoOp
     | ModInfoMsg (id, miMsg) ->
-        let miModel, miCmd =
-            update miMsg (List.skip id model.ModInfo).Head
-
-        { model with
-              ModInfo = List.mapi (fun i m -> if i = id then miModel else m) model.ModInfo },
-        Cmd.map ModInfoMsg miCmd,
-        NoOp
+        match miMsg with
+        | ModInfoUpdate miModel ->
+            { model with
+                  ModInfo = model.ModInfo.Add(id, miModel) },
+            Cmd.none,
+            NoOp
 
 
 // View
@@ -210,10 +220,13 @@ let private modSelector model dispatch =
               acceptsTab false
               isEnabled notProcessingFile
               onTextChanged (FileTextBoxChanged >> dispatch) ]
-            (match model.ModInfo with
-             | [] -> ""
-             | [ mi ] -> Path.baseName mi.Archive
-             | mi :: _multiple -> Path.baseName mi.Archive |> sprintf "%s, ...")
+            (let firstArchive () =
+                Path.baseName (Seq.head model.ModInfo).Value.Archive
+
+             match model.ModInfo.Count with
+             | 0 -> ""
+             | 1 -> firstArchive ()
+             | _ -> firstArchive () |> sprintf "%s, ...")
 
         textButton
             [ column 1
@@ -237,53 +250,51 @@ let private statusText (result: Md5Search) = result.Mod.Status.Replace("_", " ")
 let private modInfo (model: Model) (dispatch: Msg -> unit): IView =
     stackPanelCls
         "modInfo"
-        [ for (group, infos) in groupByState model.ModInfo |> List.sortBy fst do
+        [ for (group, infos) in groupByState model.ModInfo |> Seq.sortBy fst do
             // Output the group header, if any
             match groupHeader group infos with
             | Some header -> yield header
             | None -> ()
 
-            if group = FoundGroup then
-                let filesByMod =
+            yield!
+                if group = FoundGroup then
                     infos
-                    |> List.map (fun mi ->
-                        match mi.State with
-                        | Found x -> x
+                    |> Seq.map (fun { State = state } ->
+                        match state with
+                        | Found s -> s
                         | _ -> failwith "should not happen")
                     // Get the first (and likely only) match where the file was found
                     // TODO Handle the case of multiple matches, such as occurs with a zero-length file
-                    |> List.map Array.head
-                    |> List.groupBy (fun result ->
+                    |> Seq.map Array.head
+                    |> Seq.groupBy (fun result ->
                         let m = result.Mod
                         m.Available, m.Status, m.GameId, m.ModId, m.Name)
-
-                for (_, searchResults) in filesByMod do
-                    let r = searchResults.Head
-
-                    yield
+                    |> Seq.map (fun (_, searchResults) ->
                         stackPanelCls
                             "mod"
-                            [ yield!
-                                modHeader
-                                <|| if r.Mod.Available then
-                                        r.Mod.Name, r.Mod.Summary
-                                    else
-                                        let game =
-                                            Array.find (fun (g: Game) -> g.Id = r.Mod.GameId) model.Games
+                            [ let r = Seq.head searchResults
+                              let m = r.Mod
 
-                                        sprintf "%s Mod %d Unavailable" game.Name r.Mod.ModId,
-                                        sprintf "It is %s" (statusText r)
+                              yield!
+                                  modHeader
+                                  <|| if m.Available then
+                                          m.Name, m.Summary
+                                      else
+                                          let game =
+                                              Array.find (fun (g: Game) -> g.Id = m.GameId) model.Games
 
-                              for result in searchResults do
-                                  yield
+                                          sprintf "%s Mod %d Unavailable" game.Name m.ModId,
+                                          sprintf "It is %s" (statusText r)
+
+                              yield!
+                                  searchResults
+                                  |> Seq.map (fun result ->
                                       textBlock [ md5Result result |> toTip ]
-                                      <| sprintf "%s — %s" result.FileDetails.Name result.FileDetails.FileName ]
-
-            // Output the file info
-            for mi in List.sortBy orderBy infos do
-                match mi.State with
-                | Found _ -> () // Handled separately above
-                | _ -> yield view mi (fun msg -> ModInfoMsg(mi.Id, msg) |> dispatch) ]
+                                      <| sprintf "%s — %s" result.FileDetails.Name result.FileDetails.FileName) ])
+                else
+                    // Output the file info
+                    Seq.sortBy orderBy infos
+                    |> Seq.map (fun mi -> view mi (fun msg -> ModInfoMsg(mi.Id, msg) |> dispatch)) ]
 
 let private view (model: Model) (dispatch: Dispatch<Msg>): IView =
     dockPanel [ cls "modChecker" ] [
@@ -295,11 +306,12 @@ let private view (model: Model) (dispatch: Dispatch<Msg>): IView =
                  elif isGameSelected model then "Drop a mod archive below to verify its contents"
                  else "Select your game below")
         if model.Games.Length = 0 then
-            yield
-                progressBar [ dock Dock.Top
-                              isIndeterminate true ]
+            yield!
+                [ progressBar [ dock Dock.Top
+                                isIndeterminate true ]
 
-            yield textBlock [] "" // Let's the progress bar take it's natural height and fills the rest with nothing
+                  // Let's the progress bar take it's natural height and fills the rest with nothing
+                  textBlock [] "" ]
         elif not <| isGameSelected model then
             yield gameSelector model dispatch
         else

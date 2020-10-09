@@ -9,16 +9,8 @@ open Nir.UI
 open Nir.UI.Controls
 open Nir.Utility
 
-type Msg =
-    | CheckFile
-    | MD5Progress of int64 * int64
-    | MD5Complete of Result<string, string>
-    | SearchResult of string list * ApiResult<Md5Search []>
-
 type ArchiveState =
-    | Starting
     | Hashing
-    | Checking
     | Found of Md5Search []
     | NotFound of ApiError
 
@@ -33,35 +25,35 @@ type Model =
       ProgressCurrent: int64
       ProgressMax: int64 }
 
+type Msg = ModInfoUpdate of Model
+
 let orderBy modInfo =
     let baseName = Path.baseName modInfo.Archive
 
     match modInfo.State with
     | Found m -> 1, m.[0].Mod.Name, m.[0].Mod.GameId, baseName
     | NotFound _ -> 2, "", 0, baseName
-    | Hashing
-    | Checking -> 3, "", 0, baseName
-    | Starting -> 4, "", 0, baseName
+    | Hashing -> 3, "", 0, baseName
 
 type StateOrder =
     | FoundGroup
     | NotFoundGroup
     | WorkingGroup
-    | WaitingGroup
 
-let groupByState =
-    List.groupBy (fun modInfo ->
+let groupByState (mi: Map<_, Model>) =
+    mi
+    |> Map.toSeq
+    |> Seq.map snd
+    |> Seq.groupBy (fun modInfo ->
         match modInfo.State with
         | Found _ -> FoundGroup
         | NotFound _ -> NotFoundGroup
-        | Hashing
-        | Checking -> WorkingGroup
-        | Starting -> WaitingGroup)
+        | Hashing -> WorkingGroup)
 
-let groupHeader group (modInfos: Model list) =
+let groupHeader group (modInfos: seq<Model>) =
     let text cls = textBlockCls cls >> Some
 
-    match group, modInfos.Head.State with
+    match group, (Seq.head modInfos).State with
     | _, NotFound { StatusCode = code; Message = msg } ->
         match code with
         | HttpStatusCodes.NotFound -> "Unrecognized or Corrupted Archives"
@@ -70,72 +62,59 @@ let groupHeader group (modInfos: Model list) =
     | WorkingGroup, _ -> text "processing" "Processing"
     | _, _ -> None
 
-let processingFile model =
-    model.State = Hashing || model.State = Checking
-
-let init nexus selectedGames throttleUpdates id file =
-    { Id = id
-      Nexus = nexus
-      SelectedGames = selectedGames
-      ThrottleUpdates = throttleUpdates
-      Archive = file
-      Hash = ""
-      State = Starting
-      ProgressCurrent = 0L
-      ProgressMax = 0L },
-    Cmd.ofMsg CheckFile
-
-let private searchInDomains model notFoundModel gameDomains =
-    let search model gameDomain remainingDomains =
-        { model with State = Checking },
-        Cmd.OfAsync.perform md5Search (model.Nexus, gameDomain, model.Hash) (fun result ->
-            model.Id, SearchResult(remainingDomains, result))
-
-    match Seq.toList gameDomains with
-    | [ d ] -> search model d []
-    | d :: rest -> search model d rest
-    | [] -> notFoundModel, Cmd.none
-
-let private checkHash model =
-    Seq.map (fun (g: Game) -> g.DomainName) model.SelectedGames
-    |> searchInDomains model model
-
-module private Sub =
-    let md5Search model onProgress onComplete dispatch =
+module Sub =
+    let processFile nexus selectedGames throttleUpdates id file dispatch =
         async {
-            let dispatch' msg = (model.Id, msg) |> dispatch
+            let updateFile model = (id, ModInfoUpdate model) |> dispatch
+
+            let mutable apiError = { StatusCode = -1; Message = "" }
+
+            let model =
+                { Id = id
+                  Nexus = nexus
+                  SelectedGames = selectedGames
+                  ThrottleUpdates = throttleUpdates
+                  Archive = file
+                  Hash = ""
+                  State = Hashing
+                  ProgressCurrent = 0L
+                  ProgressMax = 0L }
+
+            updateFile model
 
             try
-                Md5sum.md5sum model.Archive (fun x -> if model.ThrottleUpdates() |> not then onProgress x |> dispatch')
-                |> Ok
-            with e -> e.Message |> Error
-            |> (onComplete >> dispatch')
-        }
-        |> Async.Start
+                let isOkOrSaveError (result: ApiResult<Md5Search []>) =
+                    match result with
+                    | Ok _ -> true
+                    | Error e ->
+                        apiError <- e
+                        false
 
-let update msg (model: Model) =
-    match msg with
-    | CheckFile -> { model with State = Hashing }, Cmd.ofSub (Sub.md5Search model MD5Progress MD5Complete)
-    | MD5Progress (current, max) ->
-        { model with
-              ProgressCurrent = current
-              ProgressMax = max },
-        Cmd.none
-    | MD5Complete r ->
-        match r with
-        | Ok hash -> { model with Hash = hash } |> checkHash
-        | Error e ->
-            { model with
-                  State = NotFound { StatusCode = -1; Message = e } },
-            Cmd.none
-    | SearchResult (gameDomains, r) ->
-        match r with
-        | Ok s ->
-            { model with
-                  Nexus = s.Nexus
-                  State = Found s.Result },
-            Cmd.none
-        | Error e -> searchInDomains model { model with State = NotFound e } gameDomains
+                let reportProgress (current, max) =
+                    if not <| model.ThrottleUpdates() then
+                        { model with
+                              ProgressCurrent = current
+                              ProgressMax = max }
+                        |> updateFile
+
+                { model with
+                      Hash = Md5sum.md5sum model.Archive reportProgress }
+                |> fun model -> Seq.map (fun (g: Game) -> g.DomainName, model) model.SelectedGames
+                |> Seq.map (fun (domain, model) ->
+                    md5Search (model.Nexus, domain, model.Hash)
+                    |> Async.RunSynchronously)
+                |> Seq.filter isOkOrSaveError
+                |> Seq.head
+                |> fun r ->
+                    match r with
+                    | Ok s ->
+                        { model with
+                              Nexus = s.Nexus
+                              State = Found s.Result }
+                    | Error _ -> failwith "should never happen"
+            with _ -> { model with State = NotFound apiError }
+            |> updateFile
+        }
 
 let view model (_: Dispatch<Msg>): IView =
     let modName model =
@@ -148,16 +127,15 @@ let view model (_: Dispatch<Msg>): IView =
                 if model.ProgressMax > 0L then
                     yield
                         progressBar
-                            (if model.State = Hashing then
-                                [ maximum (double model.ProgressMax)
-                                  value (double model.ProgressCurrent) ]
+                            (if (model.State <> Hashing)
+                                || model.ProgressCurrent = model.ProgressMax then
+                                [ isIndeterminate true ]
                              else
-                                 [ isIndeterminate true ]) ] ]
+                                 [ maximum (double model.ProgressMax)
+                                   value (double model.ProgressCurrent) ]) ] ]
 
     dockPanel []
     <| match model.State with
-       | Starting -> []
-       | Hashing
-       | Checking -> checking model
+       | Hashing -> checking model
        | Found _ -> failwith "Should be rendered in ModChecker"
        | NotFound _ -> [ yield modName model ]
