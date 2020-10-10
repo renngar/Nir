@@ -34,10 +34,8 @@
         <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
 
-    <Style Selector="DockPanel.modChecker TextBlock.modDetails">
+    <Style Selector="DockPanel.modChecker Grid.modDetails">
         <Setter Property="Margin" Value="24,0,0,0" />
-        <Setter Property="Width" Value="730" />
-        <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
 
     <Style Selector="DockPanel.modChecker StackPanel.mod">

@@ -221,7 +221,7 @@ let private modSelector model dispatch =
               isEnabled notProcessingFile
               onTextChanged (FileTextBoxChanged >> dispatch) ]
             (let firstArchive () =
-                Path.baseName (Seq.head model.ModInfo).Value.Archive
+                 Path.baseName (Seq.head model.ModInfo).Value.Archive
 
              match model.ModInfo.Count with
              | 0 -> ""
@@ -247,29 +247,39 @@ let private md5Result (result: Md5Search) =
 // Convert things like "under_moderation" to "under moderation"
 let private statusText (result: Md5Search) = result.Mod.Status.Replace("_", " ")
 
-let private modPanel games (searchResults: seq<Md5Search>) =
+let private modPanel games (searchResults: seq<string * Md5Search>) =
     stackPanelCls
         "mod"
-        [ let r = Seq.head searchResults
+        [ let _, r = Seq.head searchResults
           let m = r.Mod
 
-          yield!
-              modHeader
-              <|| if m.Available then
-                      m.Name, m.Summary
-                  else
-                      let game =
-                          Array.find (fun (g: Game) -> g.Id = m.GameId) games
+          yield! modHeader
+                 <|| if m.Available then
+                         m.Name, m.Summary
+                     else
+                         let game =
+                             Array.find (fun (g: Game) -> g.Id = m.GameId) games
 
-                      sprintf "%s Mod %d Unavailable" game.Name m.ModId, sprintf "It is %s" (statusText r)
+                         sprintf "%s Mod %d Unavailable" game.Name m.ModId, sprintf "It is %s" (statusText r)
 
-          yield!
-              searchResults
-              |> Seq.sortBy (fun r -> r.FileDetails.Name)
-              |> Seq.map (fun result ->
-                  textBlock [ cls "modDetails"
-                              md5Result result |> toTip ]
-                  <| sprintf "%s — %s" result.FileDetails.Name result.FileDetails.FileName) ]
+          let rowDefs = RowDefinitions()
+          rowDefs.AddRange(Seq.init (Seq.length searchResults) (fun _ -> RowDefinition(GridLength.Auto)))
+
+          yield grid
+                    [ toColumnDefinitions "*,*"
+                      rowDefinitions rowDefs ]
+                    (Seq.sortBy fst searchResults
+                     |> Seq.mapi (fun i (archive, result) ->
+                         [ let baseName = Path.baseName archive
+                           yield textBlock
+                                     [ row i
+                                       cls "modDetails"
+                                       md5Result result |> toTip ]
+                                     baseName
+                           if baseName <> result.FileDetails.FileName then
+                               yield textBlock [ row i; column 1 ]
+                                     <| sprintf " matches %s" result.FileDetails.FileName ])
+                     |> List.concat) ]
 
 let private modInfo (model: Model) (dispatch: Msg -> unit): IView =
     let mutable games = Map.empty
@@ -282,73 +292,67 @@ let private modInfo (model: Model) (dispatch: Msg -> unit): IView =
             | Some header -> yield header
             | None -> ()
 
-            yield!
-                if group = FoundGroup then
-                    infos
-                    |> Seq.map (fun { State = state } ->
-                        match state with
-                        | Found s -> s
-                        | _ -> failwith "should not happen")
-                    // Get the first (and likely only) match where the file was found
-                    // TODO Handle the case of multiple matches, such as occurs with a zero-length file
-                    |> Seq.map Array.head
-                    |> Seq.groupBy (fun x ->
-                        let id = x.Mod.GameId
+            yield! if group = FoundGroup then
+                       infos
+                       |> Seq.map (fun m ->
+                           match m.State with
+                           | Found s ->
+                               m.Archive, s.[0]
+                           | _ -> failwith "should not happen")
+                       // Get the first (and likely only) match where the file was found
+                       // TODO Handle the case of multiple matches, such as occurs with a zero-length file
+                       |> Seq.groupBy (fun (_, x) ->
+                           let id = x.Mod.GameId
 
-                        match games.TryGetValue id with
-                        | true, name -> name
-                        | false, _ ->
-                            let name =
-                                (model.SelectedGames
-                                 |> List.find (fun g -> g.Id = id))
-                                    .Name
+                           match games.TryGetValue id with
+                           | true, name -> name
+                           | false, _ ->
+                               let name =
+                                   (model.SelectedGames
+                                    |> List.find (fun g -> g.Id = id)).Name
 
-                            games <- games.Add(id, name)
-                            name)
-                    |> Seq.sortBy fst
-                    |> Seq.map (fun (gameName, results) ->
-                        stackPanelCls
-                            "game"
-                            [ yield textBlockCls "gameName" (sprintf "%s Mods" gameName)
-                              yield!
-                                  results
-                                  |> Seq.groupBy (fun result ->
-                                      let m = result.Mod
-                                      m.Available, m.Status, m.GameId, m.ModId, m.Name)
-                                  |> Seq.sortBy (fun ((_, _, _, _, name), _) -> name)
-                                  |> Seq.map (fun (_, searchResults) -> modPanel model.Games searchResults) ])
-                else
-                    // Output the file info
-                    Seq.sortBy orderBy infos
-                    |> Seq.map (fun mi -> view mi (fun msg -> ModInfoMsg(mi.Id, msg) |> dispatch)) ]
+                               games <- games.Add(id, name)
+                               name)
+                       |> Seq.sortBy fst
+                       |> Seq.map (fun (gameName, results) ->
+                           stackPanelCls
+                               "game"
+                               [ yield textBlockCls "gameName" (sprintf "%s Mods" gameName)
+                                 yield! results
+                                        |> Seq.groupBy (fun (_, result) ->
+                                            let m = result.Mod
+                                            m.Available, m.Status, m.GameId, m.ModId, m.Name)
+                                        |> Seq.sortBy (fun ((_, _, _, _, name), _) -> name)
+                                        |> Seq.map (fun (_, searchResults) -> modPanel model.Games searchResults) ])
+                   else
+                       // Output the file info
+                       Seq.sortBy orderBy infos
+                       |> Seq.map (fun mi -> view mi (fun msg -> ModInfoMsg(mi.Id, msg) |> dispatch)) ]
 
 let private view (model: Model) (dispatch: Dispatch<Msg>): IView =
     dockPanel [ cls "modChecker" ] [
-        yield
-            pageHeader
-                "Nexus Mod Checker"
-                (if processingFile model then "Processing files. Please wait..."
-                 elif model.Games.Length = 0 then "Fetching games from Nexus..."
-                 elif isGameSelected model then "Drop a mod archive below to verify its contents"
-                 else "Select your game below")
+        yield pageHeader
+                  "Nexus Mod Checker"
+                  (if processingFile model then "Processing files. Please wait..."
+                   elif model.Games.Length = 0 then "Fetching games from Nexus..."
+                   elif isGameSelected model then "Drop a mod archive below to verify its contents"
+                   else "Select your game below")
         if model.Games.Length = 0 then
-            yield!
-                [ progressBar [ dock Dock.Top
-                                isIndeterminate true ]
+            yield! [ progressBar [ dock Dock.Top
+                                   isIndeterminate true ]
 
-                  // Let's the progress bar take it's natural height and fills the rest with nothing
-                  textBlock [] "" ]
+                     // Let's the progress bar take it's natural height and fills the rest with nothing
+                     textBlock [] "" ]
         elif not <| isGameSelected model then
             yield gameSelector model dispatch
         else
-            yield
-                grid [ dock Dock.Top
-                       cls "selectors"
-                       toColumnDefinitions "auto,*"
-                       toRowDefinitions "auto,*" ] [
-                    yield gameSelector model dispatch
-                    yield modSelector model dispatch
-                ]
+            yield grid [ dock Dock.Top
+                         cls "selectors"
+                         toColumnDefinitions "auto,*"
+                         toRowDefinitions "auto,*" ] [
+                      yield gameSelector model dispatch
+                      yield modSelector model dispatch
+                  ]
 
             if model.ModInfo.IsEmpty |> not
             then yield scrollViewer [] <| modInfo model dispatch
