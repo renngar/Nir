@@ -265,6 +265,7 @@ let private modPanel games (searchResults: seq<Md5Search>) =
 
           yield!
               searchResults
+              |> Seq.sortBy (fun r -> r.FileDetails.Name)
               |> Seq.map (fun result ->
                   textBlock [ cls "modDetails"
                               md5Result result |> toTip ]
@@ -304,6 +305,7 @@ let private modInfo (model: Model) (dispatch: Msg -> unit): IView =
 
                             games <- games.Add(id, name)
                             name)
+                    |> Seq.sortBy fst
                     |> Seq.map (fun (gameName, results) ->
                         stackPanelCls
                             "game"
@@ -313,6 +315,7 @@ let private modInfo (model: Model) (dispatch: Msg -> unit): IView =
                                   |> Seq.groupBy (fun result ->
                                       let m = result.Mod
                                       m.Available, m.Status, m.GameId, m.ModId, m.Name)
+                                  |> Seq.sortBy (fun ((_, _, _, _, name), _) -> name)
                                   |> Seq.map (fun (_, searchResults) -> modPanel model.Games searchResults) ])
                 else
                     // Output the file info
