@@ -4,6 +4,27 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <Content Include="ApiSamples\abstain.json" />
+    <Content Include="ApiSamples\changelogs.json" />
+    <Content Include="ApiSamples\colourschemes.json" />
+    <Content Include="ApiSamples\delete_tracked_mods.json" />
+    <Content Include="ApiSamples\download_link.json" />
+    <Content Include="ApiSamples\endorse.json" />
+    <Content Include="ApiSamples\endorsements.json" />
+    <Content Include="ApiSamples\error.json" />
+    <Content Include="ApiSamples\file_id.json" />
+    <Content Include="ApiSamples\files.json" />
+    <Content Include="ApiSamples\game.json" />
+    <Content Include="ApiSamples\games.json" />
+    <Content Include="ApiSamples\get_trackedmods.json" />
+    <Content Include="ApiSamples\latest_added.json" />
+    <Content Include="ApiSamples\latest_updated.json" />
+    <Content Include="ApiSamples\md5_search.json" />
+    <Content Include="ApiSamples\mod.json" />
+    <Content Include="ApiSamples\post_trackedmods.json" />
+    <Content Include="ApiSamples\trending.json" />
+    <Content Include="ApiSamples\updated.json" />
+    <Content Include="ApiSamples\validate.json" />
     <Compile Include="Utility\Ini.fs" />
     <Compile Include="Utility\Md5sum.fs" />
     <Compile Include="Utility\Path.fs" />

@@ -91,7 +91,7 @@ let private rateLimit (headers: Headers): RateLimits =
       DailyRemaining = toInt headers "X-RL-Daily-Remaining"
       DailyReset = toDateTime headers "X-RL-Daily-Reset" }
 
-type NexusErrorProvider = JsonProvider<"../../Data/error.json", RootName="NexusError">
+type NexusErrorProvider = JsonProvider<"../../src/Nir.Core/ApiSamples/error.json", RootName="NexusError">
 
 type NexusError = NexusErrorProvider.NexusError
 
@@ -132,7 +132,7 @@ let callApi nexus parser apiUrl =
 // /v1/games/{game_domain_name}/mods/md5_search/{md5_hash}.json
 ////////////////////////////////////////////////////////////////////////////////
 
-type Md5SearchProvider = JsonProvider<"../../Data/md5_search.json", RootName="Md5Search">
+type Md5SearchProvider = JsonProvider<"../../src/Nir.Core/ApiSamples/md5_search.json", RootName="Md5Search">
 
 type Md5Search = Md5SearchProvider.Md5Search
 
@@ -149,7 +149,7 @@ let md5Search (nexus, game, hash) =
 // /v1/games.json?include_unapproved=<bool>
 ////////////////////////////////////////////////////////////////////////////////
 
-type GamesProvider = JsonProvider<"../../Data/games.json", RootName="Games">
+type GamesProvider = JsonProvider<"../../src/Nir.Core/ApiSamples/games.json", RootName="Games">
 
 type Game = GamesProvider.Game
 
@@ -165,7 +165,7 @@ let games (nexus, includeUnapproved) =
 // /vi/users/validate.json
 ////////////////////////////////////////////////////////////////////////////////
 
-type ValidateProvider = JsonProvider<"../../Data/validate.json", RootName="User">
+type ValidateProvider = JsonProvider<"../../src/Nir.Core/ApiSamples/validate.json", RootName="User">
 
 type User = ValidateProvider.User
 
