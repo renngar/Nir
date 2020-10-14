@@ -4,20 +4,8 @@ open System
 
 open FSharp.Data
 
-open Utility.INI
-
-let NexusSection = "Nexus"
-let ApiKeyProp = "ApiKey"
-
-/// Get the Nexus Mods API Key, if any, from the ini
-let nexusApiKey ini: IniPropertyValue * Ini =
-    ini
-    |> section NexusSection
-    |> property ApiKeyProp
-    |> propertyValue
-
-let setNexusApiKey ini value =
-    setIniProperty ini NexusSection ApiKeyProp value
+/// A map of HTTP headers and values
+type Headers = Map<string, string>
 
 /// The rate limiting data returned by the Nexus Mods APIs. The limits are as follows:
 ///
@@ -31,40 +19,30 @@ let setNexusApiKey ini value =
 /// however allow bursts over this for very short periods of time.
 ///
 /// Some routes don't count towards the hourly limit. Currently this includes the `/v1/users/validate.json` call.
-type RateLimits =
-    { HourlyLimit: int
-      HourlyRemaining: int
-      HourlyReset: DateTime
-      DailyLimit: int
-      DailyRemaining: int
-      DailyReset: DateTime }
+type RateLimits() =
+
     // Assume the full rate quota when initializing RateLimits.  The actual values will be retrieved soon enough.
-    static member initialLimits =
-        let now = DateTime.UtcNow
+    member val HourlyLimit = 100 with get, set
+    member val HourlyRemaining = 100 with get, set
+    member val HourlyReset = DateTime.Now with get, set
+    member val DailyLimit = 2500 with get, set
+    member val DailyRemaining = 2500 with get, set
+    member val DailyReset = DateTime.Now with get, set
 
-        { HourlyLimit = 100
-          HourlyRemaining = 100
-          HourlyReset = now
-          DailyLimit = 2500
-          DailyRemaining = 2500
-          DailyReset = now }
+    /// Parses the `RateLimit` data returned in the Nexus Mod API calls `Headers`
+    member this.Update(headers: Headers) =
+        let toInt (headers: Headers) value = headers.[value] |> int
+        let toDateTime (headers: Headers) value = DateTime.Parse(headers.[value])
 
-/// A Nexus API key
-type ApiKey = string
-
-/// Data specific to Nexus
-type Nexus =
-    { ApiKey: ApiKey
-      RateLimits: RateLimits }
-
-/// A map of HTTP header and values
-type Headers = Map<string, string>
+        this.HourlyLimit <- toInt headers "X-RL-Hourly-Limit"
+        this.HourlyRemaining <- toInt headers "X-RL-Hourly-Remaining"
+        this.HourlyReset <- toDateTime headers "X-RL-Hourly-Reset"
+        this.DailyLimit <- toInt headers "X-RL-Daily-Limit"
+        this.DailyRemaining <- toInt headers "X-RL-Daily-Remaining"
+        this.DailyReset <- toDateTime headers "X-RL-Daily-Reset"
 
 /// Represents an HTTP status code
 type StatusCode = int
-
-/// A Nexus Mods API call succeeded returning the given rate limits and value
-type ApiSuccess<'T> = { Nexus: Nexus; Result: 'T }
 
 /// A Nexus Mods API call failed with a given status code and message
 type ApiError =
@@ -77,98 +55,109 @@ let apiError statusCode msg =
         { StatusCode = statusCode
           Message = msg }
 
-type ApiResult<'T> = Result<ApiSuccess<'T>, ApiError>
+type ApiResult<'T> = Result<'T, ApiError>
 
-/// Parses the `RateLimit` data returned in the Nexus Mod API calls `Headers`
-let private rateLimit (headers: Headers): RateLimits =
-    let toInt (headers: Headers) value = headers.[value] |> int
-    let toDateTime (headers: Headers) value = DateTime.Parse(headers.[value])
+type Parser<'T> = string -> 'T
 
-    { HourlyLimit = toInt headers "X-RL-Hourly-Limit"
-      HourlyRemaining = toInt headers "X-RL-Hourly-Remaining"
-      HourlyReset = toDateTime headers "X-RL-Hourly-Reset"
-      DailyLimit = toInt headers "X-RL-Daily-Limit"
-      DailyRemaining = toInt headers "X-RL-Daily-Remaining"
-      DailyReset = toDateTime headers "X-RL-Daily-Reset" }
+type private NexusErrorProvider = JsonProvider<"../../src/Nir.Core/ApiSamples/error.json", RootName="NexusError">
 
-type NexusErrorProvider = JsonProvider<"../../src/Nir.Core/ApiSamples/error.json", RootName="NexusError">
+type private NexusError = NexusErrorProvider.NexusError
 
-type NexusError = NexusErrorProvider.NexusError
-
-let callApi nexus parser apiUrl =
-    async {
-        try
-            // Setting silentHttpErrors returns the error response rather than throwing an exception.
-            let! result =
-                Http.AsyncRequest
-                    (apiUrl,
-                     headers =
-                         [ "Accept", "application/json"
-                           "apikey", nexus.ApiKey ],
-                     silentHttpErrors = true)
-
-            return
-                match result.Body with
-                | Text json ->
-                    match result.StatusCode with
-                    | HttpStatusCodes.OK ->
-                        Ok
-                            { Nexus =
-                                  { nexus with
-                                        RateLimits = rateLimit result.Headers }
-                              Result = parser (json) }
-                    | status ->
-                        NexusErrorProvider.Parse(json).Message
-                        |> apiError status
-                | Binary data ->
-                    apiError result.StatusCode (sprintf "Expected text, but got a %d byte binary response" data.Length)
-        with exn -> return apiError exn.HResult exn.Message
-    }
-
-////////////////////////////////////////////////////////////////////////////////
-// Mods
-////////////////////////////////////////////////////////////////////////////////
-
-// /v1/games/{game_domain_name}/mods/md5_search/{md5_hash}.json
-////////////////////////////////////////////////////////////////////////////////
-
-type Md5SearchProvider = JsonProvider<"../../src/Nir.Core/ApiSamples/md5_search.json", RootName="Md5Search">
+type private Md5SearchProvider = JsonProvider<"../../src/Nir.Core/ApiSamples/md5_search.json", RootName="Md5Search">
 
 type Md5Search = Md5SearchProvider.Md5Search
 
-let md5Search (nexus, game, hash) =
-    try
-        sprintf "https://api.nexusmods.com/v1/games/%s/mods/md5_search/%s.json" game hash
-        |> callApi nexus Md5SearchProvider.Parse
-    with _ -> async { return apiError -1 "Non-existent file" }
-
-////////////////////////////////////////////////////////////////////////////////
-// Games
-////////////////////////////////////////////////////////////////////////////////
-
-// /v1/games.json?include_unapproved=<bool>
-////////////////////////////////////////////////////////////////////////////////
-
-type GamesProvider = JsonProvider<"../../src/Nir.Core/ApiSamples/games.json", RootName="Games">
+type private GamesProvider = JsonProvider<"../../src/Nir.Core/ApiSamples/games.json", RootName="Games">
 
 type Game = GamesProvider.Game
 
-let games (nexus, includeUnapproved) =
-    if includeUnapproved then "true" else "false"
-    |> sprintf "https://api.nexusmods.com/v1/games.json?include_unapproved=%s"
-    |> callApi nexus GamesProvider.Parse
-
-////////////////////////////////////////////////////////////////////////////////
-// User
-////////////////////////////////////////////////////////////////////////////////
-
-// /vi/users/validate.json
-////////////////////////////////////////////////////////////////////////////////
-
-type ValidateProvider = JsonProvider<"../../src/Nir.Core/ApiSamples/validate.json", RootName="User">
+type private ValidateProvider = JsonProvider<"../../src/Nir.Core/ApiSamples/validate.json", RootName="User">
 
 type User = ValidateProvider.User
 
-/// Validates the user's `apiKey` with Nexus
-let usersValidate nexus: Async<ApiResult<User>> =
-    callApi nexus ValidateProvider.Parse "https://api.nexusmods.com/v1/users/validate.json"
+/// Data specific to Nexus
+type Nexus(apiKey: string) =
+    let mutable verified, key = false, apiKey
+
+    member this.ApiKey
+        with get () = if verified then key else ""
+        and set (value) =
+            verified <- false
+            key <- value
+
+    member val RateLimits = RateLimits()
+
+    member private this.AsyncRequest (parser: Parser<'T>) verify apiUrl: Async<ApiResult<'T>> =
+        async {
+            try
+                let mutable headers = [ "Accept", "application/json" ]
+                if verified || verify then headers <- ("apikey", key) :: headers
+
+                // Setting silentHttpErrors returns the error response rather than throwing an exception.
+                let! result = Http.AsyncRequest(apiUrl, headers = headers, silentHttpErrors = true)
+
+                return
+                    match result.Body with
+                    | Text json ->
+                        match result.StatusCode with
+                        | HttpStatusCodes.OK ->
+                            this.RateLimits.Update(result.Headers)
+
+                            Ok(parser json)
+                        | status ->
+                            NexusErrorProvider.Parse(json).Message
+                            |> apiError status
+                    | Binary data ->
+                        apiError
+                            result.StatusCode
+                            (sprintf "Expected text, but got a %d byte binary response" data.Length)
+            with exn -> return apiError exn.HResult exn.Message
+        }
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // Mods
+    ////////////////////////////////////////////////////////////////////////////////
+
+    // /v1/games/{game_domain_name}/mods/md5_search/{md5_hash}.json
+    ////////////////////////////////////////////////////////////////////////////////
+    member this.md5Search(game, hash) =
+        try
+            sprintf "https://api.nexusmods.com/v1/games/%s/mods/md5_search/%s.json" game hash
+            |> this.AsyncRequest Md5SearchProvider.Parse false
+
+        with _ -> async { return apiError -1 "Non-existent file" }
+
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // Games
+    ////////////////////////////////////////////////////////////////////////////////
+
+    // /v1/games.json?include_unapproved=<bool>
+    ////////////////////////////////////////////////////////////////////////////////
+    member this.games(includeUnapproved) =
+        if includeUnapproved then "true" else "false"
+        |> sprintf "https://api.nexusmods.com/v1/games.json?include_unapproved=%s"
+        |> this.AsyncRequest GamesProvider.Parse false
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // User
+    ////////////////////////////////////////////////////////////////////////////////
+
+    // /vi/users/validate.json
+    ////////////////////////////////////////////////////////////////////////////////
+
+    /// Validates the user's `apiKey` with Nexus
+    member this.usersValidate(apiKey: string): Async<ApiResult<User>> =
+        async {
+            verified <- false
+            key <- apiKey
+
+            let! result =
+                this.AsyncRequest ValidateProvider.Parse true "https://api.nexusmods.com/v1/users/validate.json"
+
+            match result with
+            | Ok _ -> verified <- true
+            | Error _ -> ()
+
+            return result
+        }

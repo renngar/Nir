@@ -101,7 +101,7 @@ module Sub =
                       Hash = Md5sum.md5sum model.Archive reportProgress }
                 |> fun model -> Seq.map (fun (g: Game) -> g.DomainName, model) model.SelectedGames
                 |> Seq.map (fun (domain, model) ->
-                    md5Search (model.Nexus, domain, model.Hash)
+                    model.Nexus.md5Search (domain, model.Hash)
                     |> Async.RunSynchronously)
                 |> Seq.filter isOkOrSaveError
                 |> Seq.head
@@ -109,8 +109,8 @@ module Sub =
                     match r with
                     | Ok s ->
                         { model with
-                              Nexus = s.Nexus
-                              State = Found s.Result }
+                              Nexus = nexus
+                              State = Found s }
                     | Error _ -> failwith "should never happen"
             with _ -> { model with State = NotFound apiError }
             |> updateFile

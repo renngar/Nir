@@ -26,13 +26,13 @@ type Links = | NexusAccountPage
 
 type ExternalMsg =
     | NoOp
-    | Verified of ApiSuccess<User>
+    | Verified of Nexus * User
 
 type Msg =
     | OpenUrl of Links
-    | VerifyApiKey of ApiKey
+    | VerifyApiKey of string
     | AfterVerification of ApiResult<User>
-    | Continue of ApiSuccess<User>
+    | Continue of User
 
 let openLink (link: Links): unit =
     let url =
@@ -55,14 +55,14 @@ let update msg model =
         model, Cmd.none, NoOp
     | VerifyApiKey apiKey ->
         // TODO: Maybe switch ApiKey verification to Cmd.OfAsync.either splitting into two messages
-        model, Cmd.OfAsync.perform usersValidate { model.Nexus with ApiKey = apiKey } AfterVerification, NoOp
-    | AfterVerification (Ok { Nexus = nexus; Result = user }) ->
-        { Nexus = { nexus with ApiKey = user.Key }
+        model, Cmd.OfAsync.perform model.Nexus.usersValidate apiKey AfterVerification, NoOp
+    | AfterVerification (Ok user) ->
+        { Nexus = model.Nexus
           User = Some user },
         Cmd.none,
         NoOp
     | AfterVerification _ -> model, Cmd.none, NoOp
-    | Continue user -> model, Cmd.none, Verified user
+    | Continue user -> model, Cmd.none, Verified(model.Nexus, user)
 
 // View
 
@@ -116,9 +116,7 @@ let view (model: Model) (dispatch: Msg -> unit): IView =
 
               textButton
                   [ isDefault true
-                    onClick (fun _ ->
-                        Continue { Nexus = model.Nexus; Result = user }
-                        |> dispatch) ]
+                    onClick (fun _ -> dispatch (Continue user)) ]
                   "Continue" ]
         | None -> []
 

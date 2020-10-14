@@ -19,18 +19,36 @@ open Avalonia.Threading
 open Avalonia.Input // KeyGesture
 #endif
 
+open Nir.Ini
 open Nir.Pages
 open Nir.NexusApi
 open Nir.UI
 open Nir.Utility.INI
 open Nir.Utility.Path
 
+type UnverifiedApiKey = string
+
+type ShellMsg =
+    | RetryView // Sent by setState if we are not ready to draw the next version of the view
+    | VerifyApiKey of UnverifiedApiKey
+    | VerifiedApiKeyResult of UnverifiedApiKey * ApiResult<User>
+    | DisplayApiKeyPage
+
+type Msg =
+    | ShellMsg of ShellMsg
+    | StartMsg of Start.Msg
+    | ApiKeyMsg of ApiKey.Msg
+    | ErrorMsg of Error.Msg
+    | PluginMsg of Plugin.Msg
+
 // Model
+
+type ErrorModel = Msg * Error.Model
 
 type PageModel =
     | Start of Start.Model
     | ApiKey of ApiKey.Model
-    | ErrorModel of Error.Model
+    | ErrorModel of ErrorModel
     | Plugin of IPlugin * Plugin.Model
 
 type Model =
@@ -53,19 +71,6 @@ type Model =
 
 let mutable private retryMsgInFlight = false
 
-type ShellMsg =
-    | RetryView // Sent by setState if we are not ready to draw the next version of the view
-    | VerifyApiKey
-    | VerifiedApiKeyResult of ApiResult<User>
-    | DisplayApiKeyPage
-
-type Msg =
-    | ShellMsg of ShellMsg
-    | StartMsg of Start.Msg
-    | ApiKeyMsg of ApiKey.Msg
-    | ErrorMsg of Error.Msg
-    | PluginMsg of Plugin.Msg
-
 type ExternalMsg =
     | NoOp
     | StartExtMsg of Start.ExternalMsg
@@ -77,20 +82,16 @@ let init (window, renderRoot, styles) =
     let startPageModel, _ = Start.init window
 
     let key, ini =
-        getProgramPath ()
-        +/ "Nir.ini"
-        |> parseIniFile
+        parseIniFile (getProgramPath () +/ "Nir.ini")
         |> nexusApiKey
 
     { Ini = ini
-      Nexus =
-          { ApiKey = key
-            RateLimits = RateLimits.initialLimits }
+      Nexus = Nexus(key)
       Styles = styles
       Window = window
       RenderRoot = renderRoot
       Page = Start startPageModel },
-    Cmd.ofMsg (ShellMsg VerifyApiKey)
+    Cmd.ofMsg (ShellMsg(VerifyApiKey key))
 
 let private showPage pageModelType model (pageModel, cmd) =
     { model with
@@ -107,17 +108,21 @@ let private updateShell msg model =
     | RetryView ->
         retryMsgInFlight <- false
         model, Cmd.none
-    | VerifyApiKey ->
+    | VerifyApiKey key ->
         model,
-        Cmd.OfAsync.either usersValidate model.Nexus (ShellMsg << VerifiedApiKeyResult) (fun _ ->
+        Cmd.OfAsync.either model.Nexus.usersValidate key (fun result -> ShellMsg(VerifiedApiKeyResult(key, result))) (fun _ ->
             ShellMsg DisplayApiKeyPage)
-    | VerifiedApiKeyResult x ->
-        match x with
+    | VerifiedApiKeyResult (key, result) ->
+        match result with
         | Ok _ -> showMainPage model
         | Error { StatusCode = Unauthorized; Message = _ } -> model, Cmd.ofMsg (ShellMsg DisplayApiKeyPage)
         | Error { StatusCode = _; Message = msg } ->
-            Error.init "Error Contacting Nexus" msg Error.ButtonGroup.RetryCancel
-            |> showPage ErrorModel model
+            let retryMsg = ShellMsg(VerifyApiKey key)
+
+            let errorModel, cmd =
+                Error.init "Error Contacting Nexus" msg Error.ButtonGroup.RetryCancel
+
+            showPage ErrorModel model ((retryMsg, errorModel), cmd)
     | DisplayApiKeyPage -> ApiKey.init model.Nexus |> showPage ApiKey model
     |> fun (fst, snd) -> fst, snd, NoOp // Match the shape of the page-specific update functions
 
@@ -133,8 +138,8 @@ let private processPageMessage msg model =
     | StartMsg startMsg, Start startModel -> updatePage Start.update startMsg startModel Start StartMsg StartExtMsg
     | ApiKeyMsg apiKeyMsg, ApiKey apiKeyModel ->
         updatePage ApiKey.update apiKeyMsg apiKeyModel ApiKey ApiKeyMsg ApiKeyExtMsg
-    | ErrorMsg errorMsg, ErrorModel errorModel ->
-        updatePage Error.update errorMsg errorModel ErrorModel ErrorMsg ErrorExtMsg
+    | ErrorMsg errorMsg, ErrorModel (retryMsg, errorModel) ->
+        updatePage Error.update errorMsg errorModel (fun m -> ErrorModel(retryMsg, m)) ErrorMsg ErrorExtMsg
     | PluginMsg msg', Plugin (plugin, pluginModel) ->
         let newModel, cmd, extMsg = plugin.Update(msg', pluginModel)
 
@@ -165,12 +170,15 @@ let private processExternalMessage model cmd externalMsg =
 
         model.Styles.Load plugin.LightStyle
         showPage Plugin model ((plugin, pageModel), Cmd.map PluginMsg cmd)
-    | ApiKeyExtMsg (ApiKey.ExternalMsg.Verified { Nexus = nexus; Result = user }) ->
+    | ApiKeyExtMsg (ApiKey.ExternalMsg.Verified (nexus, user)) ->
         // Grab the results when the API Key page is done and write it to the .ini
         let ini = setNexusApiKey model.Ini user.Key
         saveIni ini
         showMainPage { model with Ini = ini; Nexus = nexus }
-    | ErrorExtMsg Error.ExternalMsg.Retry -> model, Cmd.ofMsg (ShellMsg VerifyApiKey)
+    | ErrorExtMsg Error.ExternalMsg.Retry ->
+        match model.Page with
+        | ErrorModel (retryMsg, _errorModel) -> model, Cmd.ofMsg retryMsg // processPageMessage already updated model
+        | _ -> failwith "Should not happen"
     | ErrorExtMsg Error.ExternalMsg.Cancel ->
         model.Window.Close()
         model, Cmd.none
@@ -199,7 +207,7 @@ let view (model: Model) (dispatch: Msg -> unit): IView =
     match model.Page with
     | Start m -> Start.view m (StartMsg >> dispatch)
     | ApiKey m -> ApiKey.view m (ApiKeyMsg >> dispatch)
-    | ErrorModel m -> Error.view m (ErrorMsg >> dispatch)
+    | ErrorModel (_, m) -> Error.view m (ErrorMsg >> dispatch)
     | Plugin (plugin, m) -> plugin.View(m, PluginMsg >> dispatch)
 
 

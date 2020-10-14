@@ -84,19 +84,13 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> * Plugin.ExternalMs
     let NoOp = Plugin.NoOp
 
     match msg with
-    | FetchGames -> model, Cmd.OfAsync.perform games (model.Nexus, false) GotGames, NoOp
+    | FetchGames -> model, Cmd.OfAsync.perform model.Nexus.games false GotGames, NoOp
     | GotGames games ->
         match games with
-        | Ok x ->
+        | Ok gs ->
             { model with
-                  Nexus = x.Nexus
-                  Games =
-                      x.Result
-                      |> Array.sortByDescending (fun g -> g.Downloads)
-                  GamesByName =
-                      x.Result
-                      |> Seq.map (fun g -> g.Name, g)
-                      |> Map.ofSeq },
+                  Games = Array.sortByDescending (fun g -> g.Downloads) gs
+                  GamesByName = gs |> Seq.map (fun g -> g.Name, g) |> Map.ofSeq },
             Cmd.none,
             NoOp
         | Error _ -> model, Cmd.none, NoOp
@@ -281,17 +275,27 @@ let private modPanel games (searchResults: seq<string * Md5Search []>) =
                                    md5Result results.[0] |> toTip ]
                                  baseName
 
-                         if Seq.exists (fun (r: Md5Search) -> baseName <> r.FileDetails.FileName) results then
-                             yield
-                                 textBlock [ row i
-                                             column 1
-                                             TextBlock.textAlignment TextAlignment.Right ]
-                                 <| String.concat "\n"
-                                        (Seq.mapi (fun j _ -> if j = 0 then " matches " else " and ") results)
+                         yield
+                             textBlock [ row i
+                                         column 1
+                                         TextBlock.textAlignment TextAlignment.Right ]
+                             <| String.concat "\n"
+                                    (Seq.mapi (fun j _ -> if j = 0 then " matches " else " and ") results)
 
-                             yield
-                                 textBlock [ row i; column 2 ]
-                                 <| String.concat "\n" (Seq.map (fun (r: Md5Search) -> r.FileDetails.FileName) results) ])
+                         yield
+                             textBlock [ row i; column 2 ]
+                             <| String.concat "\n"
+                                    (Seq.map (fun (r: Md5Search) ->
+                                        (sprintf
+                                            "%d %s -- %s FILES: %s %s %s"
+                                             r.Mod.ModId
+                                             r.Mod.Name
+                                             (match r.FileDetails.CategoryName with
+                                              | Some s -> s
+                                              | None -> "MAIN???")
+                                             r.FileDetails.Name
+                                             (r.FileDetails.UploadedTime.ToLocalTime().ToString())
+                                             r.FileDetails.Version)) results) ])
                    |> List.concat) ]
 
 let private modInfo (model: Model) (dispatch: Msg -> unit): IView =

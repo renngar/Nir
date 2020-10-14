@@ -28,6 +28,7 @@
     <Compile Include="Utility\Ini.fs" />
     <Compile Include="Utility\Md5sum.fs" />
     <Compile Include="Utility\Path.fs" />
+    <Compile Include="Nir.Ini.fs" />
     <Compile Include="NexusApi.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
