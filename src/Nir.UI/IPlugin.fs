@@ -4,7 +4,7 @@ open Elmish
 open Avalonia.Controls
 open Avalonia.FuncUI.Types
 open Nir.NexusApi
-open Nir.Utility
+open Nir.Utility.INI
 
 module Plugin =
     type Msg = obj
@@ -15,13 +15,13 @@ module Plugin =
 
     type ExternalMsg =
         | NoOp
-        | SaveProperties of INI.Properties
+        | SaveProperties of Properties
 
-    type Init<'Model, 'Msg> = Window -> Nexus -> INI.Properties -> ThrottleUpdates -> ('Model * Cmd<'Msg>)
+    type Init<'Model, 'Msg> = Window -> Nexus -> Properties -> ThrottleUpdates -> ('Model * Cmd<'Msg>)
 
     /// Map an init function to the `IPlugin.Init` signature
     let mapInit (init: Init<'Model, 'Msg>)
-                (window: Window, nexus: Nexus, initialProperties: INI.Properties, throttleUpdates: ThrottleUpdates)
+                (window: Window, nexus: Nexus, initialProperties: Properties, throttleUpdates: ThrottleUpdates)
                 =
         init window nexus initialProperties throttleUpdates
         |> fun (model, cmd) -> model :> Model, Cmd.map (fun msg -> msg :> Msg) cmd
@@ -42,7 +42,7 @@ type IPlugin =
     abstract DarkStyle: string
     abstract LightStyle: string
 
-    abstract Init: Window * Nexus * INI.Properties * Plugin.ThrottleUpdates -> Plugin.Model * Cmd<Plugin.Msg>
+    abstract Init: Window * Nexus * Properties * Plugin.ThrottleUpdates -> Plugin.Model * Cmd<Plugin.Msg>
 
     abstract Update: Plugin.Msg * Plugin.Model -> Plugin.Model * Cmd<Plugin.Msg> * Plugin.ExternalMsg
     abstract View: Plugin.Model * Dispatch<Plugin.Msg> -> IView

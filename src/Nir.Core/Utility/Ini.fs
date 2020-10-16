@@ -1,33 +1,10 @@
-module Nir.Utility.INI
+[<AutoOpen>]
+module Nir.Utility.INI.Implementation
 
 open System.IO
 open FParsec
-
-////////////////////////////////////////////////////////////////////////
-/// INI Domain Model
-////////////////////////////////////////////////////////////////////////
-type IniPropertyValue = string
-
-/// An INI file property including its name, value and any preceding comments
-type Property =
-    { Comments: string list
-      Property: string
-      Value: IniPropertyValue }
-
-/// A list of INI Property settings that go in a Section
-type Properties = Property list
-
-/// An INI file section including its name, properties and any preceding comments
-type Section =
-    { Comments: string list
-      Section: string
-      Properties: Properties }
-
-/// An INI file including its sections with their properties and any trailing comments
-type Ini =
-    { FileName: string
-      Sections: Section list
-      TrailingComments: string list }
+open Nir.Parsing
+open Nir.Utility.INI.Types
 
 /// An INI parser
 module Parser =
@@ -48,15 +25,12 @@ module Parser =
 
     type INI =
         | IniComment of string
-        | IniSection of string
+        | IniSection of SectionName
         | IniProperty of PropertyLine
 
 
     // Parse a sequence of any whitespace
     let private ws = spaces
-
-    // Parse intraline whitespace
-    let private lineWs = manyChars (anyOf " \t")
 
     /// parse a string throwing away any trailing spaces or tabs
     let private strLineWs s = pstring s .>> lineWs
@@ -64,20 +38,13 @@ module Parser =
     /// `strExcept exception` parses a sequence of *zero* or more characters that do not appear in `exceptions`.
     let private strExcept exceptions = manyChars (noneOf exceptions) .>> lineWs
 
-    /// `str1Except exceptions` parses a sequence of *one* or more characters that do not appear in `exceptions`.
-    let private str1Except exceptions =
-        many1Chars (noneOf exceptions) .>> lineWs
-
     /// parse a comment line beginning with `;`
     let private lineComment =
         pchar ';' >>. restOfLine true |>> IniComment
 
-    /// parses a section name, not the whole section header
-    let private sectionName = str1Except "] \t\n\r\000"
-
     /// parses a section header
     let sectionHeader =
-        sectionName
+        SectionName.Parser
         |> between (strLineWs "[") (strLineWs "]")
         .>> optional skipNewline
         |>> IniSection
@@ -117,10 +84,7 @@ module Parser =
     let internal convertToTree ini =
         let mutable comments = []
 
-        let mutable section =
-            { Comments = []
-              Section = ""
-              Properties = [] }
+        let mutable section = None
 
         let mutable sections = []
 
@@ -131,11 +95,12 @@ module Parser =
 
         let finishPreviousSection () =
             match section with
-            | sec when sec.Comments.IsEmpty && sec.Properties.IsEmpty -> ()
-            | _ ->
+            | None -> ()
+            | Some sec when sec.Comments.IsEmpty && sec.Properties.IsEmpty -> ()
+            | Some sec ->
                 sections <-
-                    { section with
-                          Properties = List.rev (section.Properties) }
+                    { sec with
+                          Properties = List.rev (sec.Properties) }
                     :: sections
 
         for line in ini do
@@ -145,18 +110,20 @@ module Parser =
                 finishPreviousSection ()
 
                 section <-
-                    { Comments = useComments ()
-                      Section = s
-                      Properties = [] }
+                    Some
+                        { Comments = useComments ()
+                          Section = s
+                          Properties = [] }
 
             | IniProperty { Name = n; Value = v } ->
                 section <-
-                    { section with
-                          Properties =
-                              { Comments = useComments ()
-                                Property = n
-                                Value = v }
-                              :: section.Properties }
+                    Option.map (fun section ->
+                        { section with
+                              Properties =
+                                  { Comments = useComments ()
+                                    Property = n
+                                    Value = v }
+                                  :: section.Properties }) section
 
         finishPreviousSection ()
 
@@ -171,7 +138,7 @@ open Parser
 
 /// `parseIni s` parses the INI content and converts it into a internal
 /// `Ini` data model.
-let parseIni (s: string): Ini =
+let private parseIni (s: string): Ini =
     match run iniFile s with
     | Failure (msg, _, _) -> failwith msg
     | Success (ini, _, _) -> convertToTree ini
@@ -196,7 +163,7 @@ let saveIni (ini: Ini) =
 
     for section in ini.Sections do
         writeComments sw section.Comments
-        fprintfn sw "[%s]" section.Section
+        fprintfn sw "[%s]" section.Section.Value
 
         for property in section.Properties do
             writeComments sw property.Comments
@@ -205,17 +172,17 @@ let saveIni (ini: Ini) =
     writeComments sw ini.TrailingComments
 
 /// Try to fined the named section in the ini
-let private trySection section ini: Section option =
+let private trySection (section: SectionName) ini: Section option =
     ini.Sections
     |> List.tryFind (fun s -> s.Section = section)
 
-let private newSection section properties =
+let private newSection (section: SectionName) properties =
     { Comments = []
       Section = section
       Properties = properties }
 
 /// Returns the named `section` of the `ini`
-let section (section: string) (ini: Ini): Section * Ini =
+let section (section: SectionName) (ini: Ini): Section * Ini =
     match trySection section ini with
     | Some s -> s, ini
     | None -> newSection section [], ini
@@ -244,7 +211,7 @@ let setProperty properties propertyName value: Properties =
     | None -> List.append properties [ newProperty propertyName value ]
     | Some _ -> List.map (fun p -> if p.Property = propertyName then { p with Value = value } else p) properties
 
-let updateSection sectionName propertyUpdater =
+let private updateSection sectionName propertyUpdater =
     List.map (fun s ->
         if s.Section = sectionName then
             { s with
@@ -252,7 +219,7 @@ let updateSection sectionName propertyUpdater =
         else
             s)
 
-let setSectionProperties ini sectionName properties: Ini =
+let private setSectionProperties ini (sectionName: SectionName) properties: Ini =
     { ini with
           Sections =
               match trySection sectionName ini with

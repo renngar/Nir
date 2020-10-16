@@ -20,8 +20,9 @@ open Avalonia.Input // KeyGesture
 #endif
 
 open Nir.Ini
-open Nir.Pages
 open Nir.NexusApi
+open Nir.Pages
+open Nir.Parsing
 open Nir.UI
 open Nir.Utility.INI
 open Nir.Utility.Path
@@ -45,11 +46,16 @@ type Msg =
 
 type ErrorModel = Msg * Error.Model
 
+type PluginModel =
+    { Plugin: IPlugin
+      IniSection: SectionName
+      Model: Plugin.Model }
+
 type PageModel =
     | Start of Start.Model
     | ApiKey of ApiKey.Model
     | ErrorModel of ErrorModel
-    | Plugin of IPlugin * Plugin.Model
+    | Plugin of PluginModel
 
 type Model =
     { Ini: Ini
@@ -140,11 +146,11 @@ let private processPageMessage msg model =
         updatePage ApiKey.update apiKeyMsg apiKeyModel ApiKey ApiKeyMsg ApiKeyExtMsg
     | ErrorMsg errorMsg, ErrorModel (retryMsg, errorModel) ->
         updatePage Error.update errorMsg errorModel (fun m -> ErrorModel(retryMsg, m)) ErrorMsg ErrorExtMsg
-    | PluginMsg msg', Plugin (plugin, pluginModel) ->
-        let newModel, cmd, extMsg = plugin.Update(msg', pluginModel)
+    | PluginMsg msg', Plugin pModel ->
+        let newModel, cmd, extMsg = pModel.Plugin.Update(msg', pModel.Model)
 
         { model with
-              Page = Plugin(plugin, newModel) },
+              Page = Plugin { pModel with Model = newModel } },
         Cmd.map PluginMsg cmd,
         PluginExtMsg extMsg
 
@@ -162,14 +168,23 @@ let private processExternalMessage model cmd externalMsg =
     | PluginExtMsg Plugin.ExternalMsg.NoOp -> model, cmd
 
     | StartExtMsg (Start.ExternalMsg.LaunchPlugin plugin) ->
-        let { Properties = props }, _ =
-            section (removeSpaces plugin.Name) model.Ini
+        // TODO Restructure this to give an error if a plugin cannot used as a section name
+        let iniSection = create<SectionName> plugin.Name
+
+        let { Properties = props }, _ = section iniSection model.Ini
 
         let pageModel, cmd =
             plugin.Init(model.Window, model.Nexus, props, model.ThrottleUpdates)
 
         model.Styles.Load plugin.LightStyle
-        showPage Plugin model ((plugin, pageModel), Cmd.map PluginMsg cmd)
+
+        showPage
+            Plugin
+            model
+            ({ Plugin = plugin
+               IniSection = iniSection
+               Model = pageModel },
+             Cmd.map PluginMsg cmd)
     | ApiKeyExtMsg (ApiKey.ExternalMsg.Verified (nexus, user)) ->
         // Grab the results when the API Key page is done and write it to the .ini
         let ini = setNexusApiKey model.Ini user.Key
@@ -184,16 +199,16 @@ let private processExternalMessage model cmd externalMsg =
         model, Cmd.none
     | PluginExtMsg (Plugin.ExternalMsg.SaveProperties properties) ->
         match model.Page with
-        | Plugin (plugin, pluginModel) ->
+        | Plugin pModel ->
             let ini =
                 (model.Ini, properties)
-                ||> List.fold (fun ini p -> setIniProperty ini (removeSpaces plugin.Name) p.Property p.Value)
+                ||> List.fold (fun ini p -> setIniProperty ini pModel.IniSection p.Property p.Value)
 
             saveIni ini
 
             { model with
                   Ini = ini
-                  Page = Plugin(plugin, pluginModel) },
+                  Page = Plugin pModel },
             Cmd.none
         | _ -> failwith "Only plugins should send a SaveProperties message"
 
@@ -208,7 +223,7 @@ let view (model: Model) (dispatch: Msg -> unit): IView =
     | Start m -> Start.view m (StartMsg >> dispatch)
     | ApiKey m -> ApiKey.view m (ApiKeyMsg >> dispatch)
     | ErrorModel (_, m) -> Error.view m (ErrorMsg >> dispatch)
-    | Plugin (plugin, m) -> plugin.View(m, PluginMsg >> dispatch)
+    | Plugin { Plugin = plugin; Model = m } -> plugin.View(m, PluginMsg >> dispatch)
 
 
 let private stateRef = ref None

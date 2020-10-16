@@ -1,5 +1,7 @@
 module Nir.Tests.INI
 
+open System
+open FSharp.Core
 open Fare // Xeger
 open FParsec
 
@@ -8,9 +10,11 @@ open FsCheck
 open FsCheck.Xunit
 open FsUnit.Xunit
 
-open Nir.Utility.INI.Parser
+open Nir.Parsing
+open Nir.Utility.INI
+open Parser
 
-let sectionPattern = "[^ \000\t\n\r\]]+"
+let sectionPattern = "[a-zA-Z0-9][a-zA-Z0-9 ]*[a-zA-Z0-9]"
 let propertyNamePattern = "^[^;\\[\000\n\r=][^\000\n\r=]*"
 
 // Make sure there is at least one usable character in the property name
@@ -47,17 +51,18 @@ let testPatterns rx f =
     |> Prop.forAll
     <| f
 
-
-type StringFormat = Printf.StringFormat<string, string>
-
 let parsesAsSectionFormat format s =
-    parsesAs sectionHeader (sprintf format s) (IniSection s)
+    let expected = IniSection(create<SectionName> s)
+    parsesAs sectionHeader (sprintf format s) expected
 
 let parsesAsSection s = parsesAsSectionFormat "[%s]" s
 
 let generate rx =
     (rx |> Xeger).Generate()
     |> Printf.StringFormat<string -> string>
+
+/// Lazy function `f` is expected to throw an `ArgumentException`.
+let badArg f = Prop.throws<ArgumentException, _> f
 
 [<Property>]
 let ``Addition is commutative`` a b = a + b = b + a
@@ -66,7 +71,7 @@ let ``Addition is commutative`` a b = a + b = b + a
 let ``Stringed floats parse as floats`` (NormalFloat n) = parsesAs pfloat (string n) n
 
 [<Fact>]
-let ``Section names cannot be empty`` () = parsesAsSection "" |> should be False
+let ``Section names cannot be empty`` () = badArg (lazy (parsesAsSection ""))
 
 [<Fact>]
 let ``Empty file parses`` () = parses iniFile "" |> should be True
@@ -80,17 +85,22 @@ let ``Empty assignment value parses`` () =
     parses (assignment >>. propertyValue) "=\n"
     |> should be True
 
-[<Property>]
-let ``Strings without whitespace parse as valid section names`` () =
-    testPatterns sectionPattern parsesAsSection
+let sectionGenerator = genMatches sectionPattern
+
+type SectionWithControlChar() =
+    static member Generate() =
+        let ctrlGen = Gen.choose (0, 20) |> Gen.map char
+
+        Gen.map3 (fun pre c post -> pre + (string c) + post) sectionGenerator ctrlGen sectionGenerator
+        |> Arb.fromGen
+
+[<Property(Arbitrary = [| typeof<SectionWithControlChar> |])>]
+let ``Section names cannot have control characters`` (c) =
+    badArg (lazy (c |> (not << parsesAsSection)))
 
 [<Property>]
-let ``Section names cannot have whitespace`` () =
-    testPatterns (sprintf "%s[ \t\n\r]%s+" sectionPattern sectionPattern) (not << parsesAsSection)
-
-[<Property>]
-let ``Section names cannot have nulls`` () =
-    testPatterns (sprintf "%s\000%s" sectionPattern sectionPattern) (not << parsesAsSection)
+let ``Section names can have internal spaces`` () =
+    testPatterns (sprintf @"%s %s+" sectionPattern sectionPattern) parsesAsSection
 
 [<Property>]
 let ``Section ignores left space padding`` () =
@@ -98,7 +108,7 @@ let ``Section ignores left space padding`` () =
 
 [<Property>]
 let ``Section ignores right space padding`` () =
-    testPatterns sectionPattern (parsesAsSectionFormat (generate "\[%s \]"))
+    testPatterns sectionPattern (parsesAsSectionFormat (generate "\[%s[ \t]+\]"))
 
 [<Property>]
 let ``Section ignores space padding on both sides`` () =
@@ -106,7 +116,7 @@ let ``Section ignores space padding on both sides`` () =
 
 [<Property>]
 let ``Whitespace only parses`` () =
-    testPatterns "^[\n\r ][\n\r ]*" (parses iniFile)
+    testPatterns "^[\n\r ]+" (parses iniFile)
 
 [<Property>]
 let ``Single character property name parses`` () =

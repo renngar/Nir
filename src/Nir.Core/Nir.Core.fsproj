@@ -4,6 +4,8 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Extensions.fs" />
+    <Compile Include="Parsing.fs" />
     <Content Include="ApiSamples\abstain.json" />
     <Content Include="ApiSamples\changelogs.json" />
     <Content Include="ApiSamples\colourschemes.json" />
@@ -25,6 +27,7 @@
     <Content Include="ApiSamples\trending.json" />
     <Content Include="ApiSamples\updated.json" />
     <Content Include="ApiSamples\validate.json" />
+    <Compile Include="Utility\Ini.Types.fs" />
     <Compile Include="Utility\Ini.fs" />
     <Compile Include="Utility\Md5sum.fs" />
     <Compile Include="Utility\Path.fs" />
