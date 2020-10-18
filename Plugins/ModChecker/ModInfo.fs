@@ -101,7 +101,7 @@ module Sub =
                       Hash = Md5sum.md5sum model.Archive reportProgress }
                 |> fun model -> Seq.map (fun (g: Game) -> g.DomainName, model) model.SelectedGames
                 |> Seq.map (fun (domain, model) ->
-                    model.Nexus.md5Search (domain, model.Hash)
+                    model.Nexus.Md5Search (domain, model.Hash)
                     |> Async.RunSynchronously)
                 |> Seq.filter isOkOrSaveError
                 |> Seq.head

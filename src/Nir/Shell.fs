@@ -116,7 +116,7 @@ let private updateShell msg model =
         model, Cmd.none
     | VerifyApiKey key ->
         model,
-        Cmd.OfAsync.either model.Nexus.usersValidate key (fun result -> ShellMsg(VerifiedApiKeyResult(key, result))) (fun _ ->
+        Cmd.OfAsync.either model.Nexus.UsersValidate key (fun result -> ShellMsg(VerifiedApiKeyResult(key, result))) (fun _ ->
             ShellMsg DisplayApiKeyPage)
     | VerifiedApiKeyResult (key, result) ->
         match result with

@@ -55,7 +55,7 @@ let update msg model =
         model, Cmd.none, NoOp
     | VerifyApiKey apiKey ->
         // TODO: Maybe switch ApiKey verification to Cmd.OfAsync.either splitting into two messages
-        model, Cmd.OfAsync.perform model.Nexus.usersValidate apiKey AfterVerification, NoOp
+        model, Cmd.OfAsync.perform model.Nexus.UsersValidate apiKey AfterVerification, NoOp
     | AfterVerification (Ok user) ->
         { Nexus = model.Nexus
           User = Some user },

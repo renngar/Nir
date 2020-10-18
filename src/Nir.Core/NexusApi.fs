@@ -120,7 +120,7 @@ type Nexus(apiKey: string) =
 
     // /v1/games/{game_domain_name}/mods/md5_search/{md5_hash}.json
     ////////////////////////////////////////////////////////////////////////////////
-    member this.md5Search(game, hash) =
+    member this.Md5Search(game, hash) =
         try
             sprintf "https://api.nexusmods.com/v1/games/%s/mods/md5_search/%s.json" game hash
             |> this.AsyncRequest Md5SearchProvider.Parse false
@@ -134,7 +134,7 @@ type Nexus(apiKey: string) =
 
     // /v1/games.json?include_unapproved=<bool>
     ////////////////////////////////////////////////////////////////////////////////
-    member this.games(includeUnapproved) =
+    member this.Games(includeUnapproved) =
         if includeUnapproved then "true" else "false"
         |> sprintf "https://api.nexusmods.com/v1/games.json?include_unapproved=%s"
         |> this.AsyncRequest GamesProvider.Parse false
@@ -147,7 +147,7 @@ type Nexus(apiKey: string) =
     ////////////////////////////////////////////////////////////////////////////////
 
     /// Validates the user's `apiKey` with Nexus
-    member this.usersValidate(apiKey: string): Async<ApiResult<User>> =
+    member this.UsersValidate(apiKey: string): Async<ApiResult<User>> =
         async {
             verified <- false
             key <- apiKey

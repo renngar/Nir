@@ -81,10 +81,10 @@ let private getModDir model =
     | None -> (Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments))
 
 let private update (msg: Msg) (model: Model): Model * Cmd<_> * Plugin.ExternalMsg =
-    let NoOp = Plugin.NoOp
+    let noOp = Plugin.NoOp
 
     match msg with
-    | FetchGames -> model, Cmd.OfAsync.perform model.Nexus.games false GotGames, NoOp
+    | FetchGames -> model, Cmd.OfAsync.perform model.Nexus.Games false GotGames, noOp
     | GotGames games ->
         match games with
         | Ok gs ->
@@ -92,8 +92,8 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> * Plugin.ExternalMs
                   Games = Array.sortByDescending (fun g -> g.Downloads) gs
                   GamesByName = gs |> Seq.map (fun g -> g.Name, g) |> Map.ofSeq },
             Cmd.none,
-            NoOp
-        | Error _ -> model, Cmd.none, NoOp
+            noOp
+        | Error _ -> model, Cmd.none, noOp
     | GameChanged n ->
         if n >= 0 then
             // If SSE or FoNV are selected, also search the older games whose mods may be used.
@@ -112,12 +112,12 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> * Plugin.ExternalMs
                 elif game.Name = fonv then findGames [ fonv; fo3 ]
                 else [ game ]
 
-            { model with SelectedGames = gs }, Cmd.none, NoOp
+            { model with SelectedGames = gs }, Cmd.none, noOp
         else
-            model, Cmd.none, NoOp
+            model, Cmd.none, noOp
     | OpenFileDialog ->
         let dir = getModDir model
-        model, Cmd.OfAsync.perform promptModArchives (model.Window, dir) FilesSelected, NoOp
+        model, Cmd.OfAsync.perform promptModArchives (model.Window, dir) FilesSelected, noOp
     | FilesSelected fileNames ->
         let noFileSelected =
             (fileNames.Length = 1 && fileNames.[0] = "")
@@ -135,7 +135,7 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> * Plugin.ExternalMs
         if processingFile model
            || noFileSelected
            || sameFiles () then
-            model, Cmd.none, NoOp
+            model, Cmd.none, noOp
         else
             let directory = Path.GetDirectoryName fileNames.[0]
 
@@ -143,7 +143,7 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> * Plugin.ExternalMs
                 Cmd.ofSub (Sub.checkFiles fileNames model.Nexus model.SelectedGames model.ThrottleUpdates)
 
             if getModDir model = directory then
-                { model with ModInfo = Map.empty }, cmd, NoOp
+                { model with ModInfo = Map.empty }, cmd, noOp
             else
                 let newModel =
                     { model with
@@ -152,14 +152,14 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> * Plugin.ExternalMs
 
                 newModel, cmd, Plugin.SaveProperties newModel.Properties
     | FileTextBoxChanged fileName ->
-        model, (if File.Exists(fileName) then Cmd.ofMsg (FilesSelected [| fileName |]) else Cmd.none), NoOp
+        model, (if File.Exists(fileName) then Cmd.ofMsg (FilesSelected [| fileName |]) else Cmd.none), noOp
     | ModInfoMsg (id, miMsg) ->
         match miMsg with
         | ModInfoUpdate miModel ->
             { model with
                   ModInfo = model.ModInfo.Add(id, miModel) },
             Cmd.none,
-            NoOp
+            noOp
 
 
 // View

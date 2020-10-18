@@ -1,5 +1,5 @@
 [<AutoOpen>]
-module Nir.UI.Controls.toolTip
+module Nir.UI.Controls.ToolTip
 
 open Avalonia.Controls
 open Avalonia.FuncUI.DSL

@@ -41,7 +41,7 @@ type SectionName =
     static member Create str =
         match run (SectionName.Parser .>> eof) str with
         | Success (s, _, _) -> FsOk s
-        | Failure (_, _, _) ->
+        | Failure (_) ->
             let msg =
                 sprintf "Invalid INI section name: \"%s\"" str
 

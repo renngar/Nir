@@ -1,4 +1,10 @@
 <Project ToolsVersion="15.0">
+  <Target Name="FSharpLint" BeforeTargets="Build">
+    <Exec Command="dotnet fsharplint -f msbuild lint --lint-config $(MSBuildThisFileDirectory)fsharplint.json $(MSBuildProjectFullPath)"
+          ConsoleToMsBuild="true"
+          IgnoreExitCode="false"
+    />
+  </Target>
   <PropertyGroup>
 	<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 	<MSBuildTreatWarningsAsErrors>true</MSBuildTreatWarningsAsErrors>
