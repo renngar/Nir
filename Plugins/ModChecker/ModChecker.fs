@@ -372,41 +372,9 @@ let private modInfo (model: Model) (dispatch: Msg -> unit): IView =
                     Seq.sortBy orderBy infos
                     |> Seq.map (fun mi -> view mi (fun msg -> ModInfoMsg(mi.Id, msg) |> dispatch)) ]
 
-let private view (model: Model) (dispatch: Dispatch<Msg>): IView =
-    dockPanel [ cls "modChecker" ] [
-        yield
-            pageHeader
-                "Nexus Mod Checker"
-                (if processingFile model then "Processing files. Please wait..."
-                 elif model.Games.Length = 0 then "Fetching games from Nexus..."
-                 elif isGameSelected model then "Drop a mod archive below to verify its contents"
-                 else "Select your game below")
-        if model.Games.Length = 0 then
-            yield!
-                [ progressBar [ dock Dock.Top
-                                isIndeterminate true ]
-
-                  // Let's the progress bar take it's natural height and fills the rest with nothing
-                  textBlock [] "" ]
-        elif not <| isGameSelected model then
-            yield gameSelector model dispatch
-        else
-            yield
-                grid [ dock Dock.Top
-                       cls "selectors"
-                       toColumnDefinitions "auto,*"
-                       toRowDefinitions "auto,*" ] [
-                    yield gameSelector model dispatch
-                    yield modSelector model dispatch
-                ]
-
-            if model.ModInfo.IsEmpty |> not
-            then yield scrollViewer [] <| modInfo model dispatch
-    ]
-
 type ModChecker() =
     interface IPlugin with
-        member __.Name = "Nexus Mod Checker"
+        member __.Name = ModChecker.name
 
         member __.Description =
             "Verifies mod archive integrity with Nexus "
@@ -418,4 +386,40 @@ type ModChecker() =
             Plugin.mapInit init (window, nexus, initialProperties, throttleUpdates)
 
         member __.Update(msg, model) = Plugin.mapUpdate update (msg, model)
-        member __.View(model, dispatch) = Plugin.mapView view (model, dispatch)
+
+        member __.View(model, dispatch) =
+            Plugin.mapView ModChecker.TheView (model, dispatch)
+
+    static member private name = "Nexus Mod Checker"
+
+    static member private TheView (model: Model) (dispatch: Dispatch<Msg>): IView =
+        dockPanel [ cls "modChecker" ] [
+            yield
+                pageHeader
+                    ModChecker.name
+                    (if processingFile model then "Processing files. Please wait..."
+                     elif model.Games.Length = 0 then "Fetching games from Nexus..."
+                     elif isGameSelected model then "Drop a mod archive below to verify its contents"
+                     else "Select your game below")
+            if model.Games.Length = 0 then
+                yield!
+                    [ progressBar [ dock Dock.Top
+                                    isIndeterminate true ]
+
+                      // Let's the progress bar take it's natural height and fills the rest with nothing
+                      textBlock [] "" ]
+            elif not <| isGameSelected model then
+                yield gameSelector model dispatch
+            else
+                yield
+                    grid [ dock Dock.Top
+                           cls "selectors"
+                           toColumnDefinitions "auto,*"
+                           toRowDefinitions "auto,*" ] [
+                        yield gameSelector model dispatch
+                        yield modSelector model dispatch
+                    ]
+
+                if model.ModInfo.IsEmpty |> not
+                then yield scrollViewer [] <| modInfo model dispatch
+        ]
