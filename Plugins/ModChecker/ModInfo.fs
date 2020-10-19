@@ -63,76 +63,117 @@ let groupHeader group (modInfos: seq<Model>) =
     | _, _ -> None
 
 module Sub =
-    let processFile nexus selectedGames throttleUpdates id file dispatch =
+    let private updateFile (id: int) (dispatch: int * Msg -> unit) (model: Model): unit =
+        (id, ModInfoUpdate model) |> dispatch
+
+    type private HashError = { ApiError: ApiError; Model: Model }
+
+    let private lookupMod nexus selectedGames dispatch getHash model =
         async {
-            let updateFile model = (id, ModInfoUpdate model) |> dispatch
+            let hashError: HashError ref =
+                ref
+                    { ApiError = { StatusCode = -1; Message = "" }
+                      Model = model }
 
-            let mutable apiError = { StatusCode = -1; Message = "" }
-
-            let model =
-                { Id = id
-                  Nexus = nexus
-                  SelectedGames = selectedGames
-                  ThrottleUpdates = throttleUpdates
-                  Archive = file
-                  Hash = ""
-                  State = Hashing
-                  ProgressCurrent = 0L
-                  ProgressMax = 0L }
-
-            updateFile model
-
-            try
-                let isOkOrSaveError (result: ApiResult<Md5Search []>) =
+            let lookupHash model =
+                let isOkOrSaveError model (result: ApiResult<Md5Search []>) =
                     match result with
                     | Ok _ -> true
                     | Error e ->
-                        apiError <- e
+                        hashError := { ApiError = e; Model = model }
                         false
 
-                let reportProgress (current, max) =
-                    if not <| model.ThrottleUpdates() then
-                        { model with
-                              ProgressCurrent = current
-                              ProgressMax = max }
-                        |> updateFile
-
-                { model with
-                      Hash = Md5sum.md5sum model.Archive reportProgress }
-                |> fun model -> Seq.map (fun (g: Game) -> g.DomainName, model) model.SelectedGames
-                |> Seq.map (fun (domain, model) ->
-                    model.Nexus.Md5Search (domain, model.Hash)
+                model.SelectedGames
+                |> Seq.map (fun (g: Game) ->
+                    model.Nexus.Md5Search(g.DomainName, model.Hash)
                     |> Async.RunSynchronously)
-                |> Seq.filter isOkOrSaveError
-                |> Seq.head
-                |> fun r ->
+                |> Seq.filter (isOkOrSaveError model)
+                |> Seq.tryHead
+                |> function
+                | Some r ->
                     match r with
                     | Ok s ->
-                        { model with
-                              Nexus = nexus
-                              State = Found s }
+                        Some
+                            { model with
+                                  Nexus = nexus
+                                  State = Found s }
                     | Error _ -> failwith "should never happen"
-            with _ -> { model with State = NotFound apiError }
-            |> updateFile
+                | None -> None
+
+            let update = updateFile model.Id dispatch
+
+            // Do an initial update of the UI so it is more visually responsive to user actions.
+            update model
+
+            match model.State with
+            | Found _ -> ()
+            | _ ->
+                let modelFromError () =
+                    { hashError.Value.Model with
+                          State = NotFound hashError.Value.ApiError }
+
+                let newModel =
+                    { model with
+                          SelectedGames = selectedGames }
+
+                update newModel
+
+                try
+                    newModel
+                    |> getHash
+                    |> (fun m ->
+                        hashError := { hashError.Value with Model = m }
+                        m)
+                    |> lookupHash
+                    |> function
+                    | Some model -> model
+                    | None -> modelFromError ()
+                with _ -> modelFromError ()
+                |> update
         }
+
+    let processFile nexus selectedGames throttleUpdates id file dispatch =
+        let reportProgress model (current, max) =
+            if not <| model.ThrottleUpdates() then
+                { model with
+                      ProgressCurrent = current
+                      ProgressMax = max }
+                |> updateFile id dispatch
+
+        { Id = id
+          Nexus = nexus
+          SelectedGames = selectedGames
+          ThrottleUpdates = throttleUpdates
+          Archive = file
+          Hash = ""
+          State = Hashing
+          ProgressCurrent = 0L
+          ProgressMax = 0L }
+        |> lookupMod nexus selectedGames dispatch (fun model ->
+               { model with
+                     Hash = Md5sum.md5sum model.Archive (reportProgress model) })
+
+    let reprocessFile nexus selectedGames model dispatch =
+        lookupMod nexus selectedGames dispatch id model
 
 let view model (_: Dispatch<Msg>): IView =
     let modName model =
-        textBlock [] (Path.baseName model.Archive)
+        textBlock [ if model.State <> Hashing then yield toTip model.Hash ] (Path.baseName model.Archive)
 
     let checking model =
         [ stackPanelCls
             "checking"
               [ yield modName model
-                if model.ProgressMax > 0L then
-                    yield
-                        progressBar
-                            (if (model.State <> Hashing)
-                                || model.ProgressCurrent = model.ProgressMax then
-                                [ isIndeterminate true ]
-                             else
-                                 [ maximum (double model.ProgressMax)
-                                   value (double model.ProgressCurrent) ]) ] ]
+                yield
+                    progressBar
+                        // If we don't know how big the file is or have hashed it all and are waiting for a response
+                        // from Nexus, display an indeterminate progress
+                        (if model.ProgressMax = 0L
+                            || model.ProgressCurrent = model.ProgressMax then
+                            [ isIndeterminate true ]
+                         else // otherwise, display how much has been hashed.
+                             [ maximum (double model.ProgressMax)
+                               value (double model.ProgressCurrent) ]) ] ]
 
     dockPanel []
     <| match model.State with

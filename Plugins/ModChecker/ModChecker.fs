@@ -31,6 +31,8 @@ type private Msg =
 
 // Model
 
+type private ModInfo = Map<int, Model>
+
 type private Model =
     { Window: Window
       Nexus: Nexus
@@ -38,7 +40,7 @@ type private Model =
       Games: Game []
       GamesByName: Map<string, Game>
       SelectedGames: Game list
-      ModInfo: Map<int, ModInfo.Model>
+      ModInfo: ModInfo
       ThrottleUpdates: Plugin.ThrottleUpdates }
 
 let private init window nexus properties throttleUpdates =
@@ -53,18 +55,27 @@ let private init window nexus properties throttleUpdates =
     Cmd.ofMsg FetchGames
 
 module private Sub =
+    let runParallel (computations: seq<Async<unit>>): unit =
+        // This process may not be processor bound, but this is a good place to start for max parallelism.
+        (computations, Environment.ProcessorCount)
+        |> Async.Parallel
+        |> Async.RunSynchronously
+        |> ignore
+
     let checkFiles fileNames nexus selectedGames throttleUpdates dispatch =
         async {
             fileNames
             |> Seq.mapi (fun index file ->
                 Sub.processFile nexus selectedGames throttleUpdates index file (ModInfoMsg >> dispatch))
-            // This process may not be processor bound, but this is a good place to start for max parallelism.
-            |> fun xs ->
-                let cpus = Environment.ProcessorCount
-                xs, cpus
-            |> Async.Parallel
-            |> Async.RunSynchronously
-            |> ignore
+            |> runParallel
+        }
+        |> Async.Start
+
+    let recheckFiles (modInfos: ModInfo) nexus selectedGames dispatch =
+        async {
+            modInfos
+            |> Seq.map (fun mi -> Sub.reprocessFile nexus selectedGames mi.Value (ModInfoMsg >> dispatch))
+            |> runParallel
         }
         |> Async.Start
 
@@ -82,6 +93,15 @@ let private getModDir model =
 
 let private update (msg: Msg) (model: Model): Model * Cmd<_> * Plugin.ExternalMsg =
     let noOp = Plugin.NoOp
+
+    let noFileSelected (fileNames: string []) =
+        (fileNames.Length = 1 && fileNames.[0] = "")
+
+    let getFileNames () =
+        model.ModInfo
+        |> Map.toSeq
+        |> Seq.map (fun (_, mi) -> mi.Archive)
+        |> Seq.toArray
 
     match msg with
     | FetchGames -> model, Cmd.OfAsync.perform model.Nexus.Games false GotGames, noOp
@@ -105,35 +125,38 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> * Plugin.ExternalMs
             let findGames =
                 List.map (fun name -> model.GamesByName.[name])
 
-            let gs =
-                let game = model.Games.[n]
+            let newModel =
+                { model with
+                      SelectedGames =
+                          let game = model.Games.[n]
 
-                if game.Name = sse then findGames [ sse; sle ]
-                elif game.Name = fonv then findGames [ fonv; fo3 ]
-                else [ game ]
+                          if game.Name = sse then findGames [ sse; sle ]
+                          elif game.Name = fonv then findGames [ fonv; fo3 ]
+                          else [ game ] }
 
-            { model with SelectedGames = gs }, Cmd.none, noOp
+            let cmd =
+                let fileNames = getFileNames ()
+
+                if processingFile newModel
+                   || noFileSelected fileNames then
+                    Cmd.none
+                else
+                    Cmd.ofSub (Sub.recheckFiles newModel.ModInfo newModel.Nexus newModel.SelectedGames)
+
+            newModel, cmd, noOp
         else
             model, Cmd.none, noOp
     | OpenFileDialog ->
         let dir = getModDir model
         model, Cmd.OfAsync.perform promptModArchives (model.Window, dir) FilesSelected, noOp
     | FilesSelected fileNames ->
-        let noFileSelected =
-            (fileNames.Length = 1 && fileNames.[0] = "")
-
         let sameFiles () =
-            let current =
-                model.ModInfo
-                |> Map.toSeq
-                |> Seq.map (fun (_, mi) -> mi.Archive)
-                |> Seq.toArray
-                |> Array.sort
+            let current = getFileNames () |> Array.sort
 
             (fileNames |> Array.sort) = current
 
         if processingFile model
-           || noFileSelected
+           || noFileSelected fileNames
            || sameFiles () then
             model, Cmd.none, noOp
         else
