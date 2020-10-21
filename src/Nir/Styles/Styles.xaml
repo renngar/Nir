@@ -1,9 +1,7 @@
+<!-- This is not a standalone style file.  It must be included in a theme after the theme-specific includes -->
 <Styles
-    xmlns="https://github.com/avaloniaui"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns="https://github.com/avaloniaui">
 
-    <StyleInclude Source="avares://Avalonia.Themes.Default/DefaultTheme.xaml" />
-    <StyleInclude Source="avares://Avalonia.Themes.Default/Accents/BaseLight.xaml" />
     <StyleInclude Source="avares://Nir/Styles/Button.xaml" />
     <StyleInclude Source="avares://Nir/Styles/ApiKey.xaml" />
     <StyleInclude Source="avares://Nir/Styles/Error.xaml" />

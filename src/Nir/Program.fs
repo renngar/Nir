@@ -5,7 +5,6 @@ open System
 open Avalonia
 open Avalonia.Controls
 open Avalonia.Controls.ApplicationLifetimes
-open Avalonia.FuncUI
 open Avalonia.Platform
 
 /// This is your application you can ose the initialize method to load styles
@@ -13,10 +12,7 @@ open Avalonia.Platform
 type App() =
     inherit Application()
 
-    override this.Initialize() =
-        this.Styles.Load "avares://Nir/Styles/Styles.xaml"
-
-        this.Name <- "Nir"
+    override this.Initialize() = this.Name <- "Nir"
 
     override this.OnFrameworkInitializationCompleted() =
         match this.ApplicationLifetime with
@@ -24,7 +20,7 @@ type App() =
             let assets =
                 AvaloniaLocator.Current.GetService<IAssetLoader>()
 
-            let window = Shell.MainWindow(this.Styles)
+            let window = Shell.MainWindow()
             window.Icon <- WindowIcon(assets.Open(Uri("avares://Nir/Assets/Icons/Nir.ico")))
             desktopLifetime.MainWindow <- window
         | _ -> ()

@@ -6,12 +6,10 @@ open FSharp.Data.HttpStatusCodes
 open Elmish
 open Avalonia
 open Avalonia.Controls
-open Avalonia.FuncUI
 open Avalonia.FuncUI.Components.Hosts
 open Avalonia.FuncUI.Elmish
 open Avalonia.FuncUI.Types
 open Avalonia.Rendering
-open Avalonia.Styling
 open Avalonia.Threading
 
 #if DEBUG
@@ -30,6 +28,7 @@ open Nir.Utility.Path
 type UnverifiedApiKey = string
 
 type ShellMsg =
+    | ThemeChanged of Theme
     | RetryView // Sent by setState if we are not ready to draw the next version of the view
     | VerifyApiKey of UnverifiedApiKey
     | VerifiedApiKeyResult of UnverifiedApiKey * ApiResult<User>
@@ -62,7 +61,6 @@ type Model =
       Nexus: Nexus
 
       // UI
-      Styles: Styles
       Page: PageModel
       RenderRoot: IRenderRoot
       Window: Window }
@@ -84,16 +82,14 @@ type ExternalMsg =
     | ErrorExtMsg of Error.ExternalMsg
     | PluginExtMsg of Plugin.ExternalMsg
 
-let init (window, renderRoot, styles) =
+
+let init (window, renderRoot, ini) =
     let startPageModel, _ = Start.init window
 
-    let key, ini =
-        parseIniFile (getProgramPath () +/ "Nir.ini")
-        |> nexusApiKey
+    let key = nexusApiKey ini
 
     { Ini = ini
-      Nexus = Nexus(key)
-      Styles = styles
+      Nexus = Nexus(nexusApiKey ini)
       Window = window
       RenderRoot = renderRoot
       Page = Start startPageModel },
@@ -130,6 +126,10 @@ let private updateShell msg model =
 
             showPage ErrorModel model ((retryMsg, errorModel), cmd)
     | DisplayApiKeyPage -> ApiKey.init model.Nexus |> showPage ApiKey model
+    | ThemeChanged theme ->
+        setTheme model.Ini theme
+        |> saveIni
+        |> fun ini -> { model with Ini = ini }, Cmd.none
     |> fun (fst, snd) -> fst, snd, NoOp // Match the shape of the page-specific update functions
 
 let private removeSpaces (s: string) = s.Replace(" ", "")
@@ -171,12 +171,12 @@ let private processExternalMessage model cmd externalMsg =
         // TODO Restructure this to give an error if a plugin cannot used as a section name
         let iniSection = create<SectionName> plugin.Name
 
-        let { Properties = props }, _ = section iniSection model.Ini
+        let { Properties = props } = section iniSection model.Ini
 
         let pageModel, cmd =
             plugin.Init(model.Window, model.Nexus, props, model.ThrottleUpdates)
 
-        model.Styles.Load plugin.LightStyle
+        AvaloniaLocator.Current.GetService<IThemeSwitcher>().LoadPluginStyles plugin
 
         showPage
             Plugin
@@ -187,9 +187,9 @@ let private processExternalMessage model cmd externalMsg =
              Cmd.map PluginMsg cmd)
     | ApiKeyExtMsg (ApiKey.ExternalMsg.Verified (nexus, user)) ->
         // Grab the results when the API Key page is done and write it to the .ini
-        let ini = setNexusApiKey model.Ini user.Key
-        saveIni ini
-        showMainPage { model with Ini = ini; Nexus = nexus }
+        setNexusApiKey model.Ini user.Key
+        |> saveIni
+        |> fun ini -> showMainPage { model with Ini = ini; Nexus = nexus }
     | ErrorExtMsg Error.ExternalMsg.Retry ->
         match model.Page with
         | ErrorModel (retryMsg, _errorModel) -> model, Cmd.ofMsg retryMsg // processPageMessage already updated model
@@ -200,16 +200,14 @@ let private processExternalMessage model cmd externalMsg =
     | PluginExtMsg (Plugin.ExternalMsg.SaveProperties properties) ->
         match model.Page with
         | Plugin pModel ->
-            let ini =
-                (model.Ini, properties)
-                ||> List.fold (fun ini p -> setIniProperty ini pModel.IniSection p.Property p.Value)
-
-            saveIni ini
-
-            { model with
-                  Ini = ini
-                  Page = Plugin pModel },
-            Cmd.none
+            (model.Ini, properties)
+            ||> List.fold (fun ini p -> setIniProperty ini pModel.IniSection p.Property p.Value)
+            |> saveIni
+            |> fun ini ->
+                { model with
+                      Ini = ini
+                      Page = Plugin pModel },
+                Cmd.none
         | _ -> failwith "Only plugins should send a SaveProperties message"
 
 let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
@@ -257,7 +255,7 @@ let private throttleUpdates host retryMsg program =
 
 // Main
 
-type MainWindow(styles: Styles) as this =
+type MainWindow() as this =
     inherit HostWindow()
 
     // Copied from Avalonia.FuncUI.Elmish
@@ -268,6 +266,13 @@ type MainWindow(styles: Styles) as this =
         base.MinWidth <- 800.0
         base.MinHeight <- 600.0
         base.Padding <- Thickness(10.0, 5.0, 10.0, 10.0)
+
+        let ini =
+            parseIniFile (getProgramPath () +/ "Nir.ini")
+
+        let theme = theme ini
+
+        let themeState = ThemeSwitcher(this.Styles, theme)
 
         //this.VisualRoot.VisualRoot.Renderer.DrawFps <- true
         //this.VisualRoot.VisualRoot.Renderer.DrawDirtyRects <- true
@@ -289,7 +294,8 @@ type MainWindow(styles: Styles) as this =
         |> Program.withHost this
         |> throttleUpdates this (ShellMsg RetryView)
         |> Program.withSyncDispatch syncDispatch
+        |> Program.withSubscription (fun _ -> themeState.OnChanged(ThemeChanged >> ShellMsg))
 #if DEBUG
         |> Program.withTrace (fun msg _ -> printfn "New message: %A" msg)
 #endif
-        |> Program.runWith (this, this.VisualRoot, styles)
+        |> Program.runWith (this, this.VisualRoot, ini)

@@ -170,6 +170,7 @@ let saveIni (ini: Ini) =
             fprintfn sw "%s=%s" property.Property property.Value
 
     writeComments sw ini.TrailingComments
+    ini
 
 /// Try to fined the named section in the ini
 let private trySection (section: SectionName) ini: Section option =
@@ -182,10 +183,10 @@ let private newSection (section: SectionName) properties =
       Properties = properties }
 
 /// Returns the named `section` of the `ini`
-let section (section: SectionName) (ini: Ini): Section * Ini =
+let section (section: SectionName) (ini: Ini): Section =
     match trySection section ini with
-    | Some s -> s, ini
-    | None -> newSection section [], ini
+    | Some s -> s
+    | None -> newSection section []
 
 /// Try to find the named property in the list of properties
 let tryProperty property properties: Property option =
@@ -198,13 +199,13 @@ let private newProperty name value: Property =
 
 /// Returns the named `property` within the given `section`, which may
 /// be looked up using the `section` function.
-let property (property: string) (section, ini): Property * Ini =
+let property property section =
     match tryProperty property section.Properties with
-    | Some p -> p, ini
-    | None -> newProperty property "", ini
+    | Some p -> p
+    | None -> newProperty property ""
 
 /// Return the value of `property`
-let propertyValue (property: Property, ini: Ini): IniPropertyValue * Ini = property.Value, ini
+let propertyValue (property: Property): IniPropertyValue = property.Value
 
 let setProperty properties propertyName value: Properties =
     match tryProperty propertyName properties with
@@ -218,6 +219,12 @@ let private updateSection sectionName propertyUpdater =
                   Properties = propertyUpdater s }
         else
             s)
+
+let getIniProperty ini sectionName propertyName: IniPropertyValue =
+    ini
+    |> section sectionName
+    |> property propertyName
+    |> propertyValue
 
 let private setSectionProperties ini (sectionName: SectionName) properties: Ini =
     { ini with

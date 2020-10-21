@@ -3,4 +3,21 @@
         <Setter Property="Margin" Value="0,0,0,8" />
         <Setter Property="Spacing" Value="4" />
     </Style>
+    <Style Selector="StackPanel.pageHeader Button">
+        <Setter Property="BorderBrush" Value="{DynamicResource ThemeBackgroundBrush}" />
+        <Setter Property="Background" Value="{DynamicResource ThemeBackgroundBrush}" />
+    </Style>
+    <Style Selector="StackPanel.pageHeader Button:pointerover">
+        <Setter Property="Background" Value="{DynamicResource ThemeControlMidBrush}" />
+    </Style>
+    <Style Selector="StackPanel.pageHeader Button DrawingPresenter">
+        <Setter Property="Width" Value="16" />
+        <Setter Property="Height" Value="16" />
+    </Style>
+    <Style Selector="DrawingPresenter.light">
+        <Setter Property="Drawing" Value="{DynamicResource WeatherIcons.DaySunny}" />
+    </Style>
+    <Style Selector="DrawingPresenter.dark">
+        <Setter Property="Drawing" Value="{DynamicResource WeatherIcons.NightClear}" />
+    </Style>
 </Styles>
