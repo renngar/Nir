@@ -14,10 +14,20 @@
         <Setter Property="Width" Value="16" />
         <Setter Property="Height" Value="16" />
     </Style>
-    <Style Selector="DrawingPresenter.light">
-        <Setter Property="Drawing" Value="{DynamicResource WeatherIcons.DaySunny}" />
+
+    <Style Selector="Button.material">
+        <Setter Property="FontFamily" Value="avares://Nir/Assets/Fonts#Material Icons Outlined" />
+        <Setter Property="FontSize" Value="18" />
+        <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
-    <Style Selector="DrawingPresenter.dark">
-        <Setter Property="Drawing" Value="{DynamicResource WeatherIcons.NightClear}" />
+
+    <Style Selector="MenuItem.material">
+        <Setter Property="FontFamily" Value="avares://Nir/Assets/Fonts#Material Icons Outlined" />
+        <Setter Property="FontSize" Value="18" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="MenuItem.material > MenuItem">
+        <Setter Property="FontFamily" Value="$Default" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeNormal}" />
     </Style>
 </Styles>

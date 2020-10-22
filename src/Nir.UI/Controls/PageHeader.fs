@@ -7,6 +7,7 @@ open Avalonia.FuncUI.DSL
 open Avalonia.Layout
 open Avalonia.Media
 open Nir.UI
+open Nir.UI.Material
 
 let pageHeader title description =
     let theme =
@@ -18,11 +19,21 @@ let pageHeader title description =
         yield
             grid [ toColumnDefinitions "*,*" ] [
                 textBlockCls "h1" title
-                Button.create [ column 1
-                                horizontalAlignment HorizontalAlignment.Right
-                                onClick (fun _ -> theme.Toggle())
-                                Button.content
-                                    (DrawingPresenter.create [ cls <| if theme.IsLight then "light" else "dark" ]) ]
+                stackPanel [ cls "headerButtons"
+                             column 1
+                             horizontalAlignment HorizontalAlignment.Right
+                             orientation Orientation.Horizontal ] [
+                    textButton
+                        [ cls "material"
+                          onClick (fun _ -> theme.Toggle()) ]
+                        (if theme.IsLight then Icons.wbSunny else Icons.nightsStay)
+                    menu [ horizontalAlignment HorizontalAlignment.Right ] [
+                        menuItem [ cls "material"; header Icons.menu ] [
+                            menuItem [ horizontalAlignment HorizontalAlignment.Right
+                                       header "About Nir Tools..." ] []
+                        ]
+                    ]
+                ]
             ]
 
         if description <> "" then

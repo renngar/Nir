@@ -3,7 +3,6 @@
 
     <StyleInclude Source="avares://Avalonia.Themes.Default/DefaultTheme.xaml" />
     <StyleInclude Source="avares://Avalonia.Themes.Default/Accents/BaseDark.xaml" />
-    <StyleInclude Source="avares://Nir.UI/Styles/IconsDark.xaml" />
 
     <StyleInclude Source="avares://Nir/Styles/Styles.xaml" />
 </Styles>

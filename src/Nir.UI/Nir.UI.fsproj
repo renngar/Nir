@@ -8,6 +8,7 @@
     <Compile Include="DragDrop.fs" />
     <Compile Include="IPlugin.fs" />
     <Compile Include="IThemeSwitcher.fs" />
+    <Compile Include="Material.fs" />
     <Compile Include="Controls\Attrs.fs" />
     <Compile Include="Controls\Border.fs" />
     <Compile Include="Controls\Button.fs" />
@@ -16,13 +17,14 @@
     <Compile Include="Controls\DataBinding.fs" />
     <Compile Include="Controls\DockPanel.fs" />
     <Compile Include="Controls\ListBox.fs" />
+    <Compile Include="Controls\Menu.fs" />
+    <Compile Include="Controls\MenuItem.fs" />
     <Compile Include="Controls\DragDrop.fs" />
     <Compile Include="Controls\ProgressBar.fs" />
     <Compile Include="Controls\ScrollViewer.fs" />
     <Compile Include="Controls\StackPanel.fs" />
     <Compile Include="Controls\TextBlock.fs" />
     <Compile Include="Controls\PageHeader.fs" />
-    <Content Include="Controls\PageHeader.xaml" />
     <Compile Include="Controls\TextBox.fs" />
     <Compile Include="Controls\ToolTip.fs" />
     <AvaloniaResource Include="**\*.xaml" />
