@@ -5,6 +5,7 @@ open System
 open Avalonia
 open Avalonia.Controls
 open Avalonia.Controls.ApplicationLifetimes
+open Avalonia.FuncUI
 open Avalonia.Platform
 
 /// This is your application you can ose the initialize method to load styles
@@ -12,7 +13,9 @@ open Avalonia.Platform
 type App() =
     inherit Application()
 
-    override this.Initialize() = this.Name <- "Nir"
+    override this.Initialize() =
+        this.Styles.Load "avares://Nir/Styles/LightTheme.xaml"
+        this.Name <- "Nir"
 
     override this.OnFrameworkInitializationCompleted() =
         match this.ApplicationLifetime with
