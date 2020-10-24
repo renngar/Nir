@@ -20,6 +20,8 @@ open Nir.Utility.INI
 open ModChecker
 open ModChecker.ModInfo
 
+let private name = "Nexus Mod Checker"
+
 type private Msg =
     | FetchGames
     | GotGames of ApiResult<Game []>
@@ -28,9 +30,9 @@ type private Msg =
     | FilesSelected of string []
     | FileTextBoxChanged of string
     | ModInfoMsg of int * ModInfo.Msg
+    interface IPluginMsg
 
 // Model
-
 type private ModInfo = Map<int, Model>
 
 type private Model =
@@ -42,6 +44,22 @@ type private Model =
       SelectedGames: Game list
       ModInfo: ModInfo
       ThrottleUpdates: Plugin.ThrottleUpdates }
+
+    interface IPluginModel with
+        member __.Title = name
+
+        member this.Description =
+            if this.ProcessingFile then "Processing files. Please wait..."
+            elif this.Games.Length = 0 then "Fetching games from Nexus..."
+            elif this.IsGameSelected then "Drop a mod archive below to verify its contents"
+            else "Select your game below"
+
+    member this.IsGameSelected
+        with internal get () = this.SelectedGames.IsEmpty |> not
+
+    member this.ProcessingFile
+        with internal get () =
+            Map.exists (fun _ x -> x.State = Hashing) this.ModInfo
 
 let private init window nexus properties throttleUpdates =
     { Window = window
@@ -80,9 +98,6 @@ module private Sub =
         |> Async.Start
 
 // Update
-
-let inline private processingFile model =
-    Map.exists (fun _ x -> x.State = Hashing) model.ModInfo
 
 let modDirProperty = "ModDir"
 
@@ -137,7 +152,7 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> * Plugin.ExternalMs
             let cmd =
                 let fileNames = getFileNames ()
 
-                if processingFile newModel
+                if newModel.ProcessingFile
                    || noFileSelected fileNames then
                     Cmd.none
                 else
@@ -155,7 +170,7 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> * Plugin.ExternalMs
 
             (fileNames |> Array.sort) = current
 
-        if processingFile model
+        if model.ProcessingFile
            || noFileSelected fileNames
            || sameFiles () then
             model, Cmd.none, noOp
@@ -187,18 +202,16 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> * Plugin.ExternalMs
 
 // View
 
-let inline private isGameSelected model = not model.SelectedGames.IsEmpty
-
-let private gameSelector model dispatch =
+let private gameSelector (model: Model) dispatch =
     let gameName (data: Game): IView = textBlock [] data.Name
 
-    if not (isGameSelected model) then
+    if not <| model.IsGameSelected then
         listBox [ cls "gameSelector"
                   ListBox.virtualizationMode ItemVirtualizationMode.Simple
                   dataItems model.Games
                   itemTemplate gameName
                   onSelectedIndexChanged (GameChanged >> dispatch)
-                  isEnabled (not <| processingFile model) ]
+                  isEnabled (not <| model.ProcessingFile) ]
     else
         comboBox [ cls "gameSelector"
                    ComboBox.virtualizationMode ItemVirtualizationMode.Simple
@@ -206,10 +219,10 @@ let private gameSelector model dispatch =
                    itemTemplate gameName
                    selectedItem model.SelectedGames.Head
                    onSelectedIndexChanged (GameChanged >> dispatch)
-                   isEnabled (not <| processingFile model) ]
+                   isEnabled (not <| model.ProcessingFile) ]
 
-let private modSelector model dispatch =
-    let notProcessingFile = not <| processingFile model
+let private modSelector (model: Model) dispatch =
+    let notProcessingFile = not <| model.ProcessingFile
 
     grid [ cls "modSelector"
            column 1
@@ -374,7 +387,7 @@ let private modInfo (model: Model) (dispatch: Msg -> unit): IView =
 
 type ModChecker() =
     interface IPlugin with
-        member __.Name = ModChecker.name
+        member __.Name = name
 
         member __.Description =
             "Verifies mod archive integrity with Nexus "
@@ -390,17 +403,8 @@ type ModChecker() =
         member __.View(model, dispatch) =
             Plugin.mapView ModChecker.TheView (model, dispatch)
 
-    static member private name = "Nexus Mod Checker"
-
     static member private TheView (model: Model) (dispatch: Dispatch<Msg>): IView =
         dockPanel [ cls "modChecker" ] [
-            yield
-                pageHeader
-                    ModChecker.name
-                    (if processingFile model then "Processing files. Please wait..."
-                     elif model.Games.Length = 0 then "Fetching games from Nexus..."
-                     elif isGameSelected model then "Drop a mod archive below to verify its contents"
-                     else "Select your game below")
             if model.Games.Length = 0 then
                 yield!
                     [ progressBar [ dock Dock.Top
@@ -408,7 +412,7 @@ type ModChecker() =
 
                       // Let's the progress bar take it's natural height and fills the rest with nothing
                       textBlock [] "" ]
-            elif not <| isGameSelected model then
+            elif not <| model.IsGameSelected then
                 yield gameSelector model dispatch
             else
                 yield

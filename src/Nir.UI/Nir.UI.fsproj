@@ -6,6 +6,7 @@
   <ItemGroup>
     <Compile Include="Dialogs.fs" />
     <Compile Include="DragDrop.fs" />
+    <Compile Include="IPageModel.fs" />
     <Compile Include="IPlugin.fs" />
     <Compile Include="IThemeSwitcher.fs" />
     <Compile Include="Material.fs" />

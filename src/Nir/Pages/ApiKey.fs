@@ -12,11 +12,20 @@ open Avalonia.Layout
 open Avalonia.Media
 
 open Nir.NexusApi
+open Nir.UI
 open Nir.UI.Controls
 
 // Model
 
-type Model = { Nexus: Nexus; User: User option }
+type Model =
+    { Nexus: Nexus
+      User: User option }
+    interface IPageModel with
+        member __.Title = "Nexus API Key"
+
+        member __.Description =
+            ("Nir needs an API Key to communicate with Nexus.  You can get your Personal API "
+             + "Key from the API tab of the Nexus My Account Page.")
 
 let init nexus = { Nexus = nexus; User = None }, Cmd.none
 
@@ -70,38 +79,34 @@ let view (model: Model) (dispatch: Msg -> unit): IView =
     let goodApiKey = model.User.IsSome
 
     let (children: IView list) =
-        [ pageHeader
-            "Nexus API Key"
-              ("Nir needs an API Key to communicate with Nexus.  You can get your Personal API "
-               + "Key from the API tab of the Nexus My Account Page.")
-          grid [ toColumnDefinitions "auto, *" ] [
-              textButton
-                  [ column 0
-                    isDefault (not goodApiKey)
-                    classes (if goodApiKey then [] else [ "default" ])
-                    onClick (fun _ -> dispatch (OpenUrl NexusAccountPage)) ]
-                  "My Account Page"
-              textBox
-                  [ column 1
-                    allowDrop true
-                    onDragOver (fun e ->
-                        e.DragEffects <-
-                            if e.Data.Contains(DataFormats.Text) then
-                                e.DragEffects &&& DragDropEffects.Copy
-                            else
-                                DragDropEffects.None)
-                    onDrop (fun e ->
-                        if e.Data.Contains(DataFormats.Text)
-                        then e.Data.GetText() |> VerifyApiKey |> dispatch)
-                    textWrapping TextWrapping.Wrap
-                    TextBox.watermark "Enter Your Personal API Key Manually"
-                    verticalAlignment VerticalAlignment.Center
-                    acceptsReturn false
-                    acceptsTab false
-                    // This is tacky, but Ctrl-Insert does not work with Avalonia
-                    toTip "Ctrl-V to paste"
-                    onTextChanged (VerifyApiKey >> dispatch) ]
-                  model.Nexus.ApiKey
+        [ grid [ toColumnDefinitions "auto, *" ] [
+            textButton
+                [ column 0
+                  isDefault (not goodApiKey)
+                  classes (if goodApiKey then [] else [ "default" ])
+                  onClick (fun _ -> dispatch (OpenUrl NexusAccountPage)) ]
+                "My Account Page"
+            textBox
+                [ column 1
+                  allowDrop true
+                  onDragOver (fun e ->
+                      e.DragEffects <-
+                          if e.Data.Contains(DataFormats.Text) then
+                              e.DragEffects &&& DragDropEffects.Copy
+                          else
+                              DragDropEffects.None)
+                  onDrop (fun e ->
+                      if e.Data.Contains(DataFormats.Text)
+                      then e.Data.GetText() |> VerifyApiKey |> dispatch)
+                  textWrapping TextWrapping.Wrap
+                  TextBox.watermark "Enter Your Personal API Key Manually"
+                  verticalAlignment VerticalAlignment.Center
+                  acceptsReturn false
+                  acceptsTab false
+                  // This is tacky, but Ctrl-Insert does not work with Avalonia
+                  toTip "Ctrl-V to paste"
+                  onTextChanged (VerifyApiKey >> dispatch) ]
+                model.Nexus.ApiKey
           ] ]
 
     // If it validated successfully, display some account information

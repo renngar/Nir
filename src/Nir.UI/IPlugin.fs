@@ -6,10 +6,18 @@ open Avalonia.FuncUI.Types
 open Nir.NexusApi
 open Nir.Utility.INI
 
-module Plugin =
-    type Msg = Msg of obj
+type IPluginModel = IPageModel
 
-    type Model = Model of obj
+type IPluginMsg =
+    interface
+    end
+
+type PluginDispatch< ^Msg when ^Msg :> IPluginMsg> = Dispatch< ^Msg >
+
+module Plugin =
+    type Msg = Msg of IPluginMsg
+
+    type Model = Model of IPluginModel
 
     type ThrottleUpdates = unit -> bool
 

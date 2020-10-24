@@ -27,10 +27,10 @@ let pageHeader title description =
                         [ cls "material"
                           onClick (fun _ -> theme.Toggle()) ]
                         (if theme.IsLight then Icons.wbSunny else Icons.nightsStay)
-                    menu [ horizontalAlignment HorizontalAlignment.Right ] [
-                        menuItem [ cls "material"; header Icons.menu ] [
-                            menuItem [ horizontalAlignment HorizontalAlignment.Right
-                                       header "About Nir Tools..." ] []
+                    menu [ cls "more" ] [
+                        menuItem [ cls "material"
+                                   header Icons.moreVert ] [
+                            menuItem [ header "About Nir Tools..." ] []
                         ]
                     ]
                 ]

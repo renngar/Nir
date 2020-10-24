@@ -3,6 +3,7 @@ module Nir.Pages.Error
 open Elmish
 open Avalonia.FuncUI.Types
 open Avalonia.Layout
+open Nir.UI
 open Nir.UI.Controls
 
 type ButtonType =
@@ -17,6 +18,9 @@ type Model =
     { Title: string
       Message: string
       Buttons: ButtonGroup }
+    interface IPageModel with
+        member this.Title = this.Title
+        member this.Description = this.Message
 
 let init title message buttons =
     { Title = title

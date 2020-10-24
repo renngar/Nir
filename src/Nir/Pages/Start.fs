@@ -14,6 +14,17 @@ type Model =
       GotPlugins: bool
       Plugins: IPlugin list }
 
+    member private this.TitleInfo =
+        if not this.GotPlugins
+        then ("Loading Plugins", "")
+        elif this.Plugins.IsEmpty
+        then ("", "No plugins found")
+        else ("Tools", "Which tool would you like to run?")
+
+    interface IPageModel with
+        member this.Title = fst this.TitleInfo
+        member this.Description = snd this.TitleInfo
+
 type ExternalMsg =
     | NoOp
     | LaunchPlugin of IPlugin
@@ -58,14 +69,8 @@ let private pluginListView (model: Model) (dispatch) =
                      ]) ]
 
 // View
-let view (model: Model) (dispatch: Msg -> unit): IView =
+let view (model: Model) (dispatch: Dispatch<Msg>): IView =
     stackPanelCls
         "start"
-        [ if not model.GotPlugins then
-            yield pageHeader "Loading Plugins" ""
-            yield progressBar [ isIndeterminate true ]
-          elif model.Plugins.IsEmpty then
-              yield textBlock [] "No plugins found"
-          else
-              yield pageHeader "Tools" "Which tool would you like to run?"
-              yield pluginListView model dispatch ]
+        [ if model.GotPlugins && not model.Plugins.IsEmpty
+          then yield pluginListView model dispatch ]

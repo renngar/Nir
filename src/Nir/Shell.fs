@@ -22,6 +22,7 @@ open Nir.NexusApi
 open Nir.Pages
 open Nir.Parsing
 open Nir.UI
+open Nir.UI.Controls
 open Nir.Utility.INI
 open Nir.Utility.Path
 
@@ -217,11 +218,23 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
 // View
 
 let view (model: Model) (dispatch: Msg -> unit): IView =
-    match model.Page with
-    | Start m -> Start.view m (StartMsg >> dispatch)
-    | ApiKey m -> ApiKey.view m (ApiKeyMsg >> dispatch)
-    | ErrorModel (_, m) -> Error.view m (ErrorMsg >> dispatch)
-    | Plugin { Plugin = plugin; Model = m } -> plugin.View(m, PluginMsg >> dispatch)
+    dockPanel [] [
+        let pageModel =
+            match model.Page with
+            | Start m -> m :> IPageModel
+            | ApiKey m -> m :> IPageModel
+            | ErrorModel (_, m) -> m :> IPageModel
+            | Plugin { Model = (Plugin.Model m) } -> m
+
+        yield pageHeader pageModel.Title pageModel.Description
+
+        yield
+            match model.Page with
+            | Start m -> Start.view m (StartMsg >> dispatch)
+            | ApiKey m -> ApiKey.view m (ApiKeyMsg >> dispatch)
+            | ErrorModel (_, m) -> Error.view m (ErrorMsg >> dispatch)
+            | Plugin { Plugin = plugin; Model = m } -> plugin.View(m, PluginMsg >> dispatch)
+    ]
 
 
 let private stateRef = ref None
