@@ -7,9 +7,9 @@ open Nir.NexusApi
 open Nir.Utility.INI
 
 module Plugin =
-    type Msg = obj
+    type Msg = Msg of obj
 
-    type Model = obj
+    type Model = Model of obj
 
     type ThrottleUpdates = unit -> bool
 
@@ -19,21 +19,24 @@ module Plugin =
 
     type Init<'Model, 'Msg> = Window -> Nexus -> Properties -> ThrottleUpdates -> ('Model * Cmd<'Msg>)
 
+    /// Cast an abstract `'Msg` to a concrete `Msg` without triggering FSharpLint warnings.
+    let inline private toMsg (msg: 'Msg) = Msg msg
+
     /// Map an init function to the `IPlugin.Init` signature
     let mapInit (init: Init<'Model, 'Msg>)
                 (window: Window, nexus: Nexus, initialProperties: Properties, throttleUpdates: ThrottleUpdates)
                 =
         init window nexus initialProperties throttleUpdates
-        |> fun (model, cmd) -> model :> Model, Cmd.map (fun msg -> msg :> Msg) cmd
+        |> fun (model, cmd) -> Model model, Cmd.map toMsg cmd
 
     /// Map an update function to the `IPlugin.Update` signature
-    let mapUpdate (update: 'Msg -> 'Model -> ('Model * Cmd<'Msg> * ExternalMsg)) (msg: Msg, model: Model) =
+    let mapUpdate (update: 'Msg -> 'Model -> ('Model * Cmd<'Msg> * ExternalMsg)) ((Msg msg), (Model model)) =
         update (msg :?> 'Msg) (model :?> 'Model)
-        |> fun (model, cmd, extMsg) -> model :> Model, Cmd.map (fun x -> x :> Msg) cmd, extMsg
+        |> fun (model, cmd, extMsg) -> Model model, Cmd.map toMsg cmd, extMsg
 
     /// Map a view function to the `IPlugin.View` signature
-    let mapView (view: 'Model -> Dispatch<'Msg> -> IView) (model: Model, dispatch: Dispatch<Model>) =
-        view (model :?> 'Model) dispatch
+    let mapView (view: 'Model -> Dispatch<'Msg> -> IView) ((Model model), dispatch: Dispatch<Msg>) =
+        view (model :?> 'Model) (toMsg >> dispatch)
 
 /// The Interface all Nir plugins must implement
 type IPlugin =
