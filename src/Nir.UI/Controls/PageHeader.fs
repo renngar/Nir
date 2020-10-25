@@ -13,33 +13,29 @@ let pageHeader title description =
     let theme =
         AvaloniaLocator.Current.GetService<IThemeSwitcher>()
 
-    stackPanel [ dock Dock.Top // In case this is placed in a DockPanel
-                 cls "pageHeader"
-                 orientation Orientation.Vertical ] [
-        yield
-            grid [ toColumnDefinitions "*,*" ] [
-                textBlockCls "h1" title
-                stackPanel [ cls "headerButtons"
-                             column 1
-                             horizontalAlignment HorizontalAlignment.Right
-                             orientation Orientation.Horizontal ] [
-                    textButton
-                        [ cls "material"
-                          onClick (fun _ -> theme.Toggle()) ]
-                        (if theme.IsLight then Icons.wbSunny else Icons.nightsStay)
-                    menu [ cls "more" ] [
-                        menuItem [ cls "material"
-                                   header Icons.moreVert ] [
-                            menuItem [ header "About Nir Tools..." ] []
-                        ]
-                    ]
-                ]
-            ]
+    let titleBlock = textBlockCls "h1" title
 
-        if description <> "" then
-            yield
-                description
-                |> textBlock [ cls "description"
-                               dock Dock.Top
-                               TextBlock.textWrapping TextWrapping.Wrap ]
+    let descriptionBlock =
+        if description <> ""
+        then [ description |> textBlock [ cls "description" ] ]
+        else []
+
+    let buttonsAndMenu =
+        stackPanelCls
+            "headerButtons"
+            [ textButton
+                [ cls "material"
+                  onClick (fun _ -> theme.Toggle()) ]
+                  (if theme.IsLight then Icons.wbSunny else Icons.nightsStay)
+              menuCls
+                  "more"
+                  [ menuItem [ cls "material"
+                               header Icons.moreVert ] [
+                      menuItem [ header "About Nir Tools..." ] []
+                    ] ] ]
+
+    grid [ cls "pageHeader"
+           toColumnDefinitions "*,*" ] [
+        stackPanelCls "pageHeader" [ titleBlock; yield! descriptionBlock ]
+        buttonsAndMenu
     ]
