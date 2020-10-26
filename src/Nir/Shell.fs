@@ -7,8 +7,10 @@ open Elmish
 open Avalonia
 open Avalonia.Controls
 open Avalonia.FuncUI.Components.Hosts
+open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Elmish
 open Avalonia.FuncUI.Types
+open Avalonia.Interactivity
 open Avalonia.Rendering
 open Avalonia.Threading
 
@@ -23,6 +25,7 @@ open Nir.Pages
 open Nir.Parsing
 open Nir.UI
 open Nir.UI.Controls
+open Nir.UI.Material
 open Nir.Utility.INI
 open Nir.Utility.Path
 
@@ -33,11 +36,14 @@ type ShellMsg =
     | RetryView // Sent by setState if we are not ready to draw the next version of the view
     | VerifyApiKey of UnverifiedApiKey
     | VerifiedApiKeyResult of UnverifiedApiKey * ApiResult<User>
-    | DisplayApiKeyPage
+    | ShowApiKeyPage
+    | ShowAboutPage
+    | BackPage
 
 type Msg =
     | ShellMsg of ShellMsg
     | StartMsg of Start.Msg
+    | AboutMsg of About.Msg
     | ApiKeyMsg of ApiKey.Msg
     | ErrorMsg of Error.Msg
     | PluginMsg of Plugin.Msg
@@ -53,6 +59,7 @@ type PluginModel =
 
 type PageModel =
     | Start of Start.Model
+    | About of About.Model
     | ApiKey of ApiKey.Model
     | ErrorModel of ErrorModel
     | Plugin of PluginModel
@@ -62,6 +69,7 @@ type Model =
       Nexus: Nexus
 
       // UI
+      PreviousPages: PageModel list
       Page: PageModel
       RenderRoot: IRenderRoot
       Window: Window }
@@ -74,11 +82,21 @@ type Model =
         // updates in this situation, because they won't be displayed anyway.
         | _ -> true
 
+    /// Get the model for the current page
+    member this.PageModel =
+        match this.Page with
+        | Start m -> m :> IPageModel
+        | About m -> m :> IPageModel
+        | ApiKey m -> m :> IPageModel
+        | ErrorModel (_, m) -> m :> IPageModel
+        | Plugin { Model = (Plugin.Model m) } -> m
+
 let mutable private retryMsgInFlight = false
 
 type ExternalMsg =
     | NoOp
     | StartExtMsg of Start.ExternalMsg
+    | AboutExtMsg of About.ExternalMsg
     | ApiKeyExtMsg of ApiKey.ExternalMsg
     | ErrorExtMsg of Error.ExternalMsg
     | PluginExtMsg of Plugin.ExternalMsg
@@ -93,6 +111,7 @@ let init (window, renderRoot, ini) =
       Nexus = Nexus(nexusApiKey ini)
       Window = window
       RenderRoot = renderRoot
+      PreviousPages = []
       Page = Start startPageModel },
     Cmd.ofMsg (ShellMsg(VerifyApiKey key))
 
@@ -114,11 +133,11 @@ let private updateShell msg model =
     | VerifyApiKey key ->
         model,
         Cmd.OfAsync.either model.Nexus.UsersValidate key (fun result -> ShellMsg(VerifiedApiKeyResult(key, result))) (fun _ ->
-            ShellMsg DisplayApiKeyPage)
+            ShellMsg ShowApiKeyPage)
     | VerifiedApiKeyResult (key, result) ->
         match result with
         | Ok _ -> showMainPage model
-        | Error { StatusCode = Unauthorized; Message = _ } -> model, Cmd.ofMsg (ShellMsg DisplayApiKeyPage)
+        | Error { StatusCode = Unauthorized; Message = _ } -> model, Cmd.ofMsg (ShellMsg ShowApiKeyPage)
         | Error { StatusCode = _; Message = msg } ->
             let retryMsg = ShellMsg(VerifyApiKey key)
 
@@ -126,7 +145,18 @@ let private updateShell msg model =
                 Error.init "Error Contacting Nexus" msg Error.ButtonGroup.RetryCancel
 
             showPage ErrorModel model ((retryMsg, errorModel), cmd)
-    | DisplayApiKeyPage -> ApiKey.init model.Nexus |> showPage ApiKey model
+    | ShowApiKeyPage -> ApiKey.init model.Nexus |> showPage ApiKey model
+    | ShowAboutPage ->
+        About.init
+        |> showPage
+            About
+               { model with
+                     PreviousPages = model.Page :: model.PreviousPages }
+    | BackPage ->
+        { model with
+              Page = model.PreviousPages.Head
+              PreviousPages = model.PreviousPages.Tail },
+        Cmd.none
     | ThemeChanged theme ->
         setTheme model.Ini theme
         |> saveIni
@@ -143,6 +173,7 @@ let private processPageMessage msg model =
     match msg, model.Page with
     | ShellMsg shellMsg, _ -> updateShell shellMsg model
     | StartMsg startMsg, Start startModel -> updatePage Start.update startMsg startModel Start StartMsg StartExtMsg
+    | AboutMsg aboutMsg, About aboutModel -> updatePage About.update aboutMsg aboutModel About AboutMsg AboutExtMsg
     | ApiKeyMsg apiKeyMsg, ApiKey apiKeyModel ->
         updatePage ApiKey.update apiKeyMsg apiKeyModel ApiKey ApiKeyMsg ApiKeyExtMsg
     | ErrorMsg errorMsg, ErrorModel (retryMsg, errorModel) ->
@@ -155,8 +186,9 @@ let private processPageMessage msg model =
         Cmd.map PluginMsg cmd,
         PluginExtMsg extMsg
 
-    // These should never happen, but are required for full pattern matching
+    // TODO: Handle this since you can now navigate to the About page while background tasks are running.
     | StartMsg _, _
+    | AboutMsg _, _
     | ApiKeyMsg _, _
     | ErrorMsg _, _
     | PluginMsg _, _ -> failwith "Mismatch between current page and message"
@@ -165,6 +197,7 @@ let private processExternalMessage model cmd externalMsg =
     match externalMsg with
     | NoOp
     | StartExtMsg Start.ExternalMsg.NoOp
+    | AboutExtMsg About.ExternalMsg.NoOp
     | ApiKeyExtMsg ApiKey.ExternalMsg.NoOp
     | PluginExtMsg Plugin.ExternalMsg.NoOp -> model, cmd
 
@@ -216,26 +249,58 @@ let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
     |||> processExternalMessage
 
 // View
+let private pageHeader (model: Model) (dispatch: Dispatch<Msg>) =
+    let theme =
+        AvaloniaLocator.Current.GetService<IThemeSwitcher>()
+
+    let pageModel = model.PageModel
+    let titleBlock = textBlockCls "h1" pageModel.Title
+
+    let descriptionBlock =
+        if pageModel.Description <> "" then
+            [ pageModel.Description
+              |> textBlock [ cls "description" ] ]
+        else
+            []
+
+    let buttonsAndMenu =
+        stackPanelCls
+            "headerButtons"
+            [ let materialButton (clickHandler: RoutedEventArgs -> unit) (icon: string): IView =
+                textButton [ cls "material"; onClick clickHandler ] icon
+
+              if not <| model.PreviousPages.IsEmpty
+              then yield materialButton (fun _ -> dispatch (ShellMsg BackPage)) Icons.arrowBack
+
+              yield materialButton (fun _ -> theme.Toggle()) (if theme.IsLight then Icons.wbSunny else Icons.nightsStay)
+
+              yield
+                  menuCls
+                      "more"
+                      [ menuItem [ cls "material"
+                                   header Icons.moreVert ] [
+                          menuItem [ header "About Nir Tools..."
+                                     MenuItem.onClick (fun _ -> dispatch (ShellMsg ShowAboutPage)) ] []
+                        ] ] ]
+
+    grid [ cls "pageHeader"
+           toColumnDefinitions "*,auto" ] [
+        stackPanelCls "pageHeader" [ titleBlock; yield! descriptionBlock ]
+        buttonsAndMenu
+    ]
 
 let view (model: Model) (dispatch: Msg -> unit): IView =
     dockPanel [] [
-        let pageModel =
-            match model.Page with
-            | Start m -> m :> IPageModel
-            | ApiKey m -> m :> IPageModel
-            | ErrorModel (_, m) -> m :> IPageModel
-            | Plugin { Model = (Plugin.Model m) } -> m
-
-        yield pageHeader pageModel.Title pageModel.Description
+        yield pageHeader model dispatch
 
         yield
             match model.Page with
             | Start m -> Start.view m (StartMsg >> dispatch)
+            | About m -> About.view m (AboutMsg >> dispatch)
             | ApiKey m -> ApiKey.view m (ApiKeyMsg >> dispatch)
             | ErrorModel (_, m) -> Error.view m (ErrorMsg >> dispatch)
             | Plugin { Plugin = plugin; Model = m } -> plugin.View(m, PluginMsg >> dispatch)
     ]
-
 
 let private stateRef = ref None
 

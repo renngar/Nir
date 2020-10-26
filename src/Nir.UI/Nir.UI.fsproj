@@ -25,7 +25,6 @@
     <Compile Include="Controls\ScrollViewer.fs" />
     <Compile Include="Controls\StackPanel.fs" />
     <Compile Include="Controls\TextBlock.fs" />
-    <Compile Include="Controls\PageHeader.fs" />
     <Compile Include="Controls\TextBox.fs" />
     <Compile Include="Controls\ToolTip.fs" />
     <AvaloniaResource Include="**\*.xaml" />

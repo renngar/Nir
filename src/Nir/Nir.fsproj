@@ -11,6 +11,7 @@
     <Compile Include="Pages\ApiKey.fs" />
     <Compile Include="Pages\Start.fs" />
     <Compile Include="Pages\Error.fs" />
+    <Compile Include="Pages\About.fs" />
     <Compile Include="ThemeSwitcher.fs" />
     <Compile Include="Shell.fs" />
     <Compile Include="Program.fs" />

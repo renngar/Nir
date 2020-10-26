@@ -1,8 +1,5 @@
 module Nir.Pages.ApiKey
 
-open System.Diagnostics
-open System.Runtime.InteropServices
-
 open Elmish
 open Avalonia.Controls
 open Avalonia.FuncUI.DSL
@@ -14,6 +11,10 @@ open Avalonia.Media
 open Nir.NexusApi
 open Nir.UI
 open Nir.UI.Controls
+open Nir.Web
+
+let NexusAccountPage =
+    "https://www.nexusmods.com/users/myaccount?tab=api"
 
 // Model
 
@@ -31,37 +32,17 @@ let init nexus = { Nexus = nexus; User = None }, Cmd.none
 
 // Update
 
-type Links = | NexusAccountPage
-
 type ExternalMsg =
     | NoOp
     | Verified of Nexus * User
 
 type Msg =
-    | OpenUrl of Links
     | VerifyApiKey of string
     | AfterVerification of ApiResult<User>
     | Continue of User
 
-let openLink (link: Links): unit =
-    let url =
-        match link with
-        | NexusAccountPage -> "https://www.nexusmods.com/users/myaccount?tab=api"
-
-    if RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-    then Process.Start(ProcessStartInfo("cmd", sprintf "/c start %s" url))
-    elif RuntimeInformation.IsOSPlatform(OSPlatform.Linux)
-    then Process.Start("xdg-open", url)
-    elif RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
-    then Process.Start("open", url)
-    else failwith "Unsupported OS Platform"
-    |> ignore
-
 let update msg model =
     match msg with
-    | OpenUrl link ->
-        openLink link
-        model, Cmd.none, NoOp
     | VerifyApiKey apiKey ->
         // TODO: Maybe switch ApiKey verification to Cmd.OfAsync.either splitting into two messages
         model, Cmd.OfAsync.perform model.Nexus.UsersValidate apiKey AfterVerification, NoOp
@@ -84,7 +65,7 @@ let view (model: Model) (dispatch: Msg -> unit): IView =
                 [ column 0
                   isDefault (not goodApiKey)
                   classes (if goodApiKey then [] else [ "default" ])
-                  onClick (fun _ -> dispatch (OpenUrl NexusAccountPage)) ]
+                  onClick (fun _ -> openUrl NexusAccountPage) ]
                 "My Account Page"
             textBox
                 [ column 1

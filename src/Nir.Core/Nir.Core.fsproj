@@ -33,6 +33,7 @@
     <Compile Include="Utility\Path.fs" />
     <Compile Include="Nir.Ini.fs" />
     <Compile Include="NexusApi.fs" />
+    <Compile Include="Web.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

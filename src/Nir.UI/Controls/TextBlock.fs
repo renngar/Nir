@@ -11,3 +11,5 @@ let textBlock attributes text =
 
 /// Creates a TextBlock with the given class and text
 let textBlockCls ``class`` text = textBlock [ cls ``class`` ] text
+
+let onTapped fn = TextBlock.onTapped fn
