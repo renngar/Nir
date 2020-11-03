@@ -12,6 +12,7 @@ open Nir.Web
 type Model =
     { NoOp: bool }
     interface IPageModel with
+        member this.HistoryStyle = NoHistory
         member this.Title = "Thank you for using Avalonia.FuncUI"
         member this.Description = ""
 

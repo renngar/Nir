@@ -22,6 +22,7 @@ type Model =
     { Nexus: Nexus
       User: User option }
     interface IPageModel with
+        member __.HistoryStyle = Normal
         member __.Title = "Nexus API Key"
 
         member __.Description =

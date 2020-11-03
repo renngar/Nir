@@ -35,10 +35,12 @@ type ShellMsg =
     | ThemeChanged of Theme
     | RetryView // Sent by setState if we are not ready to draw the next version of the view
     | VerifyApiKey of UnverifiedApiKey
+    | RetryApiKey of UnverifiedApiKey
     | VerifiedApiKeyResult of UnverifiedApiKey * ApiResult<User>
     | ShowApiKeyPage
     | ShowAboutPage
     | BackPage
+    | ForwardPage
 
 type Msg =
     | ShellMsg of ShellMsg
@@ -64,13 +66,48 @@ type PageModel =
     | ErrorModel of ErrorModel
     | Plugin of PluginModel
 
+type Page =
+    { Type: Type
+      PageModel: PageModel }
+
+    member this.Plugin =
+        match this.PageModel with
+        | Plugin p -> p
+        | _ -> failwith "Not a plugin"
+
+    member this.RawPageModel =
+        match this.PageModel with
+        | Start m -> m :> IPluginModel
+        | About m -> m :> IPluginModel
+        | ApiKey m -> m :> IPluginModel
+        | ErrorModel (_, m) -> m :> IPluginModel
+        | Plugin { Model = (Plugin.Model m) } -> m
+
+    member this.HistoryStyleIs style =
+        let pm = this.RawPageModel
+
+        // Look for either an IPageModel with a matching HistoryStyle or if it is not an IPageModel, it is a plugin,
+        // which has an implicit `Normal` style that we check for.
+        (pm :? IPageModel)
+        && (pm :?> IPageModel).HistoryStyle = style
+        || style = Normal
+
+    member this.AddToHistory = this.HistoryStyleIs Normal
+
+    member this.HideHistoryButtons = this.HistoryStyleIs Modal
+
+type Pages = Page list
+
 type Model =
     { Ini: Ini
       Nexus: Nexus
 
       // UI
-      PreviousPages: PageModel list
-      Page: PageModel
+      BackPages: Pages
+      CurrentPage: Page
+      ForwardPages: Pages
+      OtherPages: Pages
+
       RenderRoot: IRenderRoot
       Window: Window }
 
@@ -83,13 +120,7 @@ type Model =
         | _ -> true
 
     /// Get the model for the current page
-    member this.PageModel =
-        match this.Page with
-        | Start m -> m :> IPageModel
-        | About m -> m :> IPageModel
-        | ApiKey m -> m :> IPageModel
-        | ErrorModel (_, m) -> m :> IPageModel
-        | Plugin { Model = (Plugin.Model m) } -> m
+    member this.RawPageModel = this.CurrentPage.RawPageModel
 
 let mutable private retryMsgInFlight = false
 
@@ -101,7 +132,6 @@ type ExternalMsg =
     | ErrorExtMsg of Error.ExternalMsg
     | PluginExtMsg of Plugin.ExternalMsg
 
-
 let init (window, renderRoot, ini) =
     let startPageModel, _ = Start.init window
 
@@ -111,21 +141,81 @@ let init (window, renderRoot, ini) =
       Nexus = Nexus(nexusApiKey ini)
       Window = window
       RenderRoot = renderRoot
-      PreviousPages = []
-      Page = Start startPageModel },
+      BackPages = []
+      CurrentPage =
+          { Type = typeof<Start.Model>
+            PageModel = Start startPageModel }
+      ForwardPages = []
+      OtherPages = [] },
     Cmd.ofMsg (ShellMsg(VerifyApiKey key))
 
-let private showPage pageModelType model (pageModel, cmd) =
-    { model with
-          Page = pageModelType pageModel },
-    cmd
+/// Try to find a page with the given `modelType` in the page lists.
+///
+/// NOTE: This does not check `CurrentPage`.
+let private tryFindPage (model: Model) (modelType: Type): Page option =
+    /// If `page` is `None`, try finding a page of type `modelType` in `pages`.
+    let (<|>) (page: Page option) (pages: Page list): Page option =
+        page
+        |> Option.orElseWith (fun () -> List.tryFind (fun (p: Page) -> p.Type = modelType) pages)
+
+    None
+    <|> model.BackPages
+    <|> model.ForwardPages
+    <|> model.OtherPages
+
+/// Display the requested page, either calling its `init` function or pulling its state from the history lists, if it
+/// has been displayed before.
+let private showPage (modelType: Type)
+                     (unionType: 'Model -> PageModel)
+                     (model: Model)
+                     (init: unit -> 'Model * Cmd<Msg>)
+                     : Model * Cmd<Msg> =
+    let matchesType (p: Page) = p.Type = modelType
+
+    let page, cmd =
+        tryFindPage model modelType
+        |> function
+        | Some page -> page, Cmd.none
+        | None ->
+            let m, c = init ()
+
+            { Type = typeof<'Model>
+              PageModel = unionType m },
+            c
+
+    let filter lst = List.filter (not << matchesType) lst
+
+    // Remove the page from any history list where it may exist, we already retrieved it above.
+    let newModel =
+        { model with
+              BackPages = filter model.BackPages
+              ForwardPages = filter model.ForwardPages
+              OtherPages = filter model.OtherPages }
+
+    if modelType = newModel.CurrentPage.Type then
+        { newModel with CurrentPage = page }, cmd
+    else
+        { newModel with
+              BackPages =
+                  if model.CurrentPage.AddToHistory
+                  then newModel.CurrentPage :: newModel.BackPages
+                  else newModel.BackPages
+              CurrentPage = page
+              // If the page gets added to history, add ForwardPages to OtherPages and clear ForwardPages, this retains
+              // the state of any forward pages while maintaining a linear forward-and-backward navigation model.
+              ForwardPages = if page.AddToHistory then [] else newModel.ForwardPages
+              OtherPages =
+                  if page.AddToHistory
+                  then List.append newModel.OtherPages newModel.ForwardPages
+                  else newModel.OtherPages },
+        cmd
 
 let private showMainPage model =
-    let pageModel, cmd = Start.init model.Window
-    showPage Start model (pageModel, Cmd.map StartMsg cmd)
+    fun () -> let pageModel, cmd = Start.init model.Window in (pageModel, Cmd.map StartMsg cmd)
+    |> showPage typeof<Start.Model> Start model
 
 // Update
-let private updateShell msg model =
+let private updateShell (msg: ShellMsg) (model: Model): Model * Cmd<Msg> * ExternalMsg =
     match msg with
     | RetryView ->
         retryMsgInFlight <- false
@@ -134,28 +224,38 @@ let private updateShell msg model =
         model,
         Cmd.OfAsync.either model.Nexus.UsersValidate key (fun result -> ShellMsg(VerifiedApiKeyResult(key, result))) (fun _ ->
             ShellMsg ShowApiKeyPage)
+    | RetryApiKey key -> showMainPage model |> fst, Cmd.ofMsg (ShellMsg(VerifyApiKey key))
     | VerifiedApiKeyResult (key, result) ->
         match result with
         | Ok _ -> showMainPage model
         | Error { StatusCode = Unauthorized; Message = _ } -> model, Cmd.ofMsg (ShellMsg ShowApiKeyPage)
         | Error { StatusCode = _; Message = msg } ->
-            let retryMsg = ShellMsg(VerifyApiKey key)
+            fun () ->
+                let retryMsg = ShellMsg(RetryApiKey key)
 
-            let errorModel, cmd =
-                Error.init "Error Contacting Nexus" msg Error.ButtonGroup.RetryCancel
+                let errorModel, cmd =
+                    Error.init "Error Contacting Nexus" msg Error.ButtonGroup.RetryCancel
 
-            showPage ErrorModel model ((retryMsg, errorModel), cmd)
-    | ShowApiKeyPage -> ApiKey.init model.Nexus |> showPage ApiKey model
+                ((retryMsg, errorModel), cmd)
+            |> showPage typeof<ErrorModel> ErrorModel model
+    | ShowApiKeyPage ->
+        fun () -> ApiKey.init model.Nexus
+        |> showPage typeof<ApiKey.Model> ApiKey model
     | ShowAboutPage ->
-        About.init
-        |> showPage
-            About
-               { model with
-                     PreviousPages = model.Page :: model.PreviousPages }
+        fun () -> About.init
+        |> showPage typeof<About.Model> About model
     | BackPage ->
         { model with
-              Page = model.PreviousPages.Head
-              PreviousPages = model.PreviousPages.Tail },
+              ForwardPages =
+                  if model.CurrentPage.AddToHistory then model.CurrentPage :: model.ForwardPages else model.ForwardPages
+              CurrentPage = model.BackPages.Head
+              BackPages = model.BackPages.Tail },
+        Cmd.none
+    | ForwardPage ->
+        { model with
+              ForwardPages = model.ForwardPages.Tail
+              CurrentPage = model.ForwardPages.Head
+              BackPages = model.CurrentPage :: model.BackPages },
         Cmd.none
     | ThemeChanged theme ->
         setTheme model.Ini theme
@@ -165,33 +265,85 @@ let private updateShell msg model =
 
 let private removeSpaces (s: string) = s.Replace(" ", "")
 
+/// Holds the command that results from updating the page.
+let mutable private cmd = Cmd.none
+/// Holds the external message that results from updating the page.
+let mutable private extMsg = ExternalMsg.NoOp
+
+/// Applies `updater` to any page of `modelType` regardless of whether it is the `CurrentPage` or is in one of the
+/// page lists.
+///
+/// The `updater` is expected to set the mutable `cmd` and `extMsg` variables when a match is found.  They are
+/// eventually returned after all the lists are searched.  This avoids a bunch of conditional logic to short circuit
+/// searching all the lists.
+let private updatePageLists (model: Model) (modelType: Type) (updater: Page -> Page): Model * Cmd<Msg> * ExternalMsg =
+    let updateMatchingType (page: Page): Page =
+        if page.Type = modelType then updater page else page
+
+    { model with
+          BackPages = List.map updateMatchingType model.BackPages
+          CurrentPage = updateMatchingType model.CurrentPage
+          ForwardPages = List.map updateMatchingType model.ForwardPages
+          OtherPages = List.map updateMatchingType model.OtherPages },
+    cmd,
+    extMsg
+
+/// Updates a specific type of page regardless of whether it is the `CurrentPage` or is in one of the page lists.
+///
+/// The difference between this and `updatePageLists` is that `updatePageLists` is a lower-level function which is
+/// used by both this function and the update logic for plugin pages.
+///
+/// The `updateModel` function gets the `PageModel` of the page and its newly updated model in a tuple.  For simple
+/// pages, the new model may be extracted using `snd` and wrapped with a `PageModel` discriminator.
+let updatePage (model: Model)
+               (modelType: Type)
+               (update: 'PageMsg -> 'RawPageModel -> 'RawPageModel * Cmd<'PageMsg> * 'PageExtMsg)
+               (msg: 'PageMsg)
+               (updateModel: PageModel * 'RawPageModel -> PageModel)
+               (msgType: 'PageMsg -> Msg)
+               (extMsgType: 'PageExtMsg -> ExternalMsg)
+               : Model * Cmd<Msg> * ExternalMsg =
+    (fun (page: Page) ->
+        let newModel, c, eMsg =
+            update msg (page.RawPageModel :?> 'RawPageModel)
+
+        cmd <- Cmd.map msgType c
+        extMsg <- extMsgType eMsg
+
+        { page with
+              PageModel = updateModel (page.PageModel, newModel) })
+    |> updatePageLists model modelType
+
+/// Processes a page message regardless of whether it is the `CurrentPage` or is in one of the page history lists.
 let private processPageMessage msg model =
-    let updatePage update msg pageModel modelType msgType extMsgType =
-        let newModel, cmd, extMsg = update msg pageModel
-        { model with Page = modelType newModel }, Cmd.map msgType cmd, extMsgType extMsg
+    match msg with
+    | ShellMsg shellMsg -> updateShell shellMsg model
+    | StartMsg startMsg ->
+        updatePage model typeof<Start.Model> Start.update startMsg (snd >> Start) StartMsg StartExtMsg
+    | AboutMsg aboutMsg ->
+        updatePage model typeof<About.Model> About.update aboutMsg (snd >> About) AboutMsg AboutExtMsg
+    | ApiKeyMsg apiKeyMsg ->
+        updatePage model typeof<ApiKey.Model> ApiKey.update apiKeyMsg (snd >> ApiKey) ApiKeyMsg ApiKeyExtMsg
+    | ErrorMsg errorMsg ->
+        /// Throws away the old model, replacing it with the new one and retaining the existing retry message.
+        let updateModel: PageModel * Error.Model -> PageModel =
+            function
+            | ErrorModel (retryMsg, _oldModel), newModel -> ErrorModel(retryMsg, newModel)
+            | _ -> failwith "Mismatch between page model and message" // should never happen
 
-    match msg, model.Page with
-    | ShellMsg shellMsg, _ -> updateShell shellMsg model
-    | StartMsg startMsg, Start startModel -> updatePage Start.update startMsg startModel Start StartMsg StartExtMsg
-    | AboutMsg aboutMsg, About aboutModel -> updatePage About.update aboutMsg aboutModel About AboutMsg AboutExtMsg
-    | ApiKeyMsg apiKeyMsg, ApiKey apiKeyModel ->
-        updatePage ApiKey.update apiKeyMsg apiKeyModel ApiKey ApiKeyMsg ApiKeyExtMsg
-    | ErrorMsg errorMsg, ErrorModel (retryMsg, errorModel) ->
-        updatePage Error.update errorMsg errorModel (fun m -> ErrorModel(retryMsg, m)) ErrorMsg ErrorExtMsg
-    | PluginMsg msg', Plugin pModel ->
-        let newModel, cmd, extMsg = pModel.Plugin.Update(msg', pModel.Model)
+        updatePage model typeof<ErrorModel> Error.update errorMsg updateModel ErrorMsg ErrorExtMsg
+    | PluginMsg pluginMsg ->
+        // This performs the same basic logic that `updatePage` does but uses the plugin update mechanism rather than a
+        // standard Elmish update function.
+        updatePageLists model typeof<PluginModel> (fun page ->
+            let p = page.Plugin
+            let newModel, c, eMsg = p.Plugin.Update(pluginMsg, p.Model)
 
-        { model with
-              Page = Plugin { pModel with Model = newModel } },
-        Cmd.map PluginMsg cmd,
-        PluginExtMsg extMsg
+            cmd <- Cmd.map PluginMsg c
+            extMsg <- PluginExtMsg eMsg
 
-    // TODO: Handle this since you can now navigate to the About page while background tasks are running.
-    | StartMsg _, _
-    | AboutMsg _, _
-    | ApiKeyMsg _, _
-    | ErrorMsg _, _
-    | PluginMsg _, _ -> failwith "Mismatch between current page and message"
+            { page with
+                  PageModel = Plugin { p with Model = newModel } })
 
 let private processExternalMessage model cmd externalMsg =
     match externalMsg with
@@ -202,47 +354,46 @@ let private processExternalMessage model cmd externalMsg =
     | PluginExtMsg Plugin.ExternalMsg.NoOp -> model, cmd
 
     | StartExtMsg (Start.ExternalMsg.LaunchPlugin plugin) ->
-        // TODO Restructure this to give an error if a plugin cannot used as a section name
-        let iniSection = create<SectionName> plugin.Name
+        showPage typeof<PluginModel> Plugin model (fun () ->
+            // TODO Restructure this to give an error if a plugin cannot used as a section name
+            let iniSection = create<SectionName> plugin.Name
 
-        let { Properties = props } = section iniSection model.Ini
+            let { Properties = props } = section iniSection model.Ini
 
-        let pageModel, cmd =
-            plugin.Init(model.Window, model.Nexus, props, model.ThrottleUpdates)
+            let pageModel, cmd =
+                plugin.Init(model.Window, model.Nexus, props, model.ThrottleUpdates)
 
-        AvaloniaLocator.Current.GetService<IThemeSwitcher>().LoadPluginStyles plugin
+            AvaloniaLocator.Current.GetService<IThemeSwitcher>().LoadPluginStyles plugin
 
-        showPage
-            Plugin
-            model
             ({ Plugin = plugin
                IniSection = iniSection
                Model = pageModel },
-             Cmd.map PluginMsg cmd)
+             Cmd.map PluginMsg cmd))
     | ApiKeyExtMsg (ApiKey.ExternalMsg.Verified (nexus, user)) ->
         // Grab the results when the API Key page is done and write it to the .ini
         setNexusApiKey model.Ini user.Key
         |> saveIni
         |> fun ini -> showMainPage { model with Ini = ini; Nexus = nexus }
     | ErrorExtMsg Error.ExternalMsg.Retry ->
-        match model.Page with
+        match model.CurrentPage.PageModel with
         | ErrorModel (retryMsg, _errorModel) -> model, Cmd.ofMsg retryMsg // processPageMessage already updated model
         | _ -> failwith "Should not happen"
     | ErrorExtMsg Error.ExternalMsg.Cancel ->
         model.Window.Close()
         model, Cmd.none
     | PluginExtMsg (Plugin.ExternalMsg.SaveProperties properties) ->
-        match model.Page with
-        | Plugin pModel ->
-            (model.Ini, properties)
-            ||> List.fold (fun ini p -> setIniProperty ini pModel.IniSection p.Property p.Value)
-            |> saveIni
-            |> fun ini ->
-                { model with
-                      Ini = ini
-                      Page = Plugin pModel },
-                Cmd.none
-        | _ -> failwith "Only plugins should send a SaveProperties message"
+        let page =
+            tryFindPage model typeof<PluginModel>
+            |> Option.defaultValue model.CurrentPage
+
+        let section = page.Plugin.IniSection
+
+        { model with
+              Ini =
+                  (model.Ini, properties)
+                  ||> List.fold (fun ini p -> setIniProperty ini section p.Property p.Value)
+                  |> saveIni },
+        Cmd.none
 
 let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
     processPageMessage msg model
@@ -253,7 +404,7 @@ let private pageHeader (model: Model) (dispatch: Dispatch<Msg>) =
     let theme =
         AvaloniaLocator.Current.GetService<IThemeSwitcher>()
 
-    let pageModel = model.PageModel
+    let pageModel = model.RawPageModel
     let titleBlock = textBlockCls "h1" pageModel.Title
 
     let descriptionBlock =
@@ -266,22 +417,39 @@ let private pageHeader (model: Model) (dispatch: Dispatch<Msg>) =
     let buttonsAndMenu =
         stackPanelCls
             "headerButtons"
-            [ let materialButton (clickHandler: RoutedEventArgs -> unit) (icon: string): IView =
-                textButton [ cls "material"; onClick clickHandler ] icon
+            [ let materialButton (clickHandler: RoutedEventArgs -> unit) (icon: string) (enabled: bool): IView =
+                textButton
+                    [ cls "material"
+                      onClick clickHandler
+                      isEnabled enabled ]
+                    icon
 
-              if not <| model.PreviousPages.IsEmpty
-              then yield materialButton (fun _ -> dispatch (ShellMsg BackPage)) Icons.arrowBack
+              // Check for more than one page without walking the list to get its length.
+              if not model.BackPages.IsEmpty then
+                  yield
+                      materialButton (fun _ -> dispatch (ShellMsg BackPage)) Icons.arrowBack
+                          (not model.CurrentPage.HideHistoryButtons)
 
-              yield materialButton (fun _ -> theme.Toggle()) (if theme.IsLight then Icons.wbSunny else Icons.nightsStay)
+              if not model.BackPages.IsEmpty
+                 || not model.ForwardPages.IsEmpty then
+                  yield
+                      materialButton (fun _ -> dispatch (ShellMsg ForwardPage)) Icons.arrowForward
+                          (not model.ForwardPages.IsEmpty
+                           && model.CurrentPage.AddToHistory)
 
               yield
-                  menuCls
-                      "more"
-                      [ menuItem [ cls "material"
-                                   header Icons.moreVert ] [
+                  materialButton (fun _ -> theme.Toggle()) (if theme.IsLight then Icons.wbSunny else Icons.nightsStay)
+                      true
+
+              yield
+                  menu [ cls "more"
+                         isEnabled (not model.CurrentPage.HideHistoryButtons) ] [
+                      menuItem [ cls "material"
+                                 header Icons.moreVert ] [
                           menuItem [ header "About Nir Tools..."
                                      MenuItem.onClick (fun _ -> dispatch (ShellMsg ShowAboutPage)) ] []
-                        ] ] ]
+                      ]
+                  ] ]
 
     grid [ cls "pageHeader"
            toColumnDefinitions "*,auto" ] [
@@ -294,7 +462,7 @@ let view (model: Model) (dispatch: Msg -> unit): IView =
         yield pageHeader model dispatch
 
         yield
-            match model.Page with
+            match model.CurrentPage.PageModel with
             | Start m -> Start.view m (StartMsg >> dispatch)
             | About m -> About.view m (AboutMsg >> dispatch)
             | ApiKey m -> ApiKey.view m (ApiKeyMsg >> dispatch)

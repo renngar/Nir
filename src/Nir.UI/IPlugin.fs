@@ -6,7 +6,9 @@ open Avalonia.FuncUI.Types
 open Nir.NexusApi
 open Nir.Utility.INI
 
-type IPluginModel = IPageModel
+type IPluginModel =
+    abstract Title: string
+    abstract Description: string
 
 type IPluginMsg =
     interface

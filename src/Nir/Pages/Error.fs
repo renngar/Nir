@@ -19,8 +19,9 @@ type Model =
       Message: string
       Buttons: ButtonGroup }
     interface IPageModel with
-        member this.Title = this.Title
-        member this.Description = this.Message
+        member this.HistoryStyle = Modal
+        member this.Title = "Error"
+        member this.Description = ""
 
 let init title message buttons =
     { Title = title

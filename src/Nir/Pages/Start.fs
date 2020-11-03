@@ -22,6 +22,7 @@ type Model =
         else ("Tools", "Which tool would you like to run?")
 
     interface IPageModel with
+        member this.HistoryStyle = Normal
         member this.Title = fst this.TitleInfo
         member this.Description = snd this.TitleInfo
 
