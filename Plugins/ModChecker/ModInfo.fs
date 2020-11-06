@@ -17,7 +17,7 @@ type ArchiveState =
 type Model =
     { Id: int
       Nexus: Nexus
-      SelectedGames: Game list
+      SelectedGames: Game []
       ThrottleUpdates: Plugin.ThrottleUpdates
       Archive: string
       Hash: string
@@ -153,7 +153,7 @@ module Sub =
                { model with
                      Hash = Md5sum.md5sum model.Archive (reportProgress model) })
 
-    let reprocessFile nexus selectedGames model dispatch =
+    let reprocessFile (nexus: Nexus) (selectedGames: Game []) (model: Model) (dispatch: int * Msg -> unit): Async<unit> =
         lookupMod nexus selectedGames dispatch id model
 
 let view model (_: Dispatch<Msg>): IView =

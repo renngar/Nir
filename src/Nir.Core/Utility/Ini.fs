@@ -192,6 +192,25 @@ let section (section: SectionName) (ini: Ini): Section =
 let tryProperty property properties: Property option =
     List.tryFind (fun s -> s.Property = property) properties
 
+/// Try to find the named property in the list of properties and return its value
+let tryPropertyValue property properties: IniPropertyValue option =
+    tryProperty property properties
+    |> Option.map (fun { Value = v } -> v)
+
+/// Find `property` in `properties` and split its value using all `delimiters`.
+///
+/// Returns the split value as an array of string, if found. Otherwise `Array.empty` is returned.
+let getPropertyValues property properties delimiters =
+    let rec multiSplit (delimiters: string list) (ss: string []): string [] =
+        match delimiters with
+        | [] -> ss
+        | [ d ] -> Array.collect (fun (s: string) -> s.Split(d)) ss
+        | d :: ds -> multiSplit ds (multiSplit [ d ] ss)
+
+    tryPropertyValue property properties
+    |> Option.map (Array.create 1 >> multiSplit delimiters)
+    |> Option.defaultValue Array.empty
+
 let private newProperty name value: Property =
     { Comments = []
       Property = name
@@ -211,6 +230,10 @@ let setProperty properties propertyName value: Properties =
     match tryProperty propertyName properties with
     | None -> List.append properties [ newProperty propertyName value ]
     | Some _ -> List.map (fun p -> if p.Property = propertyName then { p with Value = value } else p) properties
+
+let setPropertyList properties propertyName delimiter values: Properties =
+    String.concat delimiter values
+    |> setProperty properties propertyName
 
 let private updateSection sectionName propertyUpdater =
     List.map (fun s ->

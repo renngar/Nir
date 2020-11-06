@@ -35,13 +35,20 @@ type private Msg =
 // Model
 type private ModInfo = Map<int, Model>
 
+module internal Property =
+    let modDirectory = "ModDir"
+    let games = "Games"
+    let gameDelimiters = [ ", "; "," ]
+
+type GamesByName = Map<string, Game>
+
 type private Model =
     { Window: Window
       Nexus: Nexus
       Properties: Properties
       Games: Game []
-      GamesByName: Map<string, Game>
-      SelectedGames: Game list
+      GamesByName: GamesByName
+      SelectedGames: Game []
       ModInfo: ModInfo
       ThrottleUpdates: Plugin.ThrottleUpdates }
 
@@ -55,11 +62,19 @@ type private Model =
             else "Select your game below"
 
     member this.IsGameSelected
-        with internal get () = this.SelectedGames.IsEmpty |> not
+        with internal get () = this.SelectedGames.Length > 0
 
     member this.ProcessingFile
         with internal get () =
             Map.exists (fun _ x -> x.State = Hashing) this.ModInfo
+
+    member this.ModDirectory
+        with internal get () =
+            tryPropertyValue Property.modDirectory this.Properties
+            |> Option.defaultValue (Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments))
+
+let private findGames (gamesByName: GamesByName) (games: string []): Game [] =
+    Array.map (fun name -> gamesByName.[name]) games
 
 let private init window nexus properties throttleUpdates =
     { Window = window
@@ -68,7 +83,7 @@ let private init window nexus properties throttleUpdates =
       ThrottleUpdates = throttleUpdates
       Games = [||]
       GamesByName = Map.empty
-      SelectedGames = []
+      SelectedGames = Array.empty
       ModInfo = Map.empty },
     Cmd.ofMsg FetchGames
 
@@ -89,7 +104,7 @@ module private Sub =
         }
         |> Async.Start
 
-    let recheckFiles (modInfos: ModInfo) nexus selectedGames dispatch =
+    let recheckFiles (modInfos: ModInfo) (nexus: Nexus) (selectedGames: Game []) (dispatch: Msg -> unit): unit =
         async {
             modInfos
             |> Seq.map (fun mi -> Sub.reprocessFile nexus selectedGames mi.Value (ModInfoMsg >> dispatch))
@@ -98,13 +113,6 @@ module private Sub =
         |> Async.Start
 
 // Update
-
-let modDirProperty = "ModDir"
-
-let private getModDir model =
-    match tryProperty modDirProperty model.Properties with
-    | Some p -> p.Value
-    | None -> (Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments))
 
 let private update (msg: Msg) (model: Model): Model * Cmd<_> * Plugin.ExternalMsg =
     let noOp = Plugin.NoOp
@@ -123,9 +131,15 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> * Plugin.ExternalMs
     | GotGames games ->
         match games with
         | Ok gs ->
+            let gamesByName =
+                gs |> Seq.map (fun g -> g.Name, g) |> Map.ofSeq
+
             { model with
                   Games = Array.sortByDescending (fun g -> g.Downloads) gs
-                  GamesByName = gs |> Seq.map (fun g -> g.Name, g) |> Map.ofSeq },
+                  GamesByName = gamesByName
+                  SelectedGames =
+                      getPropertyValues Property.games model.Properties Property.gameDelimiters
+                      |> findGames gamesByName },
             Cmd.none,
             noOp
         | Error _ -> model, Cmd.none, noOp
@@ -137,17 +151,18 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> * Plugin.ExternalMs
             let fonv = "Fallout New Vegas"
             let fo3 = "Fallout 3"
 
-            let findGames =
-                List.map (fun name -> model.GamesByName.[name])
+            let game = model.Games.[n].Name
+
+            let selectedGames =
+                if game = sse then [| sse; sle |]
+                elif game = fonv then [| fonv; fo3 |]
+                else [| game |]
 
             let newModel =
                 { model with
-                      SelectedGames =
-                          let game = model.Games.[n]
-
-                          if game.Name = sse then findGames [ sse; sle ]
-                          elif game.Name = fonv then findGames [ fonv; fo3 ]
-                          else [ game ] }
+                      SelectedGames = findGames model.GamesByName selectedGames
+                      Properties =
+                          setPropertyList model.Properties Property.games Property.gameDelimiters.Head selectedGames }
 
             let cmd =
                 let fileNames = getFileNames ()
@@ -158,12 +173,11 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> * Plugin.ExternalMs
                 else
                     Cmd.ofSub (Sub.recheckFiles newModel.ModInfo newModel.Nexus newModel.SelectedGames)
 
-            newModel, cmd, noOp
+            newModel, cmd, Plugin.SaveProperties newModel.Properties
         else
             model, Cmd.none, noOp
     | OpenFileDialog ->
-        let dir = getModDir model
-        model, Cmd.OfAsync.perform promptModArchives (model.Window, dir) FilesSelected, noOp
+        model, Cmd.OfAsync.perform promptModArchives (model.Window, model.ModDirectory) FilesSelected, noOp
     | FilesSelected fileNames ->
         let sameFiles () =
             let current = getFileNames () |> Array.sort
@@ -180,13 +194,13 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> * Plugin.ExternalMs
             let cmd =
                 Cmd.ofSub (Sub.checkFiles fileNames model.Nexus model.SelectedGames model.ThrottleUpdates)
 
-            if getModDir model = directory then
+            if model.ModDirectory = directory then
                 { model with ModInfo = Map.empty }, cmd, noOp
             else
                 let newModel =
                     { model with
                           ModInfo = Map.empty
-                          Properties = setProperty model.Properties modDirProperty directory }
+                          Properties = setProperty model.Properties Property.modDirectory directory }
 
                 newModel, cmd, Plugin.SaveProperties newModel.Properties
     | FileTextBoxChanged fileName ->
@@ -217,7 +231,7 @@ let private gameSelector (model: Model) dispatch =
                    ComboBox.virtualizationMode ItemVirtualizationMode.Simple
                    dataItems model.Games
                    itemTemplate gameName
-                   selectedItem model.SelectedGames.Head
+                   selectedItem model.SelectedGames.[0]
                    onSelectedIndexChanged (GameChanged >> dispatch)
                    isEnabled (not <| model.ProcessingFile) ]
 
@@ -362,7 +376,7 @@ let private modInfo (model: Model) (dispatch: Msg -> unit): IView =
                         | false, _ ->
                             let name =
                                 (model.SelectedGames
-                                 |> List.find (fun g -> g.Id = gameId))
+                                 |> Array.find (fun g -> g.Id = gameId))
                                     .Name
 
                             games <- games.Add(gameId, name)
