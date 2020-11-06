@@ -3,6 +3,7 @@ module Nir.Utility.INI.Implementation
 
 open System.IO
 open FParsec
+open Nir.Extensions
 open Nir.Parsing
 open Nir.Utility.INI.Types
 
@@ -127,8 +128,11 @@ module Parser =
 
         finishPreviousSection ()
 
-        { FileName = ""
-          Sections = List.rev (sections)
+        let sections' = List.rev (sections)
+
+        { Sorted = sections' |> List.isSortedBy (fun s -> s.Section)
+          FileName = ""
+          Sections = sections'
           TrailingComments = List.rev (comments) }
 
 ////////////////////////////////////////////////////////////////////////
@@ -163,6 +167,7 @@ let saveIni (ini: Ini) =
     let write format = fprintfn sw format
 
     ini.Sections
+    |> if ini.Sorted then List.sortBy (fun s -> s.Section) else id
     |> Seq.iteri (fun i section ->
         if i > 0 then write "" // blank line between sections
         writeComments sw section.Comments

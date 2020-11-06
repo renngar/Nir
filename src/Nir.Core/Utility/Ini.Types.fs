@@ -66,6 +66,7 @@ type Section =
 
 /// An INI file including its sections with their properties and any trailing comments
 type Ini =
-    { FileName: string
+    { Sorted: bool
+      FileName: string
       Sections: Section list
       TrailingComments: string list }

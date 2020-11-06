@@ -12,3 +12,12 @@ module Result =
         match result with
         | FSharp.Core.Ok result' -> result'
         | FSharp.Core.Error msg -> invalidArg "result" (sprintf "Failed with \"%A\"" msg)
+
+module List =
+    /// Checks if the given list is sorted using keys given by the given projection. Keys are compared using
+    /// `Operators.compare`.
+    let rec isSortedBy projection list =
+        match list with
+        | []
+        | [ _ ] -> true
+        | x :: y :: xs -> Operators.compare (projection x) (projection y) <= 0 && isSortedBy projection (y :: xs)

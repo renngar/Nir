@@ -356,7 +356,8 @@ let private processExternalMessage model cmd externalMsg =
     | StartExtMsg (Start.ExternalMsg.LaunchPlugin plugin) ->
         showPage typeof<PluginModel> Plugin model (fun () ->
             // TODO Restructure this to give an error if a plugin cannot used as a section name
-            let iniSection = create<SectionName> plugin.Name
+            let iniSection =
+                create<SectionName> ("Plugin: " + plugin.Name)
 
             let { Properties = props } = section iniSection model.Ini
 
