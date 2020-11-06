@@ -3,10 +3,12 @@
 module Nir.UI.Controls.ProgressBar
 
 open Avalonia.Controls
+open Avalonia.FuncUI
 open Avalonia.FuncUI.DSL
-open Avalonia.FuncUI.Types
 
-let progressBar attributes = ProgressBar.create attributes :> IView
+let progressBar attributes =
+    ProgressBar.create attributes
+    |> Helpers.generalize
 
 let isIndeterminate = ProgressBar.isIndeterminate
 
