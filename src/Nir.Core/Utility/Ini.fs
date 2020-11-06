@@ -160,14 +160,17 @@ let saveIni (ini: Ini) =
             sw.WriteLine(comment)
 
     use sw = new StreamWriter(ini.FileName)
+    let write format = fprintfn sw format
 
-    for section in ini.Sections do
+    ini.Sections
+    |> Seq.iteri (fun i section ->
+        if i > 0 then write "" // blank line between sections
         writeComments sw section.Comments
-        fprintfn sw "[%s]" section.Section.Value
+        write "[%s]" section.Section.Value
 
         for property in section.Properties do
             writeComments sw property.Comments
-            fprintfn sw "%s=%s" property.Property property.Value
+            write "%s=%s" property.Property property.Value)
 
     writeComments sw ini.TrailingComments
     ini
