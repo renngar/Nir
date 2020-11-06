@@ -58,15 +58,30 @@ type Property =
 /// A list of INI Property settings that go in a Section
 type Properties = Property list
 
+/// Functions that operate on `Properties`
+module Properties =
+    let areSorted properties =
+        properties
+        |> List.isSortedBy (fun p -> p.Property)
+
 /// An INI file section including its name, properties and any preceding comments
 type Section =
-    { Comments: string list
+    { Sorted: bool
+      Comments: string list
       Section: SectionName
       Properties: Properties }
+
+/// A list of INI Sections for an .ini file
+type Sections = Section list
+
+/// Functions that operate on `Sections`
+module Sections =
+    let areSorted sections =
+        sections |> List.isSortedBy (fun p -> p.Section)
 
 /// An INI file including its sections with their properties and any trailing comments
 type Ini =
     { Sorted: bool
       FileName: string
-      Sections: Section list
+      Sections: Sections
       TrailingComments: string list }

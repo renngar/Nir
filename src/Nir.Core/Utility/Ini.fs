@@ -99,9 +99,12 @@ module Parser =
             | None -> ()
             | Some sec when sec.Comments.IsEmpty && sec.Properties.IsEmpty -> ()
             | Some sec ->
+                let properties = List.rev (sec.Properties)
+
                 sections <-
                     { sec with
-                          Properties = List.rev (sec.Properties) }
+                          Sorted = Properties.areSorted properties
+                          Properties = properties }
                     :: sections
 
         for line in ini do
@@ -112,7 +115,8 @@ module Parser =
 
                 section <-
                     Some
-                        { Comments = useComments ()
+                        { Sorted = true
+                          Comments = useComments ()
                           Section = s
                           Properties = [] }
 
@@ -130,7 +134,7 @@ module Parser =
 
         let sections' = List.rev (sections)
 
-        { Sorted = sections' |> List.isSortedBy (fun s -> s.Section)
+        { Sorted = Sections.areSorted sections'
           FileName = ""
           Sections = sections'
           TrailingComments = List.rev (comments) }
@@ -173,9 +177,11 @@ let saveIni (ini: Ini) =
         writeComments sw section.Comments
         write "[%s]" section.Section.Value
 
-        for property in section.Properties do
+        section.Properties
+        |> if section.Sorted then List.sortBy (fun p -> p.Property) else id
+        |> Seq.iter (fun property ->
             writeComments sw property.Comments
-            write "%s=%s" property.Property property.Value)
+            write "%s=%s" property.Property property.Value))
 
     writeComments sw ini.TrailingComments
     ini
@@ -186,7 +192,8 @@ let private trySection (section: SectionName) ini: Section option =
     |> List.tryFind (fun s -> s.Section = section)
 
 let private newSection (section: SectionName) properties =
-    { Comments = []
+    { Sorted = Properties.areSorted properties
+      Comments = []
       Section = section
       Properties = properties }
 

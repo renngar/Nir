@@ -20,4 +20,7 @@ module List =
         match list with
         | []
         | [ _ ] -> true
-        | x :: y :: xs -> Operators.compare (projection x) (projection y) <= 0 && isSortedBy projection (y :: xs)
+        | x :: y :: xs ->
+            Operators.compare (projection x) (projection y)
+            <= 0
+            && isSortedBy projection (y :: xs)
