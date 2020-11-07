@@ -31,6 +31,7 @@ type ExternalMsg =
     | LaunchPlugin of IPlugin
 
 type Msg =
+    | GetPlugins
     | GotPlugins of IPlugin []
     | PluginSelected of IPlugin
 
@@ -38,10 +39,11 @@ let init window =
     { Window = window
       GotPlugins = false
       Plugins = [] },
-    Cmd.OfFunc.perform findPlugins () GotPlugins
+    Cmd.ofMsg GetPlugins
 
 let update msg model =
     match msg with
+    | GetPlugins -> model, Cmd.OfFunc.perform findPlugins () GotPlugins, NoOp
     | GotPlugins ps ->
         let plugins = Seq.toList ps
 
