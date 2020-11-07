@@ -167,21 +167,22 @@ let private tryFindPage (model: Model) (modelType: Type): Page option =
 /// has been displayed before.
 let private showPage (modelType: Type)
                      (unionType: 'Model -> PageModel)
+                     (cmdType: 'Msg -> Msg)
                      (model: Model)
-                     (init: unit -> 'Model * Cmd<Msg>)
+                     (init: unit -> 'Model * Cmd<'Msg>)
                      : Model * Cmd<Msg> =
     let matchesType (p: Page) = p.Type = modelType
 
     let page, cmd =
         tryFindPage model modelType
         |> function
-        | Some page -> page, Cmd.none
+        | Some page -> page, Cmd.map cmdType Cmd.none
         | None ->
             let m, c = init ()
 
             { Type = typeof<'Model>
               PageModel = unionType m },
-            c
+            Cmd.map cmdType c
 
     let filter lst = List.filter (not << matchesType) lst
 
@@ -210,9 +211,9 @@ let private showPage (modelType: Type)
                   else newModel.OtherPages },
         cmd
 
-let private showMainPage model =
-    fun () -> let pageModel, cmd = Start.init model.Window in (pageModel, Cmd.map StartMsg cmd)
-    |> showPage typeof<Start.Model> Start model
+let private showStartPage model =
+    fun () -> Start.init model.Window
+    |> showPage typeof<Start.Model> Start StartMsg model
 
 // Update
 let private updateShell (msg: ShellMsg) (model: Model): Model * Cmd<Msg> * ExternalMsg =
@@ -224,10 +225,10 @@ let private updateShell (msg: ShellMsg) (model: Model): Model * Cmd<Msg> * Exter
         model,
         Cmd.OfAsync.either model.Nexus.UsersValidate key (fun result -> ShellMsg(VerifiedApiKeyResult(key, result))) (fun _ ->
             ShellMsg ShowApiKeyPage)
-    | RetryApiKey key -> showMainPage model |> fst, Cmd.ofMsg (ShellMsg(VerifyApiKey key))
+    | RetryApiKey key -> showStartPage model |> fst, Cmd.ofMsg (ShellMsg(VerifyApiKey key))
     | VerifiedApiKeyResult (key, result) ->
         match result with
-        | Ok _ -> showMainPage model
+        | Ok _ -> showStartPage model
         | Error { StatusCode = Unauthorized; Message = _ } -> model, Cmd.ofMsg (ShellMsg ShowApiKeyPage)
         | Error { StatusCode = _; Message = msg } ->
             fun () ->
@@ -237,13 +238,13 @@ let private updateShell (msg: ShellMsg) (model: Model): Model * Cmd<Msg> * Exter
                     Error.init "Error Contacting Nexus" msg Error.ButtonGroup.RetryCancel
 
                 ((retryMsg, errorModel), cmd)
-            |> showPage typeof<ErrorModel> ErrorModel model
+            |> showPage typeof<ErrorModel> ErrorModel ErrorMsg model
     | ShowApiKeyPage ->
         fun () -> ApiKey.init model.Nexus
-        |> showPage typeof<ApiKey.Model> ApiKey model
+        |> showPage typeof<ApiKey.Model> ApiKey ApiKeyMsg model
     | ShowAboutPage ->
         fun () -> About.init
-        |> showPage typeof<About.Model> About model
+        |> showPage typeof<About.Model> About AboutMsg model
     | BackPage ->
         { model with
               ForwardPages =
@@ -354,7 +355,7 @@ let private processExternalMessage model cmd externalMsg =
     | PluginExtMsg Plugin.ExternalMsg.NoOp -> model, cmd
 
     | StartExtMsg (Start.ExternalMsg.LaunchPlugin plugin) ->
-        showPage typeof<PluginModel> Plugin model (fun () ->
+        showPage typeof<PluginModel> Plugin PluginMsg model (fun () ->
             // TODO Restructure this to give an error if a plugin cannot used as a section name
             let iniSection =
                 create<SectionName> ("Plugin: " + plugin.Name)
@@ -369,12 +370,18 @@ let private processExternalMessage model cmd externalMsg =
             ({ Plugin = plugin
                IniSection = iniSection
                Model = pageModel },
-             Cmd.map PluginMsg cmd))
+             cmd))
     | ApiKeyExtMsg (ApiKey.ExternalMsg.Verified (nexus, user)) ->
         // Grab the results when the API Key page is done and write it to the .ini
         setNexusApiKey model.Ini user.Key
         |> saveIni
-        |> fun ini -> showMainPage { model with Ini = ini; Nexus = nexus }
+        // Show the start page
+        |> fun ini -> showStartPage { model with Ini = ini; Nexus = nexus }
+        // Now that we have an ApiKey it is safe to find and start plugins.
+        |> fun (m, c) ->
+            m,
+            Cmd.batch [ c
+                        Cmd.ofMsg (StartMsg Start.GetPlugins) ]
     | ErrorExtMsg Error.ExternalMsg.Retry ->
         match model.CurrentPage.PageModel with
         | ErrorModel (retryMsg, _errorModel) -> model, Cmd.ofMsg retryMsg // processPageMessage already updated model
