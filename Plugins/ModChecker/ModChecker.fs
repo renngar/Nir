@@ -280,14 +280,49 @@ let private modSelector (model: Model) dispatch =
             "Browse..."
     ]
 
-let private modHeader name = textBlockCls "h1" name
-
-let fileHeader archive =
-    (textBlockCls "modDetails" (Path.baseName archive))
-
 // The JSON provider thinks the MD5 output is a GUID, remove the dashes
 let private md5Result (result: Md5Search) =
     result.FileDetails.Md5.ToString().Replace("-", "")
+
+let private modHeader name = textBlockCls "h1" name
+
+let private fileHeader archive =
+    textBlockCls "modDetails" (Path.baseName archive)
+
+let private findGameById games gameId =
+    Array.find (fun (g: Game) -> g.Id = gameId) games
+
+let private capitalize (str: string) =
+    sprintf "%c%s" str.[0] (str.Substring(1).ToLower())
+
+let private fileDetails allGames modsGameId archive (results: Md5Search []) =
+    let baseName = Path.baseName archive
+
+    stackPanel [] [
+        for r in Array.sortBy (fun (x: Md5Search) -> x.FileDetails.CategoryName) results do
+            yield
+                sprintf
+                    "%s%s%s Uploaded: %s Version: %s%s"
+                    // Game and mod # if different from the game we are listed under
+                    (if r.Mod.GameId <> modsGameId then
+                        let resultGame = findGameById allGames r.Mod.GameId
+                        sprintf "%s Mod %d" resultGame.Name r.Mod.ModId
+                     else
+                         "")
+                    // Category, if any
+                    (r.FileDetails.CategoryName
+                     |> Option.map (capitalize >> sprintf "%s Files:  ")
+                     |> Option.defaultValue "")
+                    // File name if different than the archive
+                    (if r.FileDetails.Name <> baseName then r.FileDetails.Name else "")
+                    (r.FileDetails.UploadedTime.ToLocalTime().ToString("f"))
+                    r.FileDetails.Version
+                    // Description, if any.
+                    (if String.IsNullOrEmpty r.FileDetails.Description
+                     then ""
+                     else sprintf "\n%s" r.FileDetails.Description)
+                |> textBlock []
+    ]
 
 // Convert things like "under_moderation" to "under moderation"
 let private statusText (result: Md5Search) = result.Mod.Status.Replace("_", " ")
@@ -308,8 +343,7 @@ let private modPanel games (searchResults: seq<string * Md5Search []>) =
                      <| if m.Available then
                          m.Name
                         else
-                            let game =
-                                Array.find (fun (g: Game) -> g.Id = m.GameId) games
+                            let game = findGameById games m.GameId
 
                             sprintf "%s Mod %d Unavailable" game.Name m.ModId) ]
 
@@ -323,7 +357,7 @@ let private modPanel games (searchResults: seq<string * Md5Search []>) =
                             [ cls "adornRight"
                               row i
                               Expander.header (fileHeader archive) ]
-                              (textBlock [] (md5Result results.[0])) ])
+                              (fileDetails games m.GameId archive results) ])
                     |> List.concat)) ]
 
 let inline private fifth (_, _, _, _, e) = e
