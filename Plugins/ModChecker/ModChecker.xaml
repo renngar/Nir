@@ -99,7 +99,7 @@
     </Style>
 
     <!-- Move the toggle to the right of the text, make it larger and match the text color -->
-    <Style Selector="Expander.mod /emplate/ ToggleButton#PART_toggle">
+    <Style Selector="Expander.mod /template/ ToggleButton#PART_toggle">
         <Setter Property="Template">
             <ControlTemplate>
                 <Border BorderThickness="1">

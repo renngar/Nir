@@ -359,25 +359,22 @@ let private modInfo (model: Model) (dispatch: Msg -> unit): IView =
                             name)
                     |> Seq.sortBy fst
                     |> Seq.map (fun (gameName, results) ->
-                        // TODO: Maybe remove this in favor of the expander
                         stackPanelCls
                             "game"
-                            // TODO: Add Nir DSL
-                            [ Expander.create [ cls "game"
-                                                Expander.header (textBlockCls "gameName" (sprintf "%s Mods" gameName))
-                                                Expander.isExpanded true
-                                                Expander.content
-                                                    (stackPanel [] [
-                                                        yield!
-                                                            results
-                                                            |> Seq.groupBy (fun (_, result) ->
-                                                                // TODO: Deal with files matching multiple mods
-                                                                let m = result.[0].Mod
-                                                                m.Available, m.Status, m.GameId, m.ModId, m.Name)
-                                                            |> Seq.sortBy (fun ((_, _, _, _, name), _) -> name)
-                                                            |> Seq.map (fun (_, searchResults) ->
-                                                                modPanel model.Games searchResults)
-                                                     ]) ] ])
+                            [ expander
+                                [ cls "game"
+                                  isExpanded true
+                                  Expander.header (textBlockCls "gameName" (sprintf "%s Mods" gameName)) ]
+                                  (stackPanel [] [
+                                      yield!
+                                          results
+                                          |> Seq.groupBy (fun (_, result) ->
+                                              // TODO: Deal with files matching multiple mods
+                                              let m = result.[0].Mod
+                                              m.Available, m.Status, m.GameId, m.ModId, m.Name)
+                                          |> Seq.sortBy (fun ((_, _, _, _, name), _) -> name)
+                                          |> Seq.map (fun (_, searchResults) -> modPanel model.Games searchResults)
+                                   ]) ])
                 else
                     // Output the file info
                     Seq.sortBy orderBy infos

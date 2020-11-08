@@ -14,6 +14,7 @@
     <Compile Include="Controls\Border.fs" />
     <Compile Include="Controls\Button.fs" />
     <Compile Include="Controls\ComboBox.fs" />
+    <Compile Include="Controls\Expander.fs" />
     <Compile Include="Controls\Grid.fs" />
     <Compile Include="Controls\DataBinding.fs" />
     <Compile Include="Controls\DockPanel.fs" />
