@@ -280,7 +280,10 @@ let private modSelector (model: Model) dispatch =
             "Browse..."
     ]
 
-let private modHeader name = [ textBlockCls "h1" name ]
+let private modHeader name = textBlockCls "h1" name
+
+let fileHeader archive =
+    (textBlockCls "modDetails" (Path.baseName archive))
 
 // The JSON provider thinks the MD5 output is a GUID, remove the dashes
 let private md5Result (result: Md5Search) =
@@ -297,32 +300,51 @@ let private modPanel games (searchResults: seq<string * Md5Search []>) =
           let rowDefs = RowDefinitions()
           rowDefs.AddRange(Seq.init (Seq.length searchResults) (fun _ -> RowDefinition(GridLength.Auto)))
 
-          yield!
-              modHeader
-              <| if m.Available then
-                  m.Name
-                 else
-                     let game =
-                         Array.find (fun (g: Game) -> g.Id = m.GameId) games
+          expander
+              [ cls "adornRight"
+                isExpanded true
+                Expander.header
+                    (modHeader
+                     <| if m.Available then
+                         m.Name
+                        else
+                            let game =
+                                Array.find (fun (g: Game) -> g.Id = m.GameId) games
 
-                     sprintf "%s Mod %d Unavailable" game.Name m.ModId
+                            sprintf "%s Mod %d Unavailable" game.Name m.ModId) ]
 
-          yield
-              grid
+              (grid
                   [ cls "modDetails"
                     toColumnDefinitions "*,*,*"
                     rowDefinitions rowDefs ]
-                  (Seq.sortBy fst searchResults
-                   |> Seq.mapi (fun i (archive, results) ->
-                       [ let baseName = Path.baseName archive
+                   (Seq.sortBy fst searchResults
+                    |> Seq.mapi (fun i (archive, results) ->
+                        [ expander
+                            [ cls "adornRight"
+                              row i
+                              Expander.header (fileHeader archive) ]
+                              (textBlock [] (md5Result results.[0])) ])
+                    |> List.concat)) ]
 
-                         yield
-                             textBlock
-                                 [ row i
-                                   cls "modDetails"
-                                   md5Result results.[0] |> toTip ]
-                                 (sprintf "%s - %s" baseName (md5Result results.[0])) ])
-                   |> List.concat) ]
+let inline private fifth (_, _, _, _, e) = e
+
+let private gamePanel games (gameName, results) =
+    stackPanelCls
+        "game"
+        [ expander
+            [ cls "game"
+              isExpanded true
+              Expander.header (textBlockCls "gameName" (sprintf "%s Mods" gameName)) ]
+              (stackPanel [] [
+                  yield!
+                      results
+                      |> Seq.groupBy (fun (_, result: Md5Search []) ->
+                          // TODO: Deal with files matching multiple mods
+                          let m = result.[0].Mod
+                          m.Available, m.Status, m.GameId, m.ModId, m.Name)
+                      |> Seq.sortBy (fst >> fifth) // Sort by name
+                      |> Seq.map (snd >> modPanel games) // Put the result in a modPanel
+               ]) ]
 
 let private modInfo (model: Model) (dispatch: Msg -> unit): IView =
     let mutable games = Map.empty
@@ -358,23 +380,7 @@ let private modInfo (model: Model) (dispatch: Msg -> unit): IView =
                             games <- games.Add(gameId, name)
                             name)
                     |> Seq.sortBy fst
-                    |> Seq.map (fun (gameName, results) ->
-                        stackPanelCls
-                            "game"
-                            [ expander
-                                [ cls "game"
-                                  isExpanded true
-                                  Expander.header (textBlockCls "gameName" (sprintf "%s Mods" gameName)) ]
-                                  (stackPanel [] [
-                                      yield!
-                                          results
-                                          |> Seq.groupBy (fun (_, result) ->
-                                              // TODO: Deal with files matching multiple mods
-                                              let m = result.[0].Mod
-                                              m.Available, m.Status, m.GameId, m.ModId, m.Name)
-                                          |> Seq.sortBy (fun ((_, _, _, _, name), _) -> name)
-                                          |> Seq.map (fun (_, searchResults) -> modPanel model.Games searchResults)
-                                   ]) ])
+                    |> Seq.map (gamePanel model.Games)
                 else
                     // Output the file info
                     Seq.sortBy orderBy infos

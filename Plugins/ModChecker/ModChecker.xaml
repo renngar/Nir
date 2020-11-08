@@ -72,7 +72,7 @@
         <Setter Property="Margin" Value="0,0,0,8" />
     </Style>
 
-    <!-- Move the toggle to the right of the text, make it larger and match the text color -->
+    <!-- Move the toggle to the right of the text, make it larger, adjust the position and match the text color -->
     <Style Selector="Expander.game /template/ ToggleButton#PART_toggle">
         <Setter Property="Template">
             <ControlTemplate>
@@ -98,8 +98,8 @@
         </Setter>
     </Style>
 
-    <!-- Move the toggle to the right of the text, make it larger and match the text color -->
-    <Style Selector="Expander.mod /template/ ToggleButton#PART_toggle">
+    <!-- Move the toggle to the right of the text -->
+    <Style Selector="DockPanel.modChecker Expander.adornRight /template/ ToggleButton#PART_toggle">
         <Setter Property="Template">
             <ControlTemplate>
                 <Border BorderThickness="1">
@@ -113,10 +113,10 @@
                                           VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
                                           Padding="0,4"/>
                         <Border Grid.Column="1" Width="20" Height="20" HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <Path Fill="{DynamicResource ThemeAccentBrush}"
+                            <Path Fill="{DynamicResource ThemeForegroundBrush}"
                                   HorizontalAlignment="Center"
-                                  VerticalAlignment="Top"
-                                  Data="M 0 0 L 6 6 L 0 12 Z" />
+                                  VerticalAlignment="Center"
+                                  Data="M 0 2 L 4 6 L 0 10 Z" />
                         </Border>
                     </Grid>
                 </Border>
