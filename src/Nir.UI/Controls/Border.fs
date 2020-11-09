@@ -11,3 +11,5 @@ let border attributes (child: IView) =
     Border.create [ Border.child child
                     yield! attributes ]
     |> Helpers.generalize
+
+let borderCls ``class`` (child: IView) = border [ cls ``class`` ] child

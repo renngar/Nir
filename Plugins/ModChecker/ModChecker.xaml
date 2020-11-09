@@ -123,4 +123,37 @@
             </ControlTemplate>
         </Setter>
     </Style>
+
+    <Style Selector="DockPanel.modChecker Expander.fileExpander">
+        <Setter Property="Background" Value="{DynamicResource ThemeControlMidBrush}" />
+    </Style>
+
+    <Style Selector="DockPanel.modChecker Grid.modDetails Border.modCategory">
+        <Setter Property="Background" Value="{DynamicResource ThemeControlMidBrush}" />
+    </Style>
+
+    <Style Selector="DockPanel.modChecker Grid.modDetails TextBlock.modCategory">
+        <Setter Property="Margin" Value="4,4" />
+        <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+
+    <Style Selector="DockPanel.modChecker Grid.modDetails Border.modDescription">
+        <Setter Property="Background" Value="{DynamicResource ThemeControlMidHighBrush}" />
+    </Style>
+
+    <Style Selector="DockPanel.modChecker Grid.modDetails Border.modDescription > TextBlock.modDescription">
+        <Setter Property="Margin" Value="4,4" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="MaxWidth" Value="710" />
+    </Style>
+
+    <Style Selector="DockPanel.modChecker Grid.fileExpanderHeader">
+        <Setter Property="Width" Value="710" />
+    </Style>
+    <Style Selector="DockPanel.modChecker Grid.fileExpanderHeader TextBlock">
+        <Setter Property="Margin" Value="4,0" />
+    </Style>
+    <Style Selector="DockPanel.modChecker Grid.fileExpanderHeader TextBlock.small">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}"></Setter>
+    </Style>
 </Styles>

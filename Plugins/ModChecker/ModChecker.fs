@@ -1,6 +1,7 @@
 module Nir.Plugins.ModChecker
 
 open System
+open System.Globalization
 open System.IO
 open Elmish
 open Avalonia.Controls
@@ -292,40 +293,56 @@ let private fileHeader archive =
 let private findGameById games gameId =
     Array.find (fun (g: Game) -> g.Id = gameId) games
 
-let private capitalize (str: string) =
-    sprintf "%c%s" str.[0] (str.Substring(1).ToLower())
+let private titleCase (str: string) =
+    str.ToLower()
+    |> CultureInfo.CurrentCulture.TextInfo.ToTitleCase
 
-let private fileDetails allGames modsGameId archive (results: Md5Search []) =
+let replaceUnderlines (str: string) = str.Replace("_", " ")
+
+let private fileDetails allGames (``mod``: Mod) archive (results: Md5Search []) =
     let baseName = Path.baseName archive
+    let modsGameId = ``mod``.GameId
 
     stackPanel [] [
-        for r in Array.sortBy (fun (x: Md5Search) -> x.FileDetails.CategoryName) results do
+        for (gameId, modId, category), rs in Array.groupBy (fun (r: Md5Search) ->
+                                                 r.Mod.GameId, r.Mod.ModId, r.FileDetails.CategoryName) results do
+            if gameId <> modsGameId || modId <> ``mod``.ModId then
+                let resultGame = findGameById allGames gameId
+                yield textBlock [] (sprintf "%s Mod %d" resultGame.Name modId)
+
             yield
-                sprintf
-                    "%s%s%s Uploaded: %s Version: %s%s"
-                    // Game and mod # if different from the game we are listed under
-                    (if r.Mod.GameId <> modsGameId then
-                        let resultGame = findGameById allGames r.Mod.GameId
-                        sprintf "%s Mod %d" resultGame.Name r.Mod.ModId
-                     else
-                         "")
-                    // Category, if any
-                    (r.FileDetails.CategoryName
-                     |> Option.map (capitalize >> sprintf "%s Files:  ")
-                     |> Option.defaultValue "")
-                    // File name if different than the archive
-                    (if r.FileDetails.Name <> baseName then r.FileDetails.Name else "")
-                    (r.FileDetails.UploadedTime.ToLocalTime().ToString("f"))
-                    r.FileDetails.Version
-                    // Description, if any.
-                    (if String.IsNullOrEmpty r.FileDetails.Description
-                     then ""
-                     else sprintf "\n%s" r.FileDetails.Description)
-                |> textBlock []
+                (borderCls
+                    "modCategory"
+                     (textBlockCls
+                         "modCategory"
+                          (category
+                           |> Option.map (titleCase >> sprintf "%s Files")
+                           |> Option.defaultValue "")))
+
+            for r in rs do
+                yield
+                    expander
+                        [ classes [ "adornRight"; "fileExpander" ]
+                          isExpanded true
+                          Expander.header
+                              (grid [ cls "fileExpanderHeader"
+                                      toColumnDefinitions "*,auto,auto"
+                                      toRowDefinitions "*,*" ] [
+                                  if r.FileDetails.Name <> baseName
+                                  then yield textBlock [ rowSpan 2 ] r.FileDetails.Name
+                                  yield textBlock [ cls "small"; column 1 ] "Date Uploaded"
+                                  yield
+                                      textBlock
+                                          [ cls "small"; column 1; row 1 ]
+                                          (r.FileDetails.UploadedTime.ToLocalTime().ToString("f"))
+                                  yield textBlock [ cls "small"; column 2 ] "Version"
+                                  yield textBlock [ cls "small"; column 2; row 2 ] r.FileDetails.Version
+                               ]) ]
+                        (borderCls "modDescription" (textBlockCls "modDescription" (r.FileDetails.Description)))
     ]
 
 // Convert things like "under_moderation" to "under moderation"
-let private statusText (result: Md5Search) = result.Mod.Status.Replace("_", " ")
+let private statusText (result: Md5Search) = result.Mod.Status |> replaceUnderlines
 
 let private modPanel games (searchResults: seq<string * Md5Search []>) =
     stackPanelCls
@@ -357,7 +374,7 @@ let private modPanel games (searchResults: seq<string * Md5Search []>) =
                             [ cls "adornRight"
                               row i
                               Expander.header (fileHeader archive) ]
-                              (fileDetails games m.GameId archive results) ])
+                              (fileDetails games m archive results) ])
                     |> List.concat)) ]
 
 let inline private fifth (_, _, _, _, e) = e

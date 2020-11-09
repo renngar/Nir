@@ -66,6 +66,7 @@ type private NexusError = NexusErrorProvider.NexusError
 type private Md5SearchProvider = JsonProvider<"../../src/Nir.Core/ApiSamples/md5_search.json", RootName="Md5Search">
 
 type Md5Search = Md5SearchProvider.Md5Search
+type Mod = Md5SearchProvider.Mod
 
 type private GamesProvider = JsonProvider<"../../src/Nir.Core/ApiSamples/games.json", RootName="Games">
 
