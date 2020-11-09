@@ -310,14 +310,15 @@ let private fileDetails allGames (``mod``: Mod) archive (results: Md5Search []) 
                 let resultGame = findGameById allGames gameId
                 yield textBlock [] (sprintf "%s Mod %d" resultGame.Name modId)
 
-            yield
-                (borderCls
-                    "modCategory"
-                     (textBlockCls
-                         "modCategory"
-                          (category
-                           |> Option.map (titleCase >> sprintf "%s Files")
-                           |> Option.defaultValue "")))
+            let borderedText ``class`` text =
+                border
+                    [ yield cls ``class``
+                      if String.IsNullOrEmpty text then yield Border.height 0.0 ]
+                    (textBlockCls ``class`` text)
+
+            match category with
+            | Some cat -> yield borderedText "modCategory" (titleCase cat |> sprintf "%s Files")
+            | None -> ()
 
             for r in rs do
                 yield
@@ -326,19 +327,22 @@ let private fileDetails allGames (``mod``: Mod) archive (results: Md5Search []) 
                           isExpanded true
                           Expander.header
                               (grid [ cls "fileExpanderHeader"
-                                      toColumnDefinitions "*,auto,auto"
+                                      toColumnDefinitions "*,auto,auto,auto"
                                       toRowDefinitions "*,*" ] [
+                                  let text c r text =
+                                      textBlock [ cls "small"; row r; column c ] text
+
                                   if r.FileDetails.Name <> baseName
                                   then yield textBlock [ rowSpan 2 ] r.FileDetails.Name
-                                  yield textBlock [ cls "small"; column 1 ] "Date Uploaded"
-                                  yield
-                                      textBlock
-                                          [ cls "small"; column 1; row 1 ]
-                                          (r.FileDetails.UploadedTime.ToLocalTime().ToString("f"))
-                                  yield textBlock [ cls "small"; column 2 ] "Version"
-                                  yield textBlock [ cls "small"; column 2; row 2 ] r.FileDetails.Version
+
+                                  yield text 1 0 "MD5 Hash"
+                                  yield text 1 1 (md5Result r)
+                                  yield text 2 0 "Date Uploaded"
+                                  yield text 2 1 (r.FileDetails.UploadedTime.ToLocalTime().ToString("f"))
+                                  yield text 3 0 "Version"
+                                  yield text 3 1 r.FileDetails.Version
                                ]) ]
-                        (borderCls "modDescription" (textBlockCls "modDescription" (r.FileDetails.Description)))
+                        (borderedText "modDescription" r.FileDetails.Description)
     ]
 
 // Convert things like "under_moderation" to "under moderation"
