@@ -51,7 +51,8 @@ let groupByState (mi: Map<_, Model>) =
         | Hashing -> WorkingGroup)
 
 let groupHeader group (modInfos: seq<Model>) =
-    let text cls = textBlockCls cls >> Some
+    let text cls str =
+        ([ "large"; cls ], textBlockCls cls str) |> Some
 
     match group, (Seq.head modInfos).State with
     | _, NotFound { StatusCode = code; Message = msg } ->
@@ -156,14 +157,21 @@ module Sub =
     let reprocessFile (nexus: Nexus) (selectedGames: Game []) (model: Model) (dispatch: int * Msg -> unit): Async<unit> =
         lookupMod nexus selectedGames dispatch id model
 
-let view model (_: Dispatch<Msg>): IView =
-    let modName model =
-        textBlock [ if model.State <> Hashing then yield toTip model.Hash ] (Path.baseName model.Archive)
+let internal textCls cls c r text =
+    textBlock
+        [ classes [ "small"; cls ]
+          row r
+          column c ]
+        text
 
-    let checking model =
+let internal modName attributes model =
+    textBlock attributes (Path.baseName model.Archive)
+
+let view model (_: Dispatch<Msg>): IView =
+    let checking (model: Model): IView list =
         [ stackPanelCls
             "checking"
-              [ yield modName model
+              [ yield modName [] model
                 yield
                     progressBar
                         // If we don't know how big the file is or have hashed it all and are waiting for a response
@@ -175,8 +183,7 @@ let view model (_: Dispatch<Msg>): IView =
                              [ maximum (double model.ProgressMax)
                                value (double model.ProgressCurrent) ]) ] ]
 
-    dockPanel []
-    <| match model.State with
-       | Hashing -> checking model
-       | Found _ -> failwith "Should be rendered in ModChecker"
-       | NotFound _ -> [ yield modName model ]
+    match model.State with
+    | Hashing -> dockPanel [] (checking model)
+    | Found _
+    | NotFound _ -> failwith "Should be rendered in ModChecker"

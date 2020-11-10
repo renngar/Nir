@@ -387,7 +387,7 @@ let private gamePanel games (gameName, results) =
     stackPanelCls
         "game"
         [ expander
-            [ cls "game"
+            [ classes [ "game"; "large" ]
               isExpanded true
               Expander.header (textBlockCls "gameName" (sprintf "%s Mods" gameName)) ]
               (stackPanel [] [
@@ -407,13 +407,24 @@ let private modInfo (model: Model) (dispatch: Msg -> unit): IView =
     stackPanelCls
         "modInfo"
         [ for (group, infos) in groupByState model.ModInfo |> Seq.sortBy fst do
-            // Output the group header, if any
-            match groupHeader group infos with
-            | Some header -> yield header
-            | None -> ()
+            let groupExpander content =
+                seq {
+                    let cs, header =
+                        groupHeader group infos
+                        |> Option.defaultValue ([ "adornRight" ], textBlock [] "")
+
+                    yield
+                        expander
+                            [ classes cs
+                              isExpanded true
+                              Expander.header header ]
+                            // Output the file info
+                            content
+                }
 
             yield!
-                if group = FoundGroup then
+                match group with
+                | FoundGroup ->
                     infos
                     |> Seq.map (fun m ->
                         match m.State with
@@ -436,10 +447,41 @@ let private modInfo (model: Model) (dispatch: Msg -> unit): IView =
                             name)
                     |> Seq.sortBy fst
                     |> Seq.map (gamePanel model.Games)
-                else
-                    // Output the file info
-                    Seq.sortBy orderBy infos
-                    |> Seq.map (fun mi -> view mi (fun msg -> ModInfoMsg(mi.Id, msg) |> dispatch)) ]
+                | NotFoundGroup ->
+                    let length = Seq.length infos
+
+                    let rowDefs =
+                        Array.create (3 * length - 1) "*"
+                        |> String.concat ","
+                        |> toRowDefinitions
+
+                    groupExpander
+                        (grid [ cls "modErrors"
+                                toColumnDefinitions "*,auto"
+                                rowDefs ] [
+                            yield!
+                                (Seq.sortBy orderBy infos
+                                 |> Seq.mapi (fun i mi ->
+                                     let j = 3 * i
+
+                                     seq {
+                                         modName [ cls "modName"; rowSpan 2; row j ] mi
+                                         textCls "header" 1 j "MD5 Hash"
+                                         textCls "md5sum" 1 (j + 1) (mi.Hash.ToUpper())
+
+                                         if i < length - 1
+                                         then textBlock [ cls "spacer"; row (j + 2) ] ""
+                                     })
+                                 |> Seq.concat)
+                         ])
+
+                | WorkingGroup ->
+                    groupExpander
+                        (stackPanelCls
+                            "n"
+                             (Seq.sortBy orderBy infos
+                              |> Seq.map (fun mi -> view mi (fun msg -> ModInfoMsg(mi.Id, msg) |> dispatch))
+                              |> Seq.toList)) ]
 
 type ModChecker() =
     interface IPlugin with

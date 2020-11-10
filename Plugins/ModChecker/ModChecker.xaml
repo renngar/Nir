@@ -39,6 +39,28 @@
         <Setter Property="Margin" Value="24,0,0,0" />
     </Style>
 
+    <Style Selector="DockPanel.modChecker Grid.modErrors">
+        <Setter Property="Width" Value="732" />
+        <Setter Property="Margin" Value="24,0,0,0" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="Background" Value="{DynamicResource ThemeControlMidBrush}" />
+    </Style>
+    <Style Selector="DockPanel.modChecker Grid.modErrors TextBlock.modName">
+        <Setter Property="Margin" Value="4" />
+    </Style>
+    <Style Selector="DockPanel.modChecker Grid.modErrors TextBlock.header">
+        <Setter Property="Margin" Value="4,4,4,0" />
+    </Style>
+    <Style Selector="DockPanel.modChecker Grid.modErrors TextBlock.md5sum">
+        <Setter Property="Margin" Value="4,0,4,4" />
+    </Style>
+    <Style Selector="DockPanel.modChecker Grid.modErrors TextBlock.spacer">
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="Height" Value="4" />
+        <Setter Property="Background" Value="{DynamicResource ThemeBackgroundBrush}" />
+        <Setter Property="Grid.ColumnSpan" Value="2" />
+    </Style>
+
     <Style Selector="DockPanel.modChecker StackPanel.mod">
         <Setter Property="Margin" Value="0,0,0,8" />
         <Setter Property="HorizontalAlignment" Value="Left" />
@@ -52,7 +74,7 @@
         <Setter Property="FontWeight" Value="Bold" />
         <Setter Property="FontSize" Value="{DynamicResource FontSizeLarge}" />
         <Setter Property="Foreground" Value="{DynamicResource ThemeAccentBrush}" />
-        <Setter Property="Margin" Value="0,8" />
+        <Setter Property="Margin" Value="0,0,0,8" />
     </Style>
 
     <Style Selector="DockPanel.modChecker TextBlock.error">
@@ -73,33 +95,34 @@
     </Style>
 
     <!-- Move the toggle to the right of the text, make it larger, adjust the position and match the text color -->
+    <Style Selector="Expander /template/ ToggleButton#PART_toggle">
+        <Setter Property="Foreground" Value="{DynamicResource ThemeForegroundBrush}" />
+    </Style>
     <Style Selector="Expander.game /template/ ToggleButton#PART_toggle">
-        <Setter Property="Template">
-            <ControlTemplate>
-                <Border BorderThickness="1">
-                    <Grid ColumnDefinitions="Auto,Auto">
-                        <ContentPresenter Name="PART_ContentPresenter"
-                                          Grid.Column="0"
-                                          Background="Transparent"
-                                          Content="{TemplateBinding Content}"
-                                          VerticalAlignment="Center"
-                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-                                          Padding="0,4"/>
-                        <Border Grid.Column="1" Width="20" Height="20" HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <Path Fill="{DynamicResource ThemeAccentBrush}"
-                                  HorizontalAlignment="Center"
-                                  VerticalAlignment="Top"
-                                  Data="M 0 0 L 6 6 L 0 12 Z" />
-                        </Border>
-                    </Grid>
-                </Border>
-            </ControlTemplate>
-        </Setter>
+        <Setter Property="Foreground" Value="{DynamicResource ThemeAccentBrush}" />
+    </Style>
+    <Style Selector="Expander.processing /template/ ToggleButton#PART_toggle">
+        <Setter Property="Foreground" Value="{DynamicResource ThemeAccentBrush}" />
+    </Style>
+    <Style Selector="Expander.error /template/ ToggleButton#PART_toggle">
+        <Setter Property="Foreground" Value="{DynamicResource ErrorBrush}" />
+    </Style>
+    <Style Selector="Expander.error StackPanel">
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="Spacing" Value="8" />
+    </Style>
+
+    <Style Selector="Expander /template/ ToggleButton#PART_toggle Border > Grid > Border > Path">
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Data" Value="M 0 2 L 4 6 L 0 10 Z" />
+    </Style>
+    <Style Selector="Expander.large /template/ ToggleButton#PART_toggle Border > Grid > Border > Path">
+        <Setter Property="VerticalAlignment" Value="Top" />
+        <Setter Property="Data" Value="M 0 0 L 6 6 L 0 12 Z" />
     </Style>
 
     <!-- Move the toggle to the right of the text -->
-    <Style Selector="DockPanel.modChecker Expander.adornRight /template/ ToggleButton#PART_toggle">
+    <Style Selector="DockPanel.modChecker Expander /template/ ToggleButton#PART_toggle">
         <Setter Property="Template">
             <ControlTemplate>
                 <Border BorderThickness="1">
@@ -113,10 +136,8 @@
                                           VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
                                           Padding="0,4"/>
                         <Border Grid.Column="1" Width="20" Height="20" HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <Path Fill="{DynamicResource ThemeForegroundBrush}"
-                                  HorizontalAlignment="Center"
-                                  VerticalAlignment="Center"
-                                  Data="M 0 2 L 4 6 L 0 10 Z" />
+                            <Path Fill="{TemplateBinding Foreground}"
+                                  HorizontalAlignment="Center" />
                         </Border>
                     </Grid>
                 </Border>
@@ -153,7 +174,7 @@
     <Style Selector="DockPanel.modChecker Grid.fileExpanderHeader TextBlock">
         <Setter Property="Margin" Value="4,0" />
     </Style>
-    <Style Selector="DockPanel.modChecker Grid.fileExpanderHeader TextBlock.small">
+    <Style Selector="DockPanel.modChecker TextBlock.small">
         <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}"></Setter>
     </Style>
 </Styles>
