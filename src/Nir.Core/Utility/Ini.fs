@@ -9,16 +9,6 @@ open Nir.Utility.INI.Types
 
 /// An INI parser
 module Parser =
-#if DEBUG
-    // Useful for debugging parser combinators
-    let (<!>) (p: Parser<_, _>) label: Parser<_, _> =
-        fun stream ->
-            printfn "%A: Entering %s" stream.Position label
-            let reply = p stream
-            printfn "%A: Leaving %s (%A)" stream.Position label reply.Status
-            reply
-#endif
-
     ////////////////////////////////////////////////////////////////////////
     /// INI Parsing Logic
     ////////////////////////////////////////////////////////////////////////
