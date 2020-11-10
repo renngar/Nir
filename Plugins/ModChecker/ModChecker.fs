@@ -189,6 +189,8 @@ let private update (msg: Msg) (model: Model): Model * Cmd<_> * Plugin.ExternalMs
            || noFileSelected fileNames
            || sameFiles () then
             model, Cmd.none, noOp
+        elif fileNames.Length = 0 then
+            model, Cmd.none, Plugin.NoOp
         else
             let directory = Path.GetDirectoryName fileNames.[0]
 
