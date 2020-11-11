@@ -27,6 +27,7 @@
     <Content Include="ApiSamples\trending.json" />
     <Content Include="ApiSamples\updated.json" />
     <Content Include="ApiSamples\validate.json" />
+    <Compile Include="Utility\BBCode.fs" />
     <Compile Include="Utility\Ini.Types.fs" />
     <Compile Include="Utility\Ini.fs" />
     <Compile Include="Utility\Md5sum.fs" />

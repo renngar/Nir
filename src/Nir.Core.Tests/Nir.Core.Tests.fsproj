@@ -6,6 +6,8 @@
     <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="TestUtils.fs" />
+    <Compile Include="BBCode.Tests.fs" />
     <Compile Include="Ini.Tests.fs" />
     <Compile Include="Path.Tests.fs" />
     <Compile Include="Main.fs" />

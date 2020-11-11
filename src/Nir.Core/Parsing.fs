@@ -30,7 +30,7 @@ let inline (<!>) (p: Parser<_, _>) _label: Parser<_, _> = p
 let private isSpace c = c = ' '
 
 /// Returns `true` for any ASCII letter or digit and `false` for all other chars.
-let private isWordChar c = isAsciiLetter c || isDigit c
+let isWordChar c = isAsciiLetter c || isDigit c
 
 /// Is the character a space ' ' or tab '\t'?
 let inline isLineSpace c = c = ' ' || c = '\t'
@@ -39,14 +39,55 @@ let inline isLineSpace c = c = ' ' || c = '\t'
 // Parsers //
 /////////////
 
+/// Parse and skips a sequence of any whitespace
+let ws = spaces
+
 /// Parses the space char ' ' and returns it.
-let space c = satisfy ((=) ' ') c
+let aSpace c = pchar ' ' c
+
+/// Parses the double-quote character '"' and returns it.
+let quote c = pchar '"' c
+
+/// Parses a left, square bracket character '[' and returns it.
+let openBracket c = pchar '[' c
+
+/// Parses a right, square bracket character ']' and returns it.
+let closeBracket c = pchar ']' c
 
 /// Parses a sequence of spaces ' ' and tabs '\t'. Returns them as a string.
 let lineWs c = manyChars (satisfy isLineSpace) c
 
 /// Parses any char in the range '0' - '9', 'a' - 'z' and 'A' - 'Z'. Returns the parsed char.
 let wordChar c = (asciiLetter <|> digit) c
+
+/// Parses any series of characters in the range '0' - '9', 'a' - 'z' and 'A' - 'Z'. Returns the parsed string.
+let wordChars s = many1Chars wordChar s
+
+/// Parses a string of characters matched by `firstOrLast` allowing spaces in the middle of the string
+let allowInternalSpaces (firstOrLast: Parser<char, 'a>): Parser<string, 'a> =
+    /// Parses a sequence of spaces. They may occur in the string, but not at the beginning or end.
+    let spaces = many1Chars aSpace
+
+    /// Parses spaces followed by a character that can appear at the end of the string
+    let safeSpaces =
+        spaces
+        .>>.? firstOrLast
+        |>> (fun (spaces, c) -> spaces + string c)
+
+    /// Parses a sequence that can safely appear at the end of the string
+    let endingSequence = safeSpaces <|> many1Chars firstOrLast
+
+    firstOrLast
+    .>>. manyStrings endingSequence
+    .>> lineWs
+    |>> (fun (c, strings) -> string c + strings)
+
+/// The parser `quoted p` applies the parser `between quote quote p`. It returns the result of `p`.
+let quoted p = between quote quote p
+
+/// The parser `bracketed p` applies the parser `between openBracket closeBracket p` looking for "[<p>]".  It returns
+/// the result of `p`.
+let bracketed p = between openBracket closeBracket p
 
 /// Creates an object of type `T` using its `Create` method, which returns a `Result`.
 ///

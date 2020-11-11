@@ -6,6 +6,7 @@ open Nir.Extensions
 open Nir.Parsing
 
 [<Struct>]
+// TODO Make sure the parsers here do not suffer from the same problem as the BBCode line tag parser
 type SectionName =
     private { SectionName: string }
 
@@ -21,7 +22,7 @@ type SectionName =
         let firstOrLast = wordChar <|> allowedPunctuation
 
         /// Parses a sequence of spaces. They may occur in a `SectionName`, but not at the beginning or end.
-        let spaces = many1Chars space
+        let spaces = many1Chars aSpace
 
         /// Parses spaces followed by a character that can appear at the end of a section name
         let safeSpaces =

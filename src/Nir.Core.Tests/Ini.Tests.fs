@@ -11,6 +11,7 @@ open FsCheck.Xunit
 open FsUnit.Xunit
 
 open Nir.Parsing
+open Nir.TestUtils
 open Nir.Utility.INI
 open Parser
 
@@ -20,36 +21,6 @@ let propertyNamePattern = "^[^;\\[\000\n\r=][^\000\n\r=]*"
 // Make sure there is at least one usable character in the property name
 let propertyLinePattern =
     "^[^;\\[\000\n\r=]*[^ ;\\[\000\n\r=][^;\\[\000\n\r=]*=[^\000\r\n]*[\r\n]*"
-
-let inline parse p str = run p str
-
-let parses p s =
-    match parse p s with
-    | Success _ -> true
-    | Failure _ -> false
-
-let parsesAs p s expected =
-    match parse p s with
-    | Success (result, _, _) -> result = expected
-    | Failure _ -> false
-
-/// Returns a generator for strings matching the regex pattern
-let genMatches pattern =
-    Gen.sized (fun size ->
-        let xeger = Xeger pattern
-
-        match size with
-        | 0 -> []
-        | _ -> [ for _ in 1 .. size -> xeger.Generate() ]
-        |> Gen.elements
-        |> Gen.resize size)
-
-let testPatterns rx f =
-    rx
-    |> genMatches
-    |> Arb.fromGen
-    |> Prop.forAll
-    <| f
 
 let parsesAsSectionFormat format s =
     let expected = IniSection(create<SectionName> s)

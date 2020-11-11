@@ -19,10 +19,6 @@ module Parser =
         | IniSection of SectionName
         | IniProperty of PropertyLine
 
-
-    // Parse a sequence of any whitespace
-    let private ws = spaces
-
     /// parse a string throwing away any trailing spaces or tabs
     let private strLineWs s = pstring s .>> lineWs
 
