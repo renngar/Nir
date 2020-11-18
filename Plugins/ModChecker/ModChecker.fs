@@ -302,7 +302,11 @@ let private titleCase (str: string) =
 
 let replaceUnderlines (str: string) = str.Replace("_", " ")
 
-let private stripMarkup = BBCode.strip >> stripHtml
+/// Strips the markup and leading or trailing whitespace (like newlines) from a string
+let private stripMarkup str =
+    BBCode.strip str
+    |> stripHtml
+    |> (fun (str: string) -> str.Trim())
 
 let private fileDetails allGames (``mod``: Mod) archive (results: Md5Search []) =
     let baseName = Path.baseName archive
