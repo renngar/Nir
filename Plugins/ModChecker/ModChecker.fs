@@ -262,7 +262,7 @@ let private modSelector (model: Model) dispatch =
                       |> FilesSelected
                       |> dispatch)
               textWrapping TextWrapping.Wrap
-              TextBox.watermark "Mod archive to verify"
+              TextBox.watermark "Paste or drop mod files here"
               verticalAlignment VerticalAlignment.Center
               acceptsReturn false
               acceptsTab false
