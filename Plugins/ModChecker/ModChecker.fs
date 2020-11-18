@@ -376,21 +376,18 @@ let private modPanel games (searchResults: seq<string * Md5Search []>) =
 
                             sprintf "%s Mod %d Unavailable" game.Name m.ModId) ]
 
-              (grid [ cls "modDetails"
-                      toColumnDefinitions "*,*,*"
-                      rowDefinitions rowDefs ] [
-                  if hasSummary
-                  then yield textBlock [ cls "modSummary"; columnSpan 3 ] (stripMarkup m.Summary)
-                  yield!
-                      Seq.sortBy fst searchResults
-                      |> Seq.mapi (fun i (archive, results) ->
-                          [ expander
-                              [ cls "adornRight"
-                                row (i + summaryOffset)
-                                Expander.header (fileHeader archive) ]
-                                (fileDetails games m archive results) ])
-                      |> List.concat
-               ]) ]
+              (grid
+                  [ cls "modDetails"
+                    toColumnDefinitions "*,*,*"
+                    rowDefinitions rowDefs ]
+                   (Seq.sortBy fst searchResults
+                    |> Seq.mapi (fun i (archive, results) ->
+                        [ expander
+                            [ cls "adornRight"
+                              row i
+                              Expander.header (fileHeader archive) ]
+                              (fileDetails games m archive results) ])
+                    |> List.concat)) ]
 
 let inline private fifth (_, _, _, _, e) = e
 
