@@ -29,7 +29,7 @@
 
     <Style Selector="DockPanel.modChecker TextBlock.modSummary">
         <Setter Property="FontStyle" Value="Italic" />
-        <Setter Property="Margin" Value="24,4,0,4" />
+        <Setter Property="Margin" Value="0,4,0,4" />
         <Setter Property="Width" Value="730" />
         <Setter Property="TextWrapping" Value="Wrap" />
         <Setter Property="HorizontalAlignment" Value="Left" />

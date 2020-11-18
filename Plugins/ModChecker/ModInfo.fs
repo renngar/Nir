@@ -28,7 +28,8 @@ type Model =
 type Msg = ModInfoUpdate of Model
 
 let orderBy modInfo =
-    let baseName = (Path.baseName modInfo.Archive).ToLower()
+    let baseName =
+        (Path.baseName modInfo.Archive).ToLower()
 
     match modInfo.State with
     | Found m -> 1, m.[0].Mod.Name, m.[0].Mod.GameId, baseName
