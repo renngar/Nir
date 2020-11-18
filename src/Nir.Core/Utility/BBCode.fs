@@ -9,10 +9,10 @@ namespace Nir.Utility
 //    https://forums.nexusmods.com/index.php?app=forums&module=extras&section=legends&do=bbcode
 //    https://www.bbcode.org/reference.php
 module BBCode =
-    module Parser =
-        open FParsec
-        open Nir.Parsing
+    open FParsec
+    open Nir.Parsing
 
+    module Parser =
         type Tag =
             { Tag: string // TODO Make this a union type
               Value: string
@@ -27,7 +27,10 @@ module BBCode =
               InLink: bool
               ListDepth: int
               InListElement: bool }
-            static member Default = { InLink = false; ListDepth = 0; InListElement = false }
+            static member Default =
+                { InLink = false
+                  ListDepth = 0
+                  InListElement = false }
 
         let private isTagChar = isWordChar
 
@@ -201,3 +204,19 @@ module BBCode =
 
         do elementsR := many element
         let document = elements .>> eof
+
+    /// Naively strips BBCode from a string
+    ///
+    /// Currently it does nothing intelligent about [quote], [line], [list], [*], or any other tag.
+    let strip (str: string) =
+        let rec stripList (es: Parser.Element list) =
+            es
+            |> Seq.map (function
+                | Parser.Text s -> s
+                | Parser.Tag tag -> stripList tag.Content)
+            |> String.concat ""
+
+        runParserOnString Parser.document Parser.State.Default "" str
+        |> function
+        | ParserResult.Success (es, _, _) -> stripList es
+        | ParserResult.Failure _ -> str

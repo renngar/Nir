@@ -344,7 +344,7 @@ let private fileDetails allGames (``mod``: Mod) archive (results: Md5Search []) 
                                   yield text 3 0 "Version"
                                   yield text 3 1 r.FileDetails.Version
                                ]) ]
-                        (borderedText "modDescription" r.FileDetails.Description)
+                        (borderedText "modDescription" (BBCode.strip r.FileDetails.Description))
     ]
 
 // Convert things like "under_moderation" to "under moderation"
@@ -377,7 +377,7 @@ let private modPanel games (searchResults: seq<string * Md5Search []>) =
                       toColumnDefinitions "*,*,*"
                       rowDefinitions rowDefs ] [
                   if hasSummary
-                  then yield textBlock [ cls "modSummary"; columnSpan 3 ] m.Summary
+                  then yield textBlock [ cls "modSummary"; columnSpan 3 ] (BBCode.strip m.Summary)
                   yield!
                       Seq.sortBy fst searchResults
                       |> Seq.mapi (fun i (archive, results) ->
