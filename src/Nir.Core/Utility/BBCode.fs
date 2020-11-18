@@ -1,5 +1,7 @@
 namespace Nir.Utility
 
+open System.Text
+
 // Supports the tags found on Nexus
 //
 //    https://wiki.nexusmods.com/index.php/Formating_and_BBCode_in_Descriptions
@@ -209,14 +211,18 @@ module BBCode =
     ///
     /// Currently it does nothing intelligent about [quote], [line], [list], [*], or any other tag.
     let strip (str: string) =
+        let sb = StringBuilder()
+        let append (str: string) = sb.Append str |> ignore
+
         let rec stripList (es: Parser.Element list) =
             es
-            |> Seq.map (function
-                | Parser.Text s -> s
+            |> Seq.iter (function
+                | Parser.Text s -> append s
                 | Parser.Tag tag -> stripList tag.Content)
-            |> String.concat ""
 
         runParserOnString Parser.document Parser.State.Default "" str
         |> function
         | ParserResult.Success (es, _, _) -> stripList es
-        | ParserResult.Failure _ -> str
+        | ParserResult.Failure _ -> append str
+
+        sb.ToString()
