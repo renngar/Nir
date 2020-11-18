@@ -17,6 +17,7 @@ open Nir.UI
 open Nir.UI.Controls
 open Nir.Utility
 open Nir.Utility.INI
+open Nir.Web
 
 open ModChecker
 open ModChecker.ModInfo
@@ -301,6 +302,8 @@ let private titleCase (str: string) =
 
 let replaceUnderlines (str: string) = str.Replace("_", " ")
 
+let private stripMarkup = BBCode.strip >> stripHtml
+
 let private fileDetails allGames (``mod``: Mod) archive (results: Md5Search []) =
     let baseName = Path.baseName archive
     let modsGameId = ``mod``.GameId
@@ -344,7 +347,7 @@ let private fileDetails allGames (``mod``: Mod) archive (results: Md5Search []) 
                                   yield text 3 0 "Version"
                                   yield text 3 1 r.FileDetails.Version
                                ]) ]
-                        (borderedText "modDescription" (BBCode.strip r.FileDetails.Description))
+                        (borderedText "modDescription" (stripMarkup r.FileDetails.Description))
     ]
 
 // Convert things like "under_moderation" to "under moderation"
@@ -377,7 +380,7 @@ let private modPanel games (searchResults: seq<string * Md5Search []>) =
                       toColumnDefinitions "*,*,*"
                       rowDefinitions rowDefs ] [
                   if hasSummary
-                  then yield textBlock [ cls "modSummary"; columnSpan 3 ] (BBCode.strip m.Summary)
+                  then yield textBlock [ cls "modSummary"; columnSpan 3 ] (stripMarkup m.Summary)
                   yield!
                       Seq.sortBy fst searchResults
                       |> Seq.mapi (fun i (archive, results) ->
