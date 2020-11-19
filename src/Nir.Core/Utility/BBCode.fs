@@ -16,7 +16,7 @@ module BBCode =
 
     module Parser =
         type Tag =
-            { Tag: string // TODO Make this a union type
+            { Tag: string
               Value: string
               Content: Element list }
 
@@ -218,7 +218,11 @@ module BBCode =
             es
             |> Seq.iter (function
                 | Parser.Text s -> append s
-                | Parser.Tag tag -> stripList tag.Content)
+                | Parser.Tag tag ->
+                    match tag.Tag with
+                    | "img" -> ()
+                    | "spoiler" -> append "////////"
+                    | _ -> stripList tag.Content)
 
         runParserOnString Parser.document Parser.State.Default "" str
         |> function
