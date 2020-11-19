@@ -27,8 +27,13 @@
         <Setter Property="Watermark" Value="Paste or drop mod files here" />
     </Style>
 
-    <Style Selector="DockPanel.modChecker Grid.modSelector > TextBox /template/ ScrollViewer">
-        <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
+    <!-- The selectableTextBlock class uses a TextBox to create a fake selectable TextBlock -->
+    <Style Selector="DockPanel.modChecker TextBox.selectableTextBlock /template/ ScrollViewer">
+        <Setter Property="HorizontalScrollBarVisibility" Value="Hidden" />
+    </Style>
+
+    <Style Selector="DockPanel.modChecker TextBox.noHScroll /template/ ScrollViewer">
+        <Setter Property="HorizontalScrollBarVisibility" Value="Hidden" />
     </Style>
 
     <Style Selector="DockPanel.modChecker Grid.selectors">
@@ -179,10 +184,23 @@
     <Style Selector="DockPanel.modChecker Grid.fileExpanderHeader">
         <Setter Property="Width" Value="710" />
     </Style>
+
+    <Style Selector="DockPanel.modChecker TextBox.selectableTextBlock">
+        <Setter Property="Margin" Value="4,0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Background" Value="{DynamicResource ThemeControlMidBrush}" />
+        <Setter Property="TextWrapping" Value="NoWrap" />
+        <Setter Property="IsReadOnly" Value="True" />
+    </Style>
+
     <Style Selector="DockPanel.modChecker Grid.fileExpanderHeader TextBlock">
         <Setter Property="Margin" Value="4,0" />
     </Style>
     <Style Selector="DockPanel.modChecker TextBlock.small">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}"></Setter>
+    </Style>
+    <Style Selector="DockPanel.modChecker TextBox.small">
         <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}"></Setter>
     </Style>
 </Styles>

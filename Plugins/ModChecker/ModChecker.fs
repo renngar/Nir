@@ -246,7 +246,8 @@ let private modSelector (model: Model) dispatch =
            toColumnDefinitions "*, auto"
            toRowDefinitions "auto, *" ] [
         textBox
-            [ column 0
+            [ cls "noHScroll"
+              column 0
               allowDrop true
               onDragOver (fun e ->
                   e.DragEffects <-
@@ -338,12 +339,14 @@ let private fileDetails allGames (``mod``: Mod) archive (results: Md5Search []) 
                                       toRowDefinitions "*,*" ] [
                                   let text c r text =
                                       textBlock [ cls "small"; row r; column c ] text
+                                  let selectableText c r text =
+                                      textBox [ classes ["small"; "selectableTextBlock"]; row r; column c; isReadOnly true ] text
 
                                   if r.FileDetails.Name <> baseName
-                                  then yield textBlock [ rowSpan 2 ] r.FileDetails.Name
+                                  then yield textBox [ classes ["fileName"; "selectableTextBlock"]; rowSpan 2; isReadOnly true] r.FileDetails.Name
 
                                   yield text 1 0 "MD5 Hash"
-                                  yield text 1 1 (md5Result r)
+                                  yield selectableText 1 1 (md5Result r)
                                   yield text 2 0 "Date Uploaded"
                                   yield text 2 1 (r.FileDetails.UploadedTime.ToLocalTime().ToString("f"))
                                   yield text 3 0 "Version"

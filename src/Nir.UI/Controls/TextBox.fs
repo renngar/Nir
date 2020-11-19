@@ -13,4 +13,5 @@ let textBox attributes text =
 let acceptsReturn = TextBox.acceptsReturn
 let acceptsTab = TextBox.acceptsTab
 let onTextChanged = TextBox.onTextChanged
+let isReadOnly = TextBox.isReadOnly
 let textWrapping = TextBox.textWrapping
