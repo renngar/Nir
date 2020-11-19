@@ -175,8 +175,8 @@
         <Setter Property="Background" Value="{DynamicResource ThemeControlMidHighBrush}" />
     </Style>
 
-    <Style Selector="DockPanel.modChecker Grid.modDetails Border.modDescription > TextBlock.modDescription">
-        <Setter Property="Margin" Value="4,4" />
+    <Style Selector="DockPanel.modChecker Grid.modDetails TextBlock.modDescription">
+        <Setter Property="Margin" Value="0,4,4,4" />
         <Setter Property="TextWrapping" Value="Wrap" />
         <Setter Property="MaxWidth" Value="710" />
     </Style>
