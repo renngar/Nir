@@ -9,7 +9,6 @@ open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
 open Avalonia.Input // DragDrop
 open Avalonia.Layout
-open Avalonia.Media
 
 open Nir.Dialogs
 open Nir.NexusApi
@@ -261,7 +260,6 @@ let private modSelector (model: Model) dispatch =
                       |> Seq.toArray
                       |> FilesSelected
                       |> dispatch)
-              textWrapping TextWrapping.Wrap
               TextBox.watermark "Paste or drop mod files here"
               verticalAlignment VerticalAlignment.Center
               acceptsReturn false
@@ -384,6 +382,7 @@ let private modPanel games (searchResults: seq<string * Md5Search []>) =
                   [ cls "modDetails"
                     toColumnDefinitions "*,*,*"
                     rowDefinitions rowDefs ]
+                   // TODO: Group files within a mod by the file group they are in
                    (Seq.sortBy fst searchResults
                     |> Seq.mapi (fun i (archive, results) ->
                         [ expander

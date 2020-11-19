@@ -18,13 +18,21 @@
         <Setter Property="Margin" Value="8,0,0,0" />
     </Style>
 
-    <Style Selector="DockPanel.modChecker Grid.selectors">
-        <Setter Property="Margin" Value="0,0,0,8" />
-    </Style>
-
     <Style Selector="DockPanel.modChecker ScrollViewer">
         <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
         <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+    </Style>
+
+    <Style Selector="DockPanel.modChecker Grid.modSelector TextBox">
+        <Setter Property="Watermark" Value="Paste or drop mod files here" />
+    </Style>
+
+    <Style Selector="DockPanel.modChecker Grid.modSelector > TextBox /template/ ScrollViewer">
+        <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
+    </Style>
+
+    <Style Selector="DockPanel.modChecker Grid.selectors">
+        <Setter Property="Margin" Value="0,0,0,8" />
     </Style>
 
     <Style Selector="DockPanel.modChecker TextBlock.modSummary">
