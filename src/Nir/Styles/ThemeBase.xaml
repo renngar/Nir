@@ -1,3 +1,7 @@
+<!-- Styles that are common across themes. -->
+
+<!-- Copyright (C) 2020 Renngar <renngar@renngar.com> -->
+
 <!-- This is not a standalone style file.  It must be included in a theme after the theme-specific includes -->
 <Styles
     xmlns="https://github.com/avaloniaui">

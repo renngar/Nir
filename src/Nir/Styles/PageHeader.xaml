@@ -1,4 +1,7 @@
-﻿<Styles xmlns="https://github.com/avaloniaui">
+﻿<!-- Styling for the shared page header. -->
+
+<!-- Copyright (C) 2020 Renngar <renngar@renngar.com> -->
+<Styles xmlns="https://github.com/avaloniaui">
     <Style Selector="Grid.pageHeader">
         <Setter Property="DockPanel.Dock" Value="Top" />
     </Style>
