@@ -6,7 +6,6 @@ open Nir.Extensions
 open Nir.Parsing
 
 [<Struct>]
-// TODO Make sure the parsers here do not suffer from the same problem as the BBCode line tag parser
 type SectionName =
     private { SectionName: string }
 
