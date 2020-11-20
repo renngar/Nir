@@ -64,9 +64,6 @@
     <Style Selector="DockPanel.modChecker Grid.modErrors TextBlock.header">
         <Setter Property="Margin" Value="4,4,4,0" />
     </Style>
-    <Style Selector="DockPanel.modChecker Grid.modErrors TextBlock.md5sum">
-        <Setter Property="Margin" Value="4,0,4,4" />
-    </Style>
     <Style Selector="DockPanel.modChecker Grid.modErrors TextBlock.spacer">
         <Setter Property="Margin" Value="0" />
         <Setter Property="Height" Value="4" />
@@ -192,6 +189,9 @@
         <Setter Property="Background" Value="{DynamicResource ThemeControlMidBrush}" />
         <Setter Property="TextWrapping" Value="NoWrap" />
         <Setter Property="IsReadOnly" Value="True" />
+    </Style>
+    <Style Selector="DockPanel.modChecker Grid.modErrors TextBox.selectableTextBlock">
+        <Setter Property="Margin" Value="4,0,4,4" />
     </Style>
 
     <Style Selector="DockPanel.modChecker Grid.fileExpanderHeader TextBlock">

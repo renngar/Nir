@@ -307,6 +307,15 @@ let private stripMarkup str =
     |> stripHtml
     |> (fun (str: string) -> str.Trim())
 
+let private selectableText c r text =
+    textBox
+        [ classes [ "small"
+                    "selectableTextBlock" ]
+          row r
+          column c
+          isReadOnly true ]
+        text
+
 let private fileDetails allGames (``mod``: Mod) archive (results: Md5Search []) =
     let baseName = Path.baseName archive
     let modsGameId = ``mod``.GameId
@@ -339,11 +348,15 @@ let private fileDetails allGames (``mod``: Mod) archive (results: Md5Search []) 
                                       toRowDefinitions "*,*" ] [
                                   let text c r text =
                                       textBlock [ cls "small"; row r; column c ] text
-                                  let selectableText c r text =
-                                      textBox [ classes ["small"; "selectableTextBlock"]; row r; column c; isReadOnly true ] text
 
-                                  if r.FileDetails.Name <> baseName
-                                  then yield textBox [ classes ["fileName"; "selectableTextBlock"]; rowSpan 2; isReadOnly true] r.FileDetails.Name
+                                  if r.FileDetails.Name <> baseName then
+                                      yield
+                                          textBox
+                                              [ classes [ "fileName"
+                                                          "selectableTextBlock" ]
+                                                rowSpan 2
+                                                isReadOnly true ]
+                                              r.FileDetails.Name
 
                                   yield text 1 0 "MD5 Hash"
                                   yield selectableText 1 1 (md5Result r)
@@ -481,7 +494,7 @@ let private modInfo (model: Model) (dispatch: Msg -> unit): IView =
                                      seq {
                                          modName [ cls "modName"; rowSpan 2; row j ] mi
                                          textCls "header" 1 j "MD5 Hash"
-                                         textCls "md5sum" 1 (j + 1) (mi.Hash.ToUpper())
+                                         selectableText 1 (j + 1) (mi.Hash.ToUpper())
 
                                          if i < length - 1
                                          then textBlock [ cls "spacer"; row (j + 2) ] ""
