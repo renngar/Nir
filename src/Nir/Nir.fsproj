@@ -12,16 +12,25 @@
     <Compile Include="Pages\Start.fs" />
     <Compile Include="Pages\Error.fs" />
     <Compile Include="Pages\About.fs" />
+    <Compile Include="Pages\Licenses.fs" />
     <Compile Include="ThemeSwitcher.fs" />
     <Compile Include="Shell.fs" />
     <Compile Include="Program.fs" />
     <AvaloniaResource Include="**\*.xaml" />
-    <AvaloniaResource Include="Assets\Icons\**" />
+    <AvaloniaResource Include="Assets\Icons\*" />
     <AvaloniaResource Include="Assets\Fonts\**" />
+    <AvaloniaResource Include="Assets\Licenses\**" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Nir.Core\Nir.Core.fsproj" />
     <ProjectReference Include="..\Nir.UI\Nir.UI.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Assets\Icons\Art\Cosmology.xcf" />
+    <Content Include="Assets\Icons\Art\cosmology_of_nirn.jpg" />
+    <Content Include="Assets\Icons\Art\Cosmology-Icon.xcf" />
+    <Content Include="Assets\Icons\Art\Cosmology-Inner.xcf" />
+    <Content Include="Assets\Icons\Art\Cosmology-Manual.xcf" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

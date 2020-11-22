@@ -1,0 +1,12 @@
+<!-- Styling for the About page. -->
+
+<!-- Copyright (C) 2020 Renngar <renngar@renngar.com> -->
+<Styles
+    xmlns="https://github.com/avaloniaui">
+
+    <Style Selector="TextBox.license">
+        <!-- Oxygen Mono - Has a couple odd kernings and letterforms -->
+        <!-- IBM Plex Mono - A typewriter style -->
+        <Setter Property="FontFamily" Value="avares://Nir/Assets/Fonts#Hack" />
+    </Style>
+</Styles>

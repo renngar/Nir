@@ -28,6 +28,11 @@ let textBox attributes text =
                      yield! attributes ]
     |> Helpers.generalize
 
+let textBoxCls ``class`` text =
+    TextBox.create [ cls ``class``
+                     TextBox.text text ]
+    |> Helpers.generalize
+
 let acceptsReturn = TextBox.acceptsReturn
 let acceptsTab = TextBox.acceptsTab
 let onTextChanged = TextBox.onTextChanged

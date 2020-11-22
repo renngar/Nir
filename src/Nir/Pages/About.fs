@@ -19,97 +19,112 @@
 
 module Nir.Pages.About
 
-open Elmish
+open System
+open System.IO
+open global.Elmish
+open Avalonia
 open Avalonia.Controls
-open Avalonia.FuncUI.Types
+open Avalonia.FuncUI.DSL
 open Avalonia.Layout
+open Avalonia.Media.Imaging
+open Avalonia.Platform
 open Nir.UI
 open Nir.UI.Controls
-open Nir.Web
-
+open Nir.Utility.Path
 
 type Model =
-    { NoOp: bool }
+    { ShowNirLicense: bool }
     interface IPageModel with
         member this.HistoryStyle = NoHistory
-        member this.Title = "Thank you for using Avalonia.FuncUI"
+        member this.Title = "About Nir"
         member this.Description = ""
 
-type Links =
-    | AvaloniaRepository
-    | AvaloniaAwesome
-    | AvaloniaGitter
-    | AvaloniaCommunity
-    | FuncUIRepository
-    | FuncUIGitter
-    | FuncUINetTemplates
-    | FuncUISamples
+type Msg =
+    | ToggleGpl
+    | ShowOpenSource
 
-type Msg = OpenUrl of Links
+type ExternalMsg =
+    | NoOp
+    | ShowLicenses
 
-type ExternalMsg = | NoOp
+let init = { ShowNirLicense = false }, Cmd.none
 
-let init = { NoOp = false }, Cmd.none
-
-let update (msg: Msg) (state: Model) =
+let update (msg: Msg) (model: Model) =
     match msg with
-    | OpenUrl link ->
-        match link with
-        | AvaloniaRepository -> "https://github.com/AvaloniaUI/Avalonia"
-        | AvaloniaAwesome -> "https://github.com/AvaloniaCommunity/awesome-avalonia"
-        | AvaloniaGitter -> "https://gitter.im/AvaloniaUI"
-        | AvaloniaCommunity -> "https://github.com/AvaloniaCommunity"
-        | FuncUIRepository -> "https://github.com/AvaloniaCommunity/Avalonia.FuncUI"
-        | FuncUIGitter -> "https://gitter.im/Avalonia-FuncUI"
-        | FuncUINetTemplates -> "https://github.com/AvaloniaCommunity/Avalonia.FuncUI.ProjectTemplates"
-        | FuncUISamples -> "https://github.com/AvaloniaCommunity/Avalonia.FuncUI/tree/master/src/Examples"
-        |> openUrl
+    | ToggleGpl ->
+        { model with
+              ShowNirLicense = not model.ShowNirLicense },
+        Cmd.none,
+        NoOp
+    | ShowOpenSource -> model, Cmd.none, ShowLicenses
 
-        state, Cmd.none, NoOp
+let license attrs filePath =
+    File.ReadAllText
+        (getProgramPath ()
+         +/ @"Assets\Licenses"
+         +/ filePath)
+    |> textBox [ cls "license"
+                 dock Dock.Bottom
+                 isReadOnly true
+                 yield! attrs ]
 
-let linkView (dockingPosition: Dock) dispatch header links =
-    let link url text =
-        textBlock
-            [ cls "link"
-              onTapped (fun _ -> dispatch (OpenUrl url)) ]
-            text
+let view (model: Model) (dispatch: Msg -> unit) =
+    let assets =
+        AvaloniaLocator.Current.GetService<IAssetLoader>()
 
-    stackPanel [ dock dockingPosition
-                 horizontalAlignment
-                     (if dockingPosition = Dock.Left then HorizontalAlignment.Left else HorizontalAlignment.Right) ] [
-        yield textBlockCls "h1" header
-        yield! Seq.map (fun (url, text) -> link url text) links
-    ]
+    let stream =
+        assets.Open(Uri("avares://Nir/Assets/Icons/Nir.ico"))
 
-let avaloniaLinksView (dock: Dock) (dispatch: Msg -> unit): IView =
-    linkView
-        dock
-        dispatch
-        "Avalonia"
-        [ (AvaloniaRepository, "Avalonia Repository")
-          (AvaloniaAwesome, "Awesome Avalonia")
-          (AvaloniaGitter, "Gitter")
-          (AvaloniaCommunity, "Avalonia Community") ]
+    let icon = new Bitmap(stream)
+    let img = Image()
+    img.Source <- icon
 
-let avaloniaFuncUILinksView (dock: Dock) (dispatch: Msg -> unit): IView =
-    linkView
-        dock
-        dispatch
-        "Avalonia.FuncUI"
-        [ (FuncUIRepository, "Avalonia.FuncUI Repository")
-          (FuncUIGitter, "Gitter")
-          (FuncUINetTemplates, ".Net Templates")
-          (FuncUISamples, "Samples") ]
-
-let view (_: Model) (dispatch: Msg -> unit) =
     dockPanel [ cls "about"
-                horizontalAlignment HorizontalAlignment.Left
+                horizontalAlignment HorizontalAlignment.Center
                 verticalAlignment VerticalAlignment.Top ] [
-        textBlock
-            [ dock Dock.Top; cls "subtitle" ]
-            ("Avalonia.FuncUI is a project that provides you with an Elmish DSL for Avalonia Controls\n"
-             + "for you to use in an F# idiomatic way. We hope you like the project and spread the word :)\n"
-             + "Questions ? Reach to us on Gitter, also check the links below")
-        avaloniaLinksView Dock.Left dispatch
-        avaloniaFuncUILinksView Dock.Right dispatch
+        yield
+            stackPanel [ dock Dock.Top
+                         orientation Orientation.Horizontal
+                         StackPanel.width 600.0
+                         StackPanel.spacing 10.0
+                         StackPanel.margin (0.0, 0.0, 0.0, 10.0) ] [
+                Image.create [ Image.source icon
+                               Image.width 32.0
+                               Image.height 32.0 ]
+                textBlock
+                    [ cls "h1"
+                      TextBlock.verticalAlignment VerticalAlignment.Center ]
+                    "Nir"
+            ]
+
+        yield
+            stackPanel [ StackPanel.width 600.0
+                         dock Dock.Top ] [
+                yield textBlock [] "Copyright © 2020 Renngar. All rights reserved.\n"
+                yield
+                    stackPanel [ orientation Orientation.Horizontal ] [
+                        textBlock [] "Nir is made available to you under the "
+                        textBlock
+                            [ cls "link"
+                              onTapped (fun _ -> dispatch ToggleGpl) ]
+                            "GNU Public License 3.0"
+                        textBlock [] " (GPL) and includes "
+                        textBlock
+                            [ cls "link"
+                              onTapped (fun _ -> dispatch ShowOpenSource) ]
+                            "open source software"
+                    ]
+                yield!
+                    List.map
+                        (textBlockCls "subtitle")
+                        [ "under a variety of other licenses. You can read instructions on how to download and build "
+                          + "for yourself"
+                          "the specific source code used to create this copy." ]
+            ]
+        if model.ShowNirLicense then
+            yield
+                license
+                    [ TextBox.margin (0.0, 10.0, 0.0, 0.0)
+                      dock Dock.Bottom ]
+                    "gpl-3.0.txt"
     ]

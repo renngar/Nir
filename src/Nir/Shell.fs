@@ -64,6 +64,7 @@ type Msg =
     | ShellMsg of ShellMsg
     | StartMsg of Start.Msg
     | AboutMsg of About.Msg
+    | LicensesMsg of Licenses.Msg
     | ApiKeyMsg of ApiKey.Msg
     | ErrorMsg of Error.Msg
     | PluginMsg of Plugin.Msg
@@ -80,6 +81,7 @@ type PluginModel =
 type PageModel =
     | Start of Start.Model
     | About of About.Model
+    | Licenses of Licenses.Model
     | ApiKey of ApiKey.Model
     | ErrorModel of ErrorModel
     | Plugin of PluginModel
@@ -97,6 +99,7 @@ type Page =
         match this.PageModel with
         | Start m -> m :> IPluginModel
         | About m -> m :> IPluginModel
+        | Licenses m -> m :> IPluginModel
         | ApiKey m -> m :> IPluginModel
         | ErrorModel (_, m) -> m :> IPluginModel
         | Plugin { Model = (Plugin.Model m) } -> m
@@ -146,6 +149,7 @@ type ExternalMsg =
     | NoOp
     | StartExtMsg of Start.ExternalMsg
     | AboutExtMsg of About.ExternalMsg
+    | LicensesExtMsg of Licenses.ExternalMsg
     | ApiKeyExtMsg of ApiKey.ExternalMsg
     | ErrorExtMsg of Error.ExternalMsg
     | PluginExtMsg of Plugin.ExternalMsg
@@ -341,6 +345,8 @@ let private processPageMessage msg model =
         updatePage model typeof<Start.Model> Start.update startMsg (snd >> Start) StartMsg StartExtMsg
     | AboutMsg aboutMsg ->
         updatePage model typeof<About.Model> About.update aboutMsg (snd >> About) AboutMsg AboutExtMsg
+    | LicensesMsg licensesMsg ->
+        updatePage model typeof<Licenses.Model> Licenses.update licensesMsg (snd >> Licenses) LicensesMsg LicensesExtMsg
     | ApiKeyMsg apiKeyMsg ->
         updatePage model typeof<ApiKey.Model> ApiKey.update apiKeyMsg (snd >> ApiKey) ApiKeyMsg ApiKeyExtMsg
     | ErrorMsg errorMsg ->
@@ -369,6 +375,7 @@ let private processExternalMessage model cmd externalMsg =
     | NoOp
     | StartExtMsg Start.ExternalMsg.NoOp
     | AboutExtMsg About.ExternalMsg.NoOp
+    | LicensesExtMsg Licenses.ExternalMsg.NoOp
     | ApiKeyExtMsg ApiKey.ExternalMsg.NoOp
     | PluginExtMsg Plugin.ExternalMsg.NoOp -> model, cmd
 
@@ -389,6 +396,10 @@ let private processExternalMessage model cmd externalMsg =
                IniSection = iniSection
                Model = pageModel },
              cmd))
+    | AboutExtMsg About.ExternalMsg.ShowLicenses ->
+        fun () -> Licenses.init
+        |> showPage typeof<Licenses.Model> Licenses LicensesMsg model
+
     | ApiKeyExtMsg (ApiKey.ExternalMsg.Verified (nexus, user)) ->
         // Grab the results when the API Key page is done and write it to the .ini
         setNexusApiKey model.Ini user.Key
@@ -491,6 +502,7 @@ let view (model: Model) (dispatch: Msg -> unit): IView =
             match model.CurrentPage.PageModel with
             | Start m -> Start.view m (StartMsg >> dispatch)
             | About m -> About.view m (AboutMsg >> dispatch)
+            | Licenses m -> Licenses.view m (LicensesMsg >> dispatch)
             | ApiKey m -> ApiKey.view m (ApiKeyMsg >> dispatch)
             | ErrorModel (_, m) -> Error.view m (ErrorMsg >> dispatch)
             | Plugin { Plugin = plugin; Model = m } -> plugin.View(m, PluginMsg >> dispatch)
