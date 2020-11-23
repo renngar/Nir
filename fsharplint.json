@@ -1,5 +1,5 @@
 {
-        "ignoreFiles": ["*assemblyinfo.*"],
+        "ignoreFiles": ["*assemblyinfo.*", "*.Version.fs"],
         "global": {
           "numIndentationSpaces": 4
         },

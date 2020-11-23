@@ -25,6 +25,12 @@
       "commands": [
         "fake"
       ]
+    },
+    "nbgv": {
+      "version": "3.3.37",
+      "commands": [
+        "nbgv"
+      ]
     }
   }
 }
