@@ -19,15 +19,11 @@
 
 module Nir.Pages.Licenses
 
-open System
-open global.Elmish
-open Avalonia
+open Elmish
 open Avalonia.Controls
 open Avalonia.FuncUI
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
-open Avalonia.Media.Imaging
-open Avalonia.Platform
 open Nir.UI
 open Nir.UI.Controls
 open Nir.Web
@@ -159,16 +155,6 @@ let netCorePluginsLinksView (dispatch: Msg -> unit): IView =
         "apache-2.0.txt"
 
 let view (_: Model) (dispatch: Msg -> unit) =
-    let assets =
-        AvaloniaLocator.Current.GetService<IAssetLoader>()
-
-    let stream =
-        assets.Open(Uri("avares://Nir/Assets/Icons/Nir.ico"))
-
-    let icon = new Bitmap(stream)
-    let img = Image()
-    img.Source <- icon
-
     TabControl.create [ dock Dock.Top
                         TabControl.tabStripPlacement Dock.Left
                         TabControl.viewItems [ avaloniaLinksView dispatch

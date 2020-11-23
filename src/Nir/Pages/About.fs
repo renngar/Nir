@@ -19,18 +19,15 @@
 
 module Nir.Pages.About
 
-open System
 open System.IO
-open global.Elmish
-open Avalonia
+open Elmish
 open Avalonia.Controls
 open Avalonia.FuncUI.DSL
 open Avalonia.Layout
 open Avalonia.Media.Imaging
-open Avalonia.Platform
+open Nir
 open Nir.UI
 open Nir.UI.Controls
-open Nir.Utility.Path
 
 type Model =
     { ShowNirLicense: bool }
@@ -59,23 +56,17 @@ let update (msg: Msg) (model: Model) =
     | ShowOpenSource -> model, Cmd.none, ShowLicenses
 
 let license attrs filePath =
-    File.ReadAllText
-        (getProgramPath ()
-         +/ @"Assets\Licenses"
-         +/ filePath)
+    let tr =
+        new StreamReader(Assets.Open("Licenses/" + filePath))
+
+    tr.ReadToEnd()
     |> textBox [ cls "license"
                  dock Dock.Bottom
                  isReadOnly true
                  yield! attrs ]
 
 let view (model: Model) (dispatch: Msg -> unit) =
-    let assets =
-        AvaloniaLocator.Current.GetService<IAssetLoader>()
-
-    let stream =
-        assets.Open(Uri("avares://Nir/Assets/Icons/Nir.ico"))
-
-    let icon = new Bitmap(stream)
+    let icon = new Bitmap(Assets.Open("Icons/Nir.ico"))
     let img = Image()
     img.Source <- icon
 
