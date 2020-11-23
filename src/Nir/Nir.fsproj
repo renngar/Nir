@@ -3,8 +3,6 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>netcoreapp3.1</TargetFramework>
-    <VersionPrefix>0.1.0</VersionPrefix>
-    <VersionSuffix Condition=" '$(Configuration)' == 'Debug' ">dev</VersionSuffix>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Assets.fs" />

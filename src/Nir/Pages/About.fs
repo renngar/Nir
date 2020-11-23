@@ -19,7 +19,10 @@
 
 module Nir.Pages.About
 
+open System.Diagnostics
 open System.IO
+open System.Reflection
+open System.Text.RegularExpressions
 open Elmish
 open Avalonia.Controls
 open Avalonia.FuncUI.DSL
@@ -70,6 +73,10 @@ let view (model: Model) (dispatch: Msg -> unit) =
     let img = Image()
     img.Source <- icon
 
+    let nirVersion =
+        FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).ProductVersion
+        |> fun s -> Regex.Replace(s, @"\+.*", "")
+
     dockPanel [ cls "about"
                 horizontalAlignment HorizontalAlignment.Center
                 verticalAlignment VerticalAlignment.Top ] [
@@ -82,35 +89,48 @@ let view (model: Model) (dispatch: Msg -> unit) =
                 Image.create [ Image.source icon
                                Image.width 32.0
                                Image.height 32.0 ]
-                textBlock
-                    [ cls "h1"
-                      TextBlock.verticalAlignment VerticalAlignment.Center ]
-                    "Nir"
+                stackPanel [ orientation Orientation.Horizontal
+                             verticalAlignment VerticalAlignment.Center
+                             StackPanel.spacing 0.0 ] [
+                    textBlock
+                        [ cls "h1"
+                          verticalAlignment VerticalAlignment.Bottom ]
+                        ("Nir " + nirVersion)
+                ]
             ]
 
         yield
             stackPanel [ StackPanel.width 600.0
                          dock Dock.Top ] [
-                yield textBlock [] "Copyright © 2020 Renngar. All rights reserved.\n"
-                yield
-                    stackPanel [ orientation Orientation.Horizontal ] [
-                        textBlock [] "Nir is made available to you under the "
-                        textBlock
-                            [ cls "link"
-                              onTapped (fun _ -> dispatch ToggleGpl) ]
-                            "GNU Public License 3.0"
-                        textBlock [] " (GPL) and includes "
-                        textBlock
-                            [ cls "link"
-                              onTapped (fun _ -> dispatch ShowOpenSource) ]
-                            "open source software"
-                    ]
-                yield!
-                    List.map
-                        (textBlockCls "subtitle")
-                        [ "under a variety of other licenses. You can read instructions on how to download and build "
-                          + "for yourself"
-                          "the specific source code used to create this copy." ]
+                textBlock [] "Copyright © 2020 Renngar. All rights reserved.\n"
+                stackPanel [ orientation Orientation.Horizontal ] [
+                    textBlock [] "Nir is made available to you under the "
+                    textBlock
+                        [ cls "link"
+                          onTapped (fun _ -> dispatch ToggleGpl) ]
+                        "GNU Public License 3.0"
+                    textBlock [] " (GPL) and includes "
+                    textBlock
+                        [ cls "link"
+                          onTapped (fun _ -> dispatch ShowOpenSource) ]
+                        "open source software"
+                ]
+
+                textBlockCls
+                    "subtitle"
+                    ("under a variety of other licenses. You can read instructions on how to download and build "
+                     + "for yourself")
+                stackPanel [ orientation Orientation.Horizontal ] [
+                    textBlock [] "the specific "
+                    textBlock
+                        [ cls "link"
+                          onTapped (fun _ ->
+                              Web.openUrl
+                                  ("https://github.com/renngar/Nir/releases/tag/"
+                                   + nirVersion)) ]
+                        "source code used to create this copy"
+                    textBlock [] "."
+                ]
             ]
         if model.ShowNirLicense then
             yield
