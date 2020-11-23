@@ -28,15 +28,6 @@ open Nir.UI
 open Nir.UI.Controls
 open Nir.Web
 
-// The current list of packages directly used by Nir include:
-//
-// Avalonia.Desktop - MIT
-// FParsec - FParsec - FParsec License
-// FSharp.Core - F# - MIT
-// FSharp.Data - F# Data - Apache 2.0
-// JaggerJo.Avalonia.FuncUI - Avalonia.FuncUI - MIT
-// McMaster.NETCore.Plugins - .NET Core Plugins - Apache 2.0
-
 type Model =
     { NoOp: bool }
     interface IPageModel with
@@ -143,7 +134,7 @@ let materialIconsLinksView (dispatch: Msg -> unit): IView =
     linkView
         dispatch
         "Material Icons"
-        [ "https://material.io/resources/icons/?style=baseline", "Material Design Icons" ]
+        [ "https://material.io/resources/icons/?style=outline", "Material Design Icons" ]
         "apache-2.0.txt"
 
 let netCorePluginsLinksView (dispatch: Msg -> unit): IView =
