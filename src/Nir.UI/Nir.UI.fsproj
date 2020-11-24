@@ -26,6 +26,8 @@
     <Compile Include="Controls\ProgressBar.fs" />
     <Compile Include="Controls\ScrollViewer.fs" />
     <Compile Include="Controls\StackPanel.fs" />
+    <Compile Include="Controls\TabControl.fs" />
+    <Compile Include="Controls\TabItem.fs" />
     <Compile Include="Controls\TextBlock.fs" />
     <Compile Include="Controls\TextBox.fs" />
     <Compile Include="Controls\ToolTip.fs" />
