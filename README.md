@@ -1,4 +1,6 @@
 ﻿# Nir
+![.NET Core](https://github.com/renngar/Nir/workflows/.NET%20Core/badge.svg)
+
 Nir is a friendly collection of modding tools. It is plugin-based, themeable and
 extensible. The first tool is the **Nexus Mod Checker**.
 
