@@ -114,7 +114,7 @@ let view (model: Model) (dispatch: Msg -> unit) =
                           [ cls "link"
                             onTapped (fun _ ->
                                 Web.openUrl
-                                    ("https://github.com/renngar/Nir/releases/tag/"
+                                    ("https://github.com/renngar/Nir/releases/tag/v"
                                      + nirVersion)) ]
                           "source code used to create this copy"
                       textBlock [] "."
