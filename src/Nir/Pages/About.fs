@@ -25,7 +25,6 @@ open System.Reflection
 open System.Text.RegularExpressions
 open Elmish
 open Avalonia.Controls
-open Avalonia.FuncUI.DSL
 open Avalonia.Layout
 open Avalonia.Media.Imaging
 open Nir
@@ -80,62 +79,46 @@ let view (model: Model) (dispatch: Msg -> unit) =
     dockPanel [ cls "about"
                 horizontalAlignment HorizontalAlignment.Center
                 verticalAlignment VerticalAlignment.Top ] [
-        yield
-            stackPanel [ dock Dock.Top
-                         orientation Orientation.Horizontal
-                         StackPanel.width 600.0
-                         StackPanel.spacing 10.0
-                         StackPanel.margin (0.0, 0.0, 0.0, 10.0) ] [
-                Image.create [ Image.source icon
-                               Image.width 32.0
-                               Image.height 32.0 ]
-                stackPanel [ orientation Orientation.Horizontal
-                             verticalAlignment VerticalAlignment.Center
-                             StackPanel.spacing 0.0 ] [
-                    textBlock
-                        [ cls "h1"
-                          verticalAlignment VerticalAlignment.Bottom ]
-                        ("Nir " + nirVersion)
-                ]
-            ]
+        yield!
+            [ stackPanel [ cls "header"
+                           orientation Orientation.Horizontal ] [
+                imageCls "icon" icon
+                textBlock
+                    [ cls "h1"
+                      verticalAlignment VerticalAlignment.Bottom ]
+                    ("Nir " + nirVersion)
+              ]
 
-        yield
-            stackPanel [ StackPanel.width 600.0
-                         dock Dock.Top ] [
-                textBlock [] "Copyright © 2020 Renngar. All rights reserved.\n"
-                stackPanel [ orientation Orientation.Horizontal ] [
-                    textBlock [] "Nir is made available to you under the "
-                    textBlock
-                        [ cls "link"
-                          onTapped (fun _ -> dispatch ToggleGpl) ]
-                        "GNU Public License 3.0"
-                    textBlock [] " (GPL) and includes "
-                    textBlock
-                        [ cls "link"
-                          onTapped (fun _ -> dispatch ShowOpenSource) ]
-                        "open source software"
-                ]
+              stackPanel [] [
+                  textBlock [] "Copyright © 2020 Renngar. All rights reserved.\n"
+                  stackPanel [ orientation Orientation.Horizontal ] [
+                      textBlock [] "Nir is made available to you under the "
+                      textBlock
+                          [ cls "link"
+                            onTapped (fun _ -> dispatch ToggleGpl) ]
+                          "GNU Public License 3.0"
+                      textBlock [] " (GPL) and includes "
+                      textBlock
+                          [ cls "link"
+                            onTapped (fun _ -> dispatch ShowOpenSource) ]
+                          "open source software"
+                  ]
 
-                textBlockCls
-                    "subtitle"
-                    ("under a variety of other licenses. You can read instructions on how to download and build "
-                     + "for yourself")
-                stackPanel [ orientation Orientation.Horizontal ] [
-                    textBlock [] "the specific "
-                    textBlock
-                        [ cls "link"
-                          onTapped (fun _ ->
-                              Web.openUrl
-                                  ("https://github.com/renngar/Nir/releases/tag/"
-                                   + nirVersion)) ]
-                        "source code used to create this copy"
-                    textBlock [] "."
-                ]
-            ]
-        if model.ShowNirLicense then
-            yield
-                license
-                    [ TextBox.margin (0.0, 10.0, 0.0, 0.0)
-                      dock Dock.Bottom ]
-                    "gpl-3.0.txt"
+                  textBlockCls
+                      "subtitle"
+                      ("under a variety of other licenses. You can read instructions on how to download and build "
+                       + "for yourself")
+                  stackPanel [ orientation Orientation.Horizontal ] [
+                      textBlock [] "the specific "
+                      textBlock
+                          [ cls "link"
+                            onTapped (fun _ ->
+                                Web.openUrl
+                                    ("https://github.com/renngar/Nir/releases/tag/"
+                                     + nirVersion)) ]
+                          "source code used to create this copy"
+                      textBlock [] "."
+                  ]
+              ] ]
+        if model.ShowNirLicense then yield license [] "gpl-3.0.txt"
     ]

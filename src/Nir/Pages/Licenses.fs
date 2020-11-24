@@ -21,7 +21,6 @@ module Nir.Pages.Licenses
 
 open Elmish
 open Avalonia.Controls
-open Avalonia.FuncUI
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
 open Nir.UI
@@ -32,7 +31,7 @@ type Model =
     { NoOp: bool }
     interface IPageModel with
         member this.HistoryStyle = NoHistory
-        member this.Title = "Third-Party Open-Source Info"
+        member this.Title = "Third-Party Open Source Info"
         member this.Description = ""
 
 type Links =
@@ -57,28 +56,26 @@ let update (msg: Msg) (model: Model) =
         openUrl link
         model, Cmd.none, NoOp
 
-let linkView dispatch (header: string) links license =
+let licenseView dispatch (header: string) links license =
     let link url text =
         textBlock
             [ cls "link"
               onTapped (fun _ -> dispatch (OpenUrl url)) ]
             text
 
-    TabItem.create [ TabItem.header header
-                     TabItem.content
-                         (border
-                             [ Border.padding (4.0, 0.0) ]
-                              (dockPanel [] [
-                                  stackPanel [ dock Dock.Top ] (List.map (fun (url, text) -> link url text) links)
-                                  About.license
-                                      [ TextBox.margin (0.0, 10.0, 0.0, 0.0)
-                                        dock Dock.Bottom ]
-                                      license
-                               ])) ]
-    |> Helpers.generalize
+    let linkView =
+        stackPanel [ dock Dock.Top ] (List.map (fun (url, text) -> link url text) links)
+
+    tabItem
+        []
+        header
+        (dockPanel [] [
+            linkView
+            About.license [ dock Dock.Bottom ] license
+         ])
 
 let avaloniaLinksView (dispatch: Msg -> unit): IView =
-    linkView
+    licenseView
         dispatch
         "Avalonia"
         [ ("https://github.com/AvaloniaUI/Avalonia", "Main source repository")
@@ -88,7 +85,7 @@ let avaloniaLinksView (dispatch: Msg -> unit): IView =
 
 
 let avaloniaFuncUILinksView (dispatch: Msg -> unit): IView =
-    linkView
+    licenseView
         dispatch
         "Avalonia.FuncUI"
         [ ("https://github.com/AvaloniaCommunity/Avalonia.FuncUI", "Avalonia.FuncUI Repository")
@@ -97,7 +94,7 @@ let avaloniaFuncUILinksView (dispatch: Msg -> unit): IView =
         "Avalonia.FuncUI.txt"
 
 let fparsecLinksView (dispatch: Msg -> unit): IView =
-    linkView
+    licenseView
         dispatch
         "FParsec"
         [ ("http://www.quanttec.com/fparsec/", "Documentation")
@@ -106,7 +103,7 @@ let fparsecLinksView (dispatch: Msg -> unit): IView =
         "FParsec.txt"
 
 let fsharpLinksView (dispatch: Msg -> unit): IView =
-    linkView
+    licenseView
         dispatch
         "F# Core"
         [ ("https://dotnet.microsoft.com/languages/fsharp", "F#")
@@ -115,7 +112,7 @@ let fsharpLinksView (dispatch: Msg -> unit): IView =
         "FSharp.Core.txt"
 
 let fsharpDataLinksView (dispatch: Msg -> unit): IView =
-    linkView
+    licenseView
         dispatch
         "F# Data"
         [ ("http://fsharp.github.io/FSharp.Data", "F# Data: Library for Data Access")
@@ -123,7 +120,7 @@ let fsharpDataLinksView (dispatch: Msg -> unit): IView =
         "FSharp.Data.txt"
 
 let hackLinksView (dispatch: Msg -> unit): IView =
-    linkView
+    licenseView
         dispatch
         "Hack Font"
         [ ("https://sourcefoundry.org/hack/", "Home Page")
@@ -131,14 +128,14 @@ let hackLinksView (dispatch: Msg -> unit): IView =
         "Hack.txt"
 
 let materialIconsLinksView (dispatch: Msg -> unit): IView =
-    linkView
+    licenseView
         dispatch
         "Material Icons"
         [ "https://material.io/resources/icons/?style=outline", "Material Design Icons" ]
         "apache-2.0.txt"
 
 let netCorePluginsLinksView (dispatch: Msg -> unit): IView =
-    linkView
+    licenseView
         dispatch
         ".NET Core Plugins"
         [ ("https://natemcmaster.com/blog/2018/07/25/netcore-plugins/", "Original Blog Post")
@@ -146,14 +143,13 @@ let netCorePluginsLinksView (dispatch: Msg -> unit): IView =
         "apache-2.0.txt"
 
 let view (_: Model) (dispatch: Msg -> unit) =
-    TabControl.create [ dock Dock.Top
-                        TabControl.tabStripPlacement Dock.Left
-                        TabControl.viewItems [ avaloniaLinksView dispatch
-                                               avaloniaFuncUILinksView dispatch
-                                               fparsecLinksView dispatch
-                                               fsharpLinksView dispatch
-                                               fsharpDataLinksView dispatch
-                                               netCorePluginsLinksView dispatch
-                                               hackLinksView dispatch
-                                               materialIconsLinksView dispatch ] ]
-    |> Helpers.generalize
+    tabControlCls
+        "licenses"
+        [ avaloniaLinksView dispatch
+          avaloniaFuncUILinksView dispatch
+          fparsecLinksView dispatch
+          fsharpLinksView dispatch
+          fsharpDataLinksView dispatch
+          netCorePluginsLinksView dispatch
+          hackLinksView dispatch
+          materialIconsLinksView dispatch ]
