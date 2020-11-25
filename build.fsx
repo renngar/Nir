@@ -1,3 +1,6 @@
+open System.Reflection
+open System.Text.RegularExpressions
+
 #r "paket:
 source https://api.nuget.org/v3/index.json
 nuget FSharp.Compiler.Service
@@ -22,8 +25,11 @@ open Fantomas.Extras
 
 Target.initEnvironment ()
 
-let getPath x = Path.Combine(__SOURCE_DIRECTORY__, x)
-let solution = getPath "Nir.sln"
+/// Custom operator for combining paths
+let (+/) path1 path2 = Path.Combine(path1, path2)
+
+let sourcePath partialPath = __SOURCE_DIRECTORY__ +/ partialPath
+let solution = sourcePath "Nir.sln"
 
 let dotnet cmd args = DotNet.exec id cmd args |> ignore
 
@@ -80,7 +86,7 @@ Target.create "Format" (fun _ ->
 Target.create "All" ignore
 
 Target.create "Publish" (fun _ ->
-    Directory.SetCurrentDirectory(getPath "src/Nir")
+    Directory.SetCurrentDirectory(sourcePath "src/Nir")
 
     let isWindows =
         RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
@@ -91,14 +97,29 @@ Target.create "Publish" (fun _ ->
         elif RuntimeInformation.IsOSPlatform(OSPlatform.OSX) then "osx-x64"
         else failwith "Unsupported OS platform"
 
-    dotnet "publish" (sprintf @"-c Release --self-contained -r %s -o ..\..\Published\Nir" rid)
+    let publishDir = @"..\..\Published"
+    let nirDir = publishDir +/ "Nir"
+    let nirExe = nirDir +/ "Nir.exe"
+    let nirVersion =
+        FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).ProductVersion
+        |> fun s -> Regex.Replace(s, @"\+.*", "")
+
+    dotnet "publish" (sprintf @"-c Release --self-contained -r %s -o %s" rid nirDir)
 
     if isWindows then
-        Process.Start(@"..\..\Tools\rcedit-x86.exe", @"..\..\Published\Nir\Nir.exe --set-icon Assets\Icons\Nir.ico")
+        Process.Start(@"..\..\Tools\rcedit-x86.exe", @"%s --set-icon Assets\Icons\Nir.ico" nirExe)
                .WaitForExit()
 
-    Directory.SetCurrentDirectory(getPath "Plugins/ModChecker")
-    dotnet "publish" (sprintf @"-c Release -r %s -o ..\..\Published\Nir\Plugins\ModChecker" rid))
+    Directory.SetCurrentDirectory(sourcePath "Plugins/ModChecker")
+    nirDir +/ @"Plugins\ModChecker"
+    |> sprintf @"-c Release -r %s -o %s" rid
+    |> dotnet "publish"
+    
+    !! (nirDir +/ "**")
+    |> Zip.filesAsSpecs nirDir
+    |> Zip.modeToFolder "Nir"
+    |> Zip.zipSpec (publishDir +/ (sprintf "Nir-%s.zip" nirVersion))
+    )
 
 "Clean" ==> "BuildAll"
 

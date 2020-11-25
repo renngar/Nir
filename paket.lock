@@ -53,6 +53,15 @@ NUGET
     coverlet.collector (1.2)
     Elmish (3.1) - restriction: >= netstandard2.0
       FSharp.Core (>= 4.6.2) - restriction: || (>= net461) (>= netstandard1.6)
+    Fake.Core.String (5.20.3) - restriction: >= netstandard2.0
+      FSharp.Core (>= 4.7.2) - restriction: >= netstandard2.0
+    Fake.IO.FileSystem (5.20.3) - restriction: >= netstandard2.0
+      Fake.Core.String (>= 5.20.3) - restriction: >= netstandard2.0
+      FSharp.Core (>= 4.7.2) - restriction: >= netstandard2.0
+    Fake.IO.Zip (5.20.3)
+      Fake.Core.String (>= 5.20.3) - restriction: >= netstandard2.0
+      Fake.IO.FileSystem (>= 5.20.3) - restriction: >= netstandard2.0
+      FSharp.Core (>= 4.7.2) - restriction: >= netstandard2.0
     Fare (2.1.2)
       NETStandard.Library (>= 1.6.1) - restriction: && (< net35) (>= netstandard1.1)
     FParsec (1.1.1)

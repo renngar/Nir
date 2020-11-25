@@ -6,7 +6,7 @@ nuget Fare 2.1.2
 nuget FParsec 1.1.1
 nuget FsCheck 2.14.3
 nuget FsCheck.Xunit 2.14.3
-nuget FSharp.Core >= 4.0
+nuget FSharp.Core ~> 4
 nuget FSharp.Data 3.3.3
 nuget FsUnit.xUnit
 nuget JaggerJo.Avalonia.FuncUI 0.4.0
