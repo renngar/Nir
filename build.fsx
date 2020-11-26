@@ -1,10 +1,9 @@
-open System.Reflection
-open System.Text.RegularExpressions
-
 #r "paket:
 source https://api.nuget.org/v3/index.json
+nuget FSharp.Core 4.7.2
 nuget FSharp.Compiler.Service
 nuget Fake
+nuget Fake.Core.CommandLineParsing
 nuget Fake.Core.Target
 nuget Fake.DotNet.Cli
 nuget Fake.IO.FileSystem
@@ -19,29 +18,35 @@ open Fake.Core
 open Fake.DotNet
 open Fake.IO
 open Fake.IO.Globbing.Operators
+open Fake.IO.FileSystemOperators
 open Fake.Core.TargetOperators
 open Fantomas
 open Fantomas.Extras
 
-Target.initEnvironment ()
+let cli = """
+usage: dotnet fake [options] command
 
-/// Custom operator for combining paths
-let (+/) path1 path2 = Path.Combine(path1, path2)
+options:
+  -i           Ignore code format
+"""
 
-let sourcePath partialPath = __SOURCE_DIRECTORY__ +/ partialPath
+let sourcePath x = Path.Combine(__SOURCE_DIRECTORY__, x)
 let solution = sourcePath "Nir.sln"
 
 let dotnet cmd args = DotNet.exec id cmd args |> ignore
 
 let srcFiles =
-    !! "**/*.fs"
-    ++ "**/*.fsx"
+    !! "**/*.fs" ++ "**/*.fsx"
     -- "**/bin/**"
     -- "**/obj/**"
     -- "packages/**"
     -- ".fake/**"
 
-Target.initEnvironment ()
+let checkFormat =
+    Target.getArguments ()
+    |> Option.map (Seq.contains "-i")
+    |> Option.defaultValue false
+    |> not
 
 Target.create "Clean" (fun _ ->
     !! "src/**/bin"
@@ -52,8 +57,8 @@ Target.create "Clean" (fun _ ->
 
 Target.create "Build" (fun _ -> DotNet.build id "Nir.sln")
 
-Target.create "BuildAll" (fun _ -> ())
-
+// This is an independent target.  It is baked into build via Directory.Build.props, but it may come in handy for
+// manual linting without building, it could be used by Emacs flycheck, if you don't have LSP or something similar.
 Target.create "Lint" (fun _ ->
     dotnet
         "fsharplint"
@@ -77,13 +82,16 @@ Target.create "CheckCodeFormat" (fun _ ->
     else
         Trace.logf "Errors while formatting: %A" result.Errors)
 
+// Manual target to autoformat the code.
 Target.create "Format" (fun _ ->
     srcFiles
     |> FakeHelpers.formatCode
     |> Async.RunSynchronously
     |> printfn "Formatted files: %A")
 
+Target.create "Rebuild" ignore
 Target.create "All" ignore
+Target.create "Check" ignore
 
 Target.create "Publish" (fun _ ->
     Directory.SetCurrentDirectory(sourcePath "src/Nir")
@@ -98,37 +106,38 @@ Target.create "Publish" (fun _ ->
         else failwith "Unsupported OS platform"
 
     let publishDir = @"..\..\Published"
-    let nirDir = publishDir +/ "Nir"
-    let nirExe = nirDir +/ "Nir.exe"
-    let nirVersion =
-        FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).ProductVersion
-        |> fun s -> Regex.Replace(s, @"\+.*", "")
+    let nirDir = publishDir </> "Nir"
+    let nirExe = nirDir </> "Nir.exe"
 
     dotnet "publish" (sprintf @"-c Release --self-contained -r %s -o %s" rid nirDir)
 
     if isWindows then
-        Process.Start(@"..\..\Tools\rcedit-x86.exe", @"%s --set-icon Assets\Icons\Nir.ico" nirExe)
-               .WaitForExit()
+        Process
+            .Start(@"..\..\Tools\rcedit-x86.exe", sprintf @"%s --set-icon Assets\Icons\Nir.ico" nirExe)
+            .WaitForExit()
 
     Directory.SetCurrentDirectory(sourcePath "Plugins/ModChecker")
-    nirDir +/ @"Plugins\ModChecker"
+
+    nirDir </> @"Plugins\ModChecker"
     |> sprintf @"-c Release -r %s -o %s" rid
-    |> dotnet "publish"
-    
-    !! (nirDir +/ "**")
-    |> Zip.filesAsSpecs nirDir
-    |> Zip.modeToFolder "Nir"
-    |> Zip.zipSpec (publishDir +/ (sprintf "Nir-%s.zip" nirVersion))
-    )
+    |> dotnet "publish")
 
-"Clean" ==> "BuildAll"
+Target.create "Precommit" ignore
 
-"Build" ==> "BuildAll"
+"Clean" ?=> "Build" ==> "Test"
 
-"BuildAll" ==> "Lint" ==> "Test" ==> "All"
+"Clean" ==> "Rebuild"
+"Build" ==> "Rebuild"
 
-"CheckCodeFormat" ==> "All"
+"CheckCodeFormat" ==> "Precommit"
+"Lint" ==> "Precommit"
+"Precommit" <=> "Check"
 
-"All" ==> "Publish"
+"CheckCodeFormat" =?> ("All", checkFormat)
+"Rebuild" ==> "All"
+"Lint" ==> "All"
+"Test" ==> "All"
 
-Target.runOrDefault "Build"
+"All" <=> "Publish"
+
+Target.runOrDefaultWithArguments "Build"
