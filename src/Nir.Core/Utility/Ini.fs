@@ -64,24 +64,18 @@ module Parser =
     let private propertyCharRest = strExcept "\n\r\000=" |>> trimEnd
 
     let propertyName =
-        propertyChar1
-        .>>. propertyCharRest
-        .>> lineWs
+        propertyChar1 .>>. propertyCharRest .>> lineWs
         |>> fun (i, r) -> (string i) + r
 
     let propertyValue = restOfLine true |>> trimEnd
     let assignment = strLineWs "="
 
     let propertyLine =
-        propertyName
-        .>> assignment
-        .>>. propertyValue
+        propertyName .>> assignment .>>. propertyValue
         |>> fun (n, v) -> IniProperty { Name = n; Value = v }
 
     let private line =
-        lineComment
-        <|> sectionHeader
-        <|> propertyLine
+        lineComment <|> sectionHeader <|> propertyLine
         .>> ws
 
     let iniFile = ws >>. many line

@@ -9,17 +9,14 @@ let evalS f state = runS f state |> fst
 let execS f state = runS f state |> snd
 
 let mapS f (S xS) =
-    (xS
-     >> fun (x, state) -> (f x), state)
-    |> S
+    (xS >> fun (x, state) -> (f x), state) |> S
 
 /// lift a value
 let returnS x = (fun state -> x, state) |> S
 
 /// lift a monadic function
 let bindS (f: 'a -> S<'State, 'b>) xS =
-    (runS xS
-     >> fun (x, state) -> runS (f x) state)
+    (runS xS >> fun (x, state) -> runS (f x) state)
     |> S
 
 type StateBuilder() =

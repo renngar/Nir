@@ -390,7 +390,9 @@ let private processExternalMessage model cmd externalMsg =
             let pageModel, cmd =
                 plugin.Init(model.Window, model.Nexus, props, model.ThrottleUpdates)
 
-            AvaloniaLocator.Current.GetService<IThemeSwitcher>().LoadPluginStyles plugin
+            AvaloniaLocator
+                .Current
+                .GetService<IThemeSwitcher>().LoadPluginStyles plugin
 
             ({ Plugin = plugin
                IniSection = iniSection

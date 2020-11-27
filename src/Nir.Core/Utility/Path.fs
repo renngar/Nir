@@ -34,7 +34,11 @@ let getProgramPath () =
         if m.Success then m.Groups.[1].Value else path
 
     let root =
-        System.Reflection.Assembly.GetExecutingAssembly().CodeBase
+        System
+            .Reflection
+            .Assembly
+            .GetExecutingAssembly()
+            .CodeBase
         |> tryMatch @"^(.*)/bin" // Development Build
         |> tryMatch @"^(.*)/[^/]*\.(exe|dll)" // Published Release
 

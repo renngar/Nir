@@ -73,7 +73,9 @@ let view (model: Model) (dispatch: Msg -> unit) =
     img.Source <- icon
 
     let nirVersion =
-        FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).ProductVersion
+        FileVersionInfo
+            .GetVersionInfo(Assembly.GetExecutingAssembly().Location)
+            .ProductVersion
         |> fun s -> Regex.Replace(s, @"\+.*", "")
 
     dockPanel [ cls "about"

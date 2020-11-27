@@ -377,10 +377,17 @@ let private fileDetails allGames (``mod``: Mod) archive (results: Md5Search []) 
                                                 isReadOnly true ]
                                               r.FileDetails.Name
 
+                                  let uploadTime =
+                                      r
+                                          .FileDetails
+                                          .UploadedTime
+                                          .ToLocalTime()
+                                          .ToString("f")
+
                                   yield text 1 0 "MD5 Hash"
                                   yield selectableText 1 1 (md5Result r)
                                   yield text 2 0 "Date Uploaded"
-                                  yield text 2 1 (r.FileDetails.UploadedTime.ToLocalTime().ToString("f"))
+                                  yield text 2 1 uploadTime
                                   yield text 3 0 "Version"
                                   yield text 3 1 r.FileDetails.Version
                                ]) ]

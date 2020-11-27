@@ -60,8 +60,7 @@ module BBCode =
         let str s = pstring s
 
         let tagOpenBegin tag =
-            str ("[" + tag)
-            >>? nextCharSatisfiesNot isTagChar
+            str ("[" + tag) >>? nextCharSatisfiesNot isTagChar
             <?> "[" + tag + "] tag"
 
         let tagOpen tag = tagOpenBegin tag >>. str "]"
@@ -81,9 +80,7 @@ module BBCode =
         ///
         /// The extra material may be values, properties, styles, etc.
         let tagWithAttributes (t: string) (openTagContent: Parser<string, State>) allowedContent: Parser<Element, State> =
-            tagOpenBegin t
-            >>. openTagContent
-            .>> str "]"
+            tagOpenBegin t >>. openTagContent .>> str "]"
             .>>. allowedContent
             .>> tagClose t
             |>> (fun (v, c) -> { Tag = t; Value = v; Content = c } |> Tag)
@@ -127,8 +124,7 @@ module BBCode =
 
         let hexColor s =
             s
-            |> (pchar '#'
-                .>>. many1Chars hex
+            |> (pchar '#' .>>. many1Chars hex
                 |>> (fun (c, s) -> string c + s))
 
         let colorValue s =

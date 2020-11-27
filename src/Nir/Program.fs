@@ -47,4 +47,8 @@ module Program =
     [<STAThread>] // Required for Drag and drop from an external source
     [<EntryPoint>]
     let main (args: string []) =
-        AppBuilder.Configure<App>().UsePlatformDetect().UseSkia().StartWithClassicDesktopLifetime(args)
+        AppBuilder
+            .Configure<App>()
+            .UsePlatformDetect()
+            .UseSkia()
+            .StartWithClassicDesktopLifetime(args)

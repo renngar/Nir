@@ -88,15 +88,13 @@ let allowInternalSpaces (firstOrLast: Parser<char, 'a>): Parser<string, 'a> =
 
     /// Parses spaces followed by a character that can appear at the end of the string
     let safeSpaces =
-        spaces
-        .>>.? firstOrLast
+        spaces .>>.? firstOrLast
         |>> (fun (spaces, c) -> spaces + string c)
 
     /// Parses a sequence that can safely appear at the end of the string
     let endingSequence = safeSpaces <|> many1Chars firstOrLast
 
-    firstOrLast
-    .>>. manyStrings endingSequence
+    firstOrLast .>>. manyStrings endingSequence
     .>> lineWs
     |>> (fun (c, strings) -> string c + strings)
 
