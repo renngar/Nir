@@ -1,5 +1,5 @@
 ﻿<Project ToolsVersion="15.0">
-    <Target Name="GitHooks" BeforeTargets="Build">
-        <Exec Command="dotnet.exe fake run ..\\..\\build.fsx -t githooks" />
+    <Target Name="GitHooks" BeforeTargets="Build" Inputs="..\\..\\.githooks\\pre-commit" Outputs="..\\..\\.git\\hooks\\pre-commit">
+        <Copy SourceFiles="..\\..\\.githooks\\pre-commit" DestinationFolder="..\\..\\.git\\hooks\" />
     </Target>
 </Project>
