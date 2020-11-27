@@ -14,6 +14,7 @@ nuget Fantomas.Extras //"
 open System.Diagnostics
 open System.IO
 open System.Runtime.InteropServices
+open System.Text.RegularExpressions
 open Fake.Core
 open Fake.DotNet
 open Fake.IO
@@ -109,6 +110,10 @@ Target.create "Rebuild" ignore
 Target.create "All" ignore
 Target.create "Check" ignore
 
+let publishDir = @"..\..\Published"
+let nirDir = publishDir </> "Nir"
+let nirExe = nirDir </> "Nir.exe"
+
 Target.create "Publish" (fun _ ->
     Directory.SetCurrentDirectory(sourcePath "src/Nir")
 
@@ -120,10 +125,6 @@ Target.create "Publish" (fun _ ->
         elif RuntimeInformation.IsOSPlatform(OSPlatform.Linux) then "linux-x86"
         elif RuntimeInformation.IsOSPlatform(OSPlatform.OSX) then "osx-x64"
         else failwith "Unsupported OS platform"
-
-    let publishDir = @"..\..\Published"
-    let nirDir = publishDir </> "Nir"
-    let nirExe = nirDir </> "Nir.exe"
 
     dotnet "publish" (sprintf @"-c Release --self-contained -r %s -o %s" rid nirDir)
 
@@ -137,6 +138,18 @@ Target.create "Publish" (fun _ ->
     nirDir </> @"Plugins\ModChecker"
     |> sprintf @"-c Release -r %s -o %s" rid
     |> dotnet "publish")
+
+Target.create "Package" (fun _ ->
+    let nirVersion =
+        FileVersionInfo
+            .GetVersionInfo(nirExe)
+            .ProductVersion
+        |> fun s -> Regex.Replace(s, @"\+.*", "")
+
+    !!(nirDir </> "**")
+    |> Zip.filesAsSpecs nirDir
+    |> Zip.moveToFolder "Nir"
+    |> Zip.zipSpec (publishDir </> (sprintf "Nir-%s.zip" nirVersion)))
 
 Target.create "Precommit" ignore
 
@@ -155,6 +168,6 @@ Target.create "Precommit" ignore
 "Lint" ==> "All"
 "Test" ==> "All"
 
-"All" <=> "Publish"
+"All" <=> "Publish" ==> "Package"
 
 Target.runOrDefaultWithArguments "Build"
