@@ -1,3 +1,5 @@
+open Fake.DotNet
+
 #r "paket:
 source https://api.nuget.org/v3/index.json
 nuget FSharp.Core 4.7.2
@@ -16,7 +18,6 @@ open System.IO
 open System.Runtime.InteropServices
 open System.Text.RegularExpressions
 open Fake.Core
-open Fake.DotNet
 open Fake.IO
 open Fake.IO.Globbing.Operators
 open Fake.IO.FileSystemOperators
@@ -72,7 +73,16 @@ Target.create "GitHooks" (fun _ ->
         if forceCopyGitHooks || not <| File.exists (target)
         then source.CopyTo(target, forceCopyGitHooks) |> ignore))
 
-Target.create "Build" (fun _ -> DotNet.build id "Nir.sln")
+let mutable configuration = DotNet.BuildConfiguration.Debug
+
+/// Sets the configuration to be a release, so that release builds will be produced when needed.
+Target.create "IsRelease" (fun _ -> configuration <- DotNet.BuildConfiguration.Release)
+
+let setConfig (parameters: DotNet.BuildOptions) =
+    { parameters with
+          Configuration = configuration }
+
+Target.create "Build" (fun _ -> DotNet.build setConfig "Nir.sln")
 
 // This is an independent target.  It is baked into build via Directory.Build.props, but it may come in handy for
 // manual linting without building, it could be used by Emacs flycheck, if you don't have LSP or something similar.
@@ -153,8 +163,11 @@ Target.create "Package" (fun _ ->
 
 Target.create "Precommit" ignore
 
-"Clean" ?=> "Build" ==> "Test"
+// IsRelease is triggered by Publish, which needs a release build, but it must occur before Build so that it does a
+// release build rather than a debug one.
+"IsRelease" ?=> "Build"
 
+"Clean" ?=> "Build" ==> "Test"
 "Clean" ==> "Rebuild"
 "GitHooks" ==> "Build" ==> "Rebuild"
 
@@ -168,6 +181,7 @@ Target.create "Precommit" ignore
 "Lint" ==> "All"
 "Test" ==> "All"
 
-"All" <=> "Publish" ==> "Package"
+"All" <=> "Publish"
+"IsRelease" ==> "Publish" ==> "Package"
 
 Target.runOrDefaultWithArguments "Build"
