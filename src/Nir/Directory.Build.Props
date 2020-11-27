@@ -1,5 +1,8 @@
 ﻿<Project ToolsVersion="15.0">
-    <Target Name="GitHooks" BeforeTargets="Build" Inputs="..\\..\\.githooks\\pre-commit" Outputs="..\\..\\.git\\hooks\\pre-commit">
-        <Copy SourceFiles="..\\..\\.githooks\\pre-commit" DestinationFolder="..\\..\\.git\\hooks\" />
+    <ItemGroup>
+        <TargetPath Include="..\\..\\.git\\hooks\\" />
+    </ItemGroup>
+    <Target Name="GitHooks" BeforeTargets="Build" Condition="Exists(@(TargetPath))" >
+        <Copy SourceFiles="..\\..\\.githooks\\pre-commit" DestinationFolder="@(TargetPath)" SkipUnchangedFiles="true"/>
     </Target>
 </Project>

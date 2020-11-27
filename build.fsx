@@ -64,15 +64,18 @@ Target.create "Clean" (fun _ ->
     |> Shell.cleanDirs)
 
 Target.create "GitHooks" (fun _ ->
-    !!(sourcePath ".githooks/*")
-    |> Seq.iter (fun fileName ->
-        let source = FileInfo(fileName)
+    let targetDir = sourcePath ".git" </> "hooks"
 
-        let target =
-            sourcePath ".git" </> "hooks" </> source.Name
+    if Directory.Exists(targetDir) then
+        !!(sourcePath ".githooks/*")
+        |> Seq.iter (fun fileName ->
+            let source = FileInfo(fileName)
 
-        if forceCopyGitHooks || not <| File.exists (target)
-        then source.CopyTo(target, forceCopyGitHooks) |> ignore))
+            let target =
+                sourcePath ".git" </> "hooks" </> source.Name
+
+            if forceCopyGitHooks || not <| File.exists (target)
+            then source.CopyTo(target, forceCopyGitHooks) |> ignore))
 
 let mutable configuration = DotNet.BuildConfiguration.Debug
 
