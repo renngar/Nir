@@ -45,6 +45,22 @@ and drop or paste it into the field in Nir.
 
 Once that's done, select your game and you're good to go.
 
+## Development
+
+If you want to build Nir from scratch, clone this repository. Then,
+
+```powershell
+dotnet tool restore
+dotnet paket restore
+dotnet fake build
+```
+
+Any pull requests must cleanly pass
+
+```dotnet fake build -t check```
+
+A local git pre-commit hook is installed which performs this check and a couple other things.
+
 ## Built With
 
 * [F#](https://dotnet.microsoft.com/languages/fsharp) - .NET Functional
