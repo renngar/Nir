@@ -9,6 +9,7 @@ nuget Fake.Core.CommandLineParsing
 nuget Fake.Core.Target
 nuget Fake.DotNet.Cli
 nuget Fake.IO.FileSystem
+nuget Fake.IO.Zip
 nuget Fantomas
 nuget Fantomas.Extras //"
 #load ".fake/build.fsx/intellisense.fsx"
@@ -18,10 +19,10 @@ open System.IO
 open System.Runtime.InteropServices
 open System.Text.RegularExpressions
 open Fake.Core
+open Fake.Core.TargetOperators
 open Fake.IO
 open Fake.IO.Globbing.Operators
 open Fake.IO.FileSystemOperators
-open Fake.Core.TargetOperators
 open Fantomas
 open Fantomas.Extras
 
@@ -78,11 +79,10 @@ let mutable configuration = DotNet.BuildConfiguration.Debug
 /// Sets the configuration to be a release, so that release builds will be produced when needed.
 Target.create "IsRelease" (fun _ -> configuration <- DotNet.BuildConfiguration.Release)
 
-let setConfig (parameters: DotNet.BuildOptions) =
-    { parameters with
-          Configuration = configuration }
-
-Target.create "Build" (fun _ -> DotNet.build setConfig "Nir.sln")
+Target.create "Build" (fun _ ->
+    DotNet.build (fun parameters ->
+        { parameters with
+              Configuration = configuration }) "Nir.sln")
 
 // This is an independent target.  It is baked into build via Directory.Build.props, but it may come in handy for
 // manual linting without building, it could be used by Emacs flycheck, if you don't have LSP or something similar.
@@ -92,7 +92,11 @@ Target.create "Lint" (fun _ ->
         ("-f msbuild lint --lint-config fsharplint.json "
          + solution))
 
-Target.create "Test" (fun _ -> DotNet.test id solution |> ignore)
+Target.create "Test" (fun _ ->
+    DotNet.test (fun options ->
+        { options with
+              Configuration = configuration }) solution
+    |> ignore)
 
 Target.create "CheckCodeFormat" (fun _ ->
     let result =

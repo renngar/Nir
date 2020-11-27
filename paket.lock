@@ -310,3 +310,17 @@ NUGET
       xunit.extensibility.core (2.4) - restriction: >= netstandard1.1
     xunit.runner.visualstudio (2.4)
       Microsoft.NET.Test.Sdk (>= 15.0) - restriction: >= netcoreapp1.0
+
+GROUP Build
+NUGET
+  remote: https://api.nuget.org/v3/index.json
+    Fake.Core.String (5.20.3) - restriction: >= netstandard2.0
+      FSharp.Core (>= 4.7.2) - restriction: >= netstandard2.0
+    Fake.IO.FileSystem (5.20.3) - restriction: >= netstandard2.0
+      Fake.Core.String (>= 5.20.3) - restriction: >= netstandard2.0
+      FSharp.Core (>= 4.7.2) - restriction: >= netstandard2.0
+    Fake.IO.Zip (5.20.3)
+      Fake.Core.String (>= 5.20.3) - restriction: >= netstandard2.0
+      Fake.IO.FileSystem (>= 5.20.3) - restriction: >= netstandard2.0
+      FSharp.Core (>= 4.7.2) - restriction: >= netstandard2.0
+    FSharp.Core (5.0) - restriction: >= netstandard2.0

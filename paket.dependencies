@@ -16,3 +16,8 @@ nuget McMaster.NETCore.Plugins
 nuget Microsoft.NET.Test.Sdk 16.5.0
 nuget xunit 2.4.0
 nuget xunit.runner.visualstudio 2.4.0
+
+group Build
+  source https://api.nuget.org/v3/index.json
+  
+  nuget Fake.IO.Zip
