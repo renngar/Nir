@@ -1,0 +1,5 @@
+﻿<Project ToolsVersion="15.0">
+    <Target Name="GitHooks" BeforeTargets="Build">
+        <Exec Command="dotnet.exe fake run ..\\..\\build.fsx -t githooks" />
+    </Target>
+</Project>

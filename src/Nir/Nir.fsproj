@@ -30,6 +30,7 @@
     <Content Include="Assets\Icons\Art\Cosmology-Icon.xcf" />
     <Content Include="Assets\Icons\Art\Cosmology-Inner.xcf" />
     <Content Include="Assets\Icons\Art\Cosmology-Manual.xcf" />
+    <Content Include="Directory.Build.Props" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

@@ -28,6 +28,9 @@ usage: dotnet fake [options] command
 
 options:
   -i           Ignore code format
+  -f           Force copy Git hooks
+
+Without '-f' Git hooks are only installed if they do not already exist.
 """
 
 let sourcePath x = Path.Combine(__SOURCE_DIRECTORY__, x)
@@ -42,11 +45,13 @@ let srcFiles =
     -- "packages/**"
     -- ".fake/**"
 
-let checkFormat =
+let arguments =
     Target.getArguments ()
-    |> Option.map (Seq.contains "-i")
-    |> Option.defaultValue false
-    |> not
+    |> Option.defaultValue Array.empty
+
+let hasArg x = Seq.contains x arguments
+let checkFormat = not <| hasArg "-i"
+let forceCopyGitHooks = hasArg "-f"
 
 Target.create "Clean" (fun _ ->
     !! "src/**/bin"
@@ -54,6 +59,17 @@ Target.create "Clean" (fun _ ->
     ++ "Plugins/**/bin"
     ++ "Plugins/**/obj"
     |> Shell.cleanDirs)
+
+Target.create "GitHooks" (fun _ ->
+    !!(sourcePath ".githooks/*")
+    |> Seq.iter (fun fileName ->
+        let source = FileInfo(fileName)
+
+        let target =
+            sourcePath ".git" </> "hooks" </> source.Name
+
+        if forceCopyGitHooks || not <| File.exists (target)
+        then source.CopyTo(target, forceCopyGitHooks) |> ignore))
 
 Target.create "Build" (fun _ -> DotNet.build id "Nir.sln")
 
@@ -127,13 +143,14 @@ Target.create "Precommit" ignore
 "Clean" ?=> "Build" ==> "Test"
 
 "Clean" ==> "Rebuild"
-"Build" ==> "Rebuild"
+"GitHooks" ==> "Build" ==> "Rebuild"
 
 "CheckCodeFormat" ==> "Precommit"
 "Lint" ==> "Precommit"
 "Precommit" <=> "Check"
 
 "CheckCodeFormat" =?> ("All", checkFormat)
+"GitHooks" ==> "All"
 "Rebuild" ==> "All"
 "Lint" ==> "All"
 "Test" ==> "All"
