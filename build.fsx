@@ -165,7 +165,7 @@ Target.create "Package" (fun _ ->
 
     Directory.SetCurrentDirectory(publishDir </> "Nir")
 
-    !!("published/Nir/*")
+    !!("published/Nir/**/*")
     |> Zip.filesAsSpecs @"published\Nir"
     |> Zip.moveToFolder "Nir"
     |> Zip.zipSpec (sprintf @"%s\Nir-%s.zip" publishDir nirVersion))
