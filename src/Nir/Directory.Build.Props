@@ -1,4 +1,8 @@
 ﻿<Project ToolsVersion="15.0">
+    <!-- Import parent props -->
+    <Import Project="..\\..\\Directory.Build.props"/>
+
+    <!-- Install at least the git precommit hook, if this is a git repo. -->
     <ItemGroup>
         <TargetPath Include="..\\..\\.git\\hooks\\" />
     </ItemGroup>
