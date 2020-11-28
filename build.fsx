@@ -127,7 +127,7 @@ Target.create "Rebuild" ignore
 Target.create "All" ignore
 Target.create "Check" ignore
 
-let publishDir = @"..\..\Published"
+let publishDir = sourcePath "Published"
 let nirDir = publishDir </> "Nir"
 let nirExe = nirDir </> "Nir.exe"
 
@@ -163,10 +163,12 @@ Target.create "Package" (fun _ ->
             .ProductVersion
         |> fun s -> Regex.Replace(s, @"\+.*", "")
 
-    !!(nirDir </> "**")
-    |> Zip.filesAsSpecs nirDir
+    Directory.SetCurrentDirectory(publishDir </> "Nir")
+
+    !!("published/Nir/*")
+    |> Zip.filesAsSpecs @"published\Nir"
     |> Zip.moveToFolder "Nir"
-    |> Zip.zipSpec (publishDir </> (sprintf "Nir-%s.zip" nirVersion)))
+    |> Zip.zipSpec (sprintf @"%s\Nir-%s.zip" publishDir nirVersion))
 
 Target.create "Precommit" ignore
 
