@@ -106,10 +106,17 @@ let view (model: Model) (dispatch: Msg -> unit) =
                           "open source software"
                   ]
 
-                  textBlockCls
-                      "subtitle"
-                      ("under a variety of other licenses. You can read instructions on how to download and build "
-                       + "for yourself")
+                  stackPanel [ orientation Orientation.Horizontal ] [
+                      textBlock [] "under a variety of other licenses. You can read "
+                      textBlock
+                          [ cls "link"
+                            onTapped (fun _ ->
+                                Web.openUrl
+                                    (sprintf
+                                        "https://github.com/renngar/Nir/blob/v%s/README.md#user-content-development"
+                                         nirVersion)) ]
+                          "instructions on how to download and build for yourself"
+                  ]
                   stackPanel [ orientation Orientation.Horizontal ] [
                       textBlock [] "the specific "
                       textBlock
