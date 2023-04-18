@@ -15,7 +15,7 @@
       ]
     },
     "fantomas-tool": {
-      "version": "4.2.0",
+      "version": "4.7.9",
       "commands": [
         "fantomas"
       ]
